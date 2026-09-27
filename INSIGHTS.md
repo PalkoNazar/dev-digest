@@ -5,7 +5,7 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 - Format: `## YYYY-MM-DD — short title` + 1–3 lines + file paths.
 - If Claude trips over the same insight twice → promote it to a one-line Gotcha in
-  the nearest `CLAUDE.md` and mark the entry `(promoted)`.
+  the nearest `AGENTS.md` and mark the entry `(promoted)`.
 - Stale entry → strike it through with a note, don't delete silently.
 
 ## 2026-09-27 — `@devdigest/shared` copies have drifted (promoted)
@@ -45,11 +45,19 @@ Use `COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm <cmd>`, then delete `server
 and `client/pnpm-workspace.yaml`. Why: corepack fetches pnpm 12, whose install writes an `allowBuilds`
 workspace file — which contradicts "not a monorepo". Lockfiles stay unchanged.
 
+### 2026-09-27 — rename + symlink at the old path: two commits, or history is lost
+Commit the pure `git mv CLAUDE.md AGENTS.md` first; add the `CLAUDE.md -> AGENTS.md` symlink in a second commit.
+Why: in one commit the old path still exists, so git records a type change (`T`) plus a new file, not a
+rename, and `git log --follow AGENTS.md` stops at that commit. A squash-merge (or squashing the branch) has
+the same effect. PR #6 was squashed to one commit by owner's choice (one commit per branch), accepting the
+lost `--follow` history for the AGENTS.md files.
+
 ## Recurring Errors & Fixes
 
 ## Session Notes
 
 2026-09-27 — L01 cost badge (server+client): 2 entries (trace contract nullish, corepack pnpm).
 2026-09-27 — L01 PR-list COST: SQL SUM + agent_runs_ws_pr_sha_idx (review fix): 1 entry (no formatter config).
+2026-09-27 — CLAUDE.md → AGENTS.md + CLAUDE.md symlinks (PR #6): 1 entry (rename+symlink history vs. single-commit branch).
 
 ## Open Questions

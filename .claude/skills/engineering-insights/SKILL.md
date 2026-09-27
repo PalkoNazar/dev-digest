@@ -40,7 +40,7 @@ Why: 1–2 lines. Evidence: `path/to/file.ts:42` or the command.
 ```
 
 ## Filter — skip the entry if it is
-obvious from reading the code · already in a `CLAUDE.md` or `docs/` · generic knowledge ·
+obvious from reading the code · already in a `AGENTS.md` or `docs/` · generic knowledge ·
 a one-off · about code still in flux · a personal preference · a secret (never write keys/tokens).
 Not proven yet → Open Questions. Must be actionable read cold, without this chat.
 
@@ -58,7 +58,7 @@ Not proven yet → Open Questions. Must be actionable read cold, without this ch
 
 ## Promote
 Tripped over the same insight a second time → insert a one-line Gotcha into the nearest
-`CLAUDE.md` and add to Session Notes: `promoted: "<title>" → <CLAUDE.md path>`. Leave the entry as is.
+`AGENTS.md` and add to Session Notes: `promoted: "<title>" → <AGENTS.md path>`. Leave the entry as is.
 
 ## Wrap-up output
 At most 5 entries + one Session Notes line. End your reply with the list of what was added
