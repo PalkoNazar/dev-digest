@@ -8,3 +8,20 @@ us, why something broke, what the code doesn't say. Newest on top.
   the nearest `CLAUDE.md` and mark the entry `(promoted)`.
 - Stale entry → strike it through with a note, don't delete silently.
 
+---
+<!-- engineering-insights: new entries go into the sections below. The rules above
+     ("Newest on top", top-level ## entries) apply only to the entries above this line. -->
+
+## What Works
+
+## What Doesn't Work
+
+## Codebase Patterns
+
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions

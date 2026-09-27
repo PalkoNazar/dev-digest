@@ -16,3 +16,21 @@ has no `'openrouter'`. Check: `diff -r server/src/vendor/shared client/src/vendo
 ## 2026-09-27 — reviewer-core deps are a server prerequisite (promoted)
 reviewer-core pins `zod` to its own `node_modules`; without `npm ci` there the
 server fails to boot. `scripts/dev.sh` installs it since commit 66727c8.
+
+---
+<!-- engineering-insights: new entries go into the sections below. The rules above
+     ("Newest on top", top-level ## entries) apply only to the entries above this line. -->
+
+## What Works
+
+## What Doesn't Work
+
+## Codebase Patterns
+
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions
