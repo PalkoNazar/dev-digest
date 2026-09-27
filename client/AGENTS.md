@@ -29,4 +29,5 @@ default `http://localhost:3001`) — no DB, no LLM, no GitHub calls from here.
 
 ## Docs
 Route map: `README.md` · design system: `src/vendor/ui/README.md` ·
-deep dives: `docs/` · specs: `specs/` · learned: `INSIGHTS.md`
+deep dives: `docs/` · specs: `specs/` · learned: `INSIGHTS.md` ·
+where a file goes: skill `frontend-ui-architecture`

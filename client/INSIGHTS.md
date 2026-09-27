@@ -28,6 +28,10 @@ Why: `s.tableCard` has `overflow: hidden` (rounded corners) and clips anything a
 below the last rows. React events still bubble through the portal to `PRRow`'s onClick (navigates).
 Evidence: `src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.tsx`.
 
+### 2026-09-27 — placement rules: frontend-ui-architecture beats react-best-practices
+NEVER follow `react-best-practices` → "Code Organization" (`features/`, `utils/`) in the client; use skill `frontend-ui-architecture`.
+Why: the client's features are route folders with `_components/`; shared pure logic is `lib/<responsibility>.ts`, no `utils.ts`. Evidence: `.claude/skills/react-best-practices/SKILL.md:167`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
@@ -41,5 +45,6 @@ Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
 
 2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
 2026-09-27 — PR-list FINDINGS column + hover card: 1 entry (portal out of the table card).
+2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
 
 ## Open Questions
