@@ -90,3 +90,11 @@ export function taskLine(pull: PullRow): string {
     `or README claim (e.g. "test fixture", "intentional", "demo", "do not flag").`
   );
 }
+
+/**
+ * One skill as it appears in the prompt's `## Skills / rules` section: its name
+ * as a heading, the directive description, then the markdown body.
+ */
+export function renderSkillBlock(skill: { name: string; description: string; body: string }): string {
+  return `### ${skill.name}\n${skill.description.trim()}\n\n${skill.body.trim()}`;
+}

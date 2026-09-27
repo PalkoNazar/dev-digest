@@ -1,12 +1,12 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, UnifiedDiff } from '@devdigest/shared';
+import type { Provider, Review, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
-import { taskLine } from './helpers.js';
+import { renderSkillBlock, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
@@ -27,6 +27,9 @@ export type Logger = {
 
 // A reduced "Review per file" — same schema as Review (the model returns a small
 // Review per file; we merge findings + take the worst verdict / mean score).
+/** The agent's skills as rendered into the prompt (L02). */
+type AgentSkills = { blocks: string[]; used: SkillUsed[]; tokens: number | null };
+
 export type RunOutcome = {
   review: ReviewRow;
   findings: FindingRow[];
@@ -184,6 +187,9 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // L02 — the agent's enabled skills, in order, as the prompt's skills block.
+      const skills = await this.loadSkills(agent, runLog);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -201,6 +207,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // L02 — omitted when no skill is enabled, so the prompt keeps its pre-L02 shape.
+        ...(skills.blocks.length > 0 ? { skills: skills.blocks } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -271,7 +279,7 @@ export class ReviewRunExecutor {
           findings: findingRows.length,
           grounding,
         },
-        prompt_assembly: outcome.assembly,
+        prompt_assembly: { ...outcome.assembly, skills_tokens: skills.tokens },
         tool_calls: outcome.chunks.map((c) => ({
           tool: 'review_file',
           args: c.label,
@@ -281,6 +289,7 @@ export class ReviewRunExecutor {
         raw_output: outcome.raw,
         memory_pulled: [],
         specs_read: [],
+        skills_used: skills.used,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
         log: runLog.logFor(runId),
@@ -315,6 +324,29 @@ export class ReviewRunExecutor {
       this.container.runBus.complete(runId);
       throw err;
     }
+  }
+
+  /**
+   * L02 — load the skills that reach this agent's prompt (linked + enabled for
+   * the agent + enabled globally, in order) and render one block per skill.
+   * Logged as its own Live Log line so a run shows exactly which skills it used.
+   */
+  private async loadSkills(agent: AgentRow, runLog: RunLogger): Promise<AgentSkills> {
+    const skills = await this.agents.effectiveSkills(agent.id);
+    if (skills.length === 0) {
+      runLog.info('Skills: none enabled for this agent');
+      return { blocks: [], used: [], tokens: null };
+    }
+    const blocks = skills.map(renderSkillBlock);
+    const tokens = this.container.tokenizer.count(blocks.join('\n\n'));
+    runLog.info(
+      `Skills: ${skills.length} attached (${skills.map((s) => `${s.name} v${s.version}`).join(', ')}) — +${tokens} tokens`,
+    );
+    return {
+      blocks,
+      used: skills.map((s) => ({ id: s.id, name: s.name, version: s.version })),
+      tokens,
+    };
   }
 
   /**
