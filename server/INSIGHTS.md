@@ -28,6 +28,11 @@ so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
 NEVER define the module core as a filename allowlist (`service|helpers|…`); define it as `modules/**` minus `routes.ts` minus `repository*`.
 Why: the allowlist silently skipped `repo-intel/pipeline/*`, which imports `Container`. Evidence: `MODULE_CORE` in `.dependency-cruiser.cjs`.
 
+### 2026-09-27 — `withTimeout` does not cancel the work it times out
+NEVER treat a `withTimeout` rejection as "the operation stopped"; the wrapped promise keeps running.
+Why: it is a bare `Promise.race` (`src/platform/resilience.ts:20`), so a JobRunner retry (`src/platform/jobs.ts:65`)
+can run concurrently with the timed-out attempt (e.g. two clones into one dir). Needs an AbortSignal to really stop.
+
 ## Codebase Patterns
 
 ## Tool & Library Notes
@@ -49,5 +54,6 @@ Fix: use `.*` instead (`^src/modules/.*/x`), or a `{ path, pathNot }` pair.
 ## Session Notes
 
 2026-09-27 — onion-architecture skill + dependency-cruiser rules (`pnpm arch:check`, 41-violation baseline): 4 entries.
+2026-09-27 — whole-project review → docs/improvement-plan.md: 1 entry (withTimeout doesn't cancel).
 
 ## Open Questions
