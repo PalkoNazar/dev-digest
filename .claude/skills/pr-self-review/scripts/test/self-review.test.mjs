@@ -3,11 +3,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { globToRegExp, loadRouting, parseUnifiedDiff, route } from '../lib.mjs';
+import { globToRegExp, loadRouting, parseUnifiedDiff, readWorkingFile, route } from '../lib.mjs';
 
 const SCRIPTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -212,6 +212,34 @@ test('subagent batches: a batch without a result makes the verdict INCOMPLETE an
   assert.match(run(ctx, 'finalize.mjs', ['--run', runDir]).out, /Verdict: PASS/);
   const again = run(ctx, 'collect-diff.mjs');
   assert.match(again.out, /\| `lib\/a.ts` \| security \| shared \| yes \|/);
+});
+
+test('symlinks: never followed — outside content stays out of collect.json and review', () => {
+  const ctx = makeRepo({ 'lib/a.ts': 'export const a = 1;\n' });
+  const outside = path.join(ctx.home, 'outside');
+  mkdirSync(outside);
+  const marker = 'OUTSIDE-CONTENT-' + 'x'.repeat(20);
+  writeFileSync(path.join(outside, 'private.ts'), `export const s = '${marker}';\n`);
+  ctx.g('switch', '-qc', 'feat/links');
+  symlinkSync(path.join(outside, 'private.ts'), path.join(ctx.repo, 'lib/tracked-link.ts'));
+  ctx.g('add', '-A');
+  ctx.g('commit', '-qm', 'feat(lib): link');
+  symlinkSync(path.join(outside, 'private.ts'), path.join(ctx.repo, 'lib/untracked-link.ts'));
+  symlinkSync(outside, path.join(ctx.repo, 'linkdir'));
+
+  const { runDir, collect } = pipeline(ctx, null);
+  const raw = readFileSync(path.join(runDir, 'collect.json'), 'utf8');
+  assert.ok(!raw.includes(marker), 'content behind a symlink must never be read');
+  for (const p of ['lib/tracked-link.ts', 'lib/untracked-link.ts']) {
+    const f = collect.files.find((x) => x.path === p);
+    assert.ok(f, `${p} is listed`);
+    assert.ok(f.symlink && f.excluded, `${p} is a symlink excluded from review`);
+    assert.deepEqual(f.skills, []);
+  }
+  const plan = JSON.parse(run(ctx, 'review-plan.mjs', ['--run', runDir]).out);
+  assert.ok(!JSON.stringify(plan).includes('link'), 'no reviewer batch gets a symlink');
+  assert.equal(readWorkingFile(ctx.repo, 'linkdir/private.ts'), null, 'a symlinked parent dir is refused');
+  assert.equal(readWorkingFile(ctx.repo, 'lib/a.ts').kind, 'file');
 });
 
 test('branch hygiene: a commit in another area and scope is flagged as another feature', () => {
