@@ -115,7 +115,13 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
+export const SkillSource = z.enum([
+  'manual',
+  'imported_file',
+  'imported_url',
+  'extracted',
+  'community',
+]);
 export type SkillSource = z.infer<typeof SkillSource>;
 
 export const Skill = z.object({
@@ -130,6 +136,52 @@ export const Skill = z.object({
   evidence_files: z.array(z.string()).nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+// A skill name is its handle in prompts and exports: a kebab-case slug.
+export const SkillName = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,63}$/, 'Use lowercase letters, digits and dashes (max 64)');
+
+export const SKILL_DESCRIPTION_MAX = 500;
+export const SKILL_BODY_MAX = 20_000;
+
+/** POST /skills body. */
+export const SkillCreate = z.object({
+  name: SkillName,
+  description: z.string().trim().min(1).max(SKILL_DESCRIPTION_MAX),
+  type: SkillType,
+  body: z.string().trim().min(1).max(SKILL_BODY_MAX),
+  enabled: z.boolean().optional(),
+  source: z.enum(['manual', 'imported_file']).optional(),
+});
+export type SkillCreate = z.infer<typeof SkillCreate>;
+
+/** PUT /skills/:id body. A body change bumps the skill's version. */
+export const SkillUpdate = SkillCreate.omit({ source: true }).partial();
+export type SkillUpdate = z.infer<typeof SkillUpdate>;
+
+/** POST /skills/import/preview body: a `.md` or `.zip` file, base64-encoded. */
+export const SkillImportRequest = z.object({
+  filename: z.string().min(1).max(255),
+  content_base64: z.string().min(1),
+});
+export type SkillImportRequest = z.infer<typeof SkillImportRequest>;
+
+/**
+ * What an import WOULD create — nothing is stored until the user confirms with
+ * POST /skills. `ignored_files` = archive entries that were not read (scripts,
+ * binaries, references): never inflated, written to disk or executed.
+ */
+export const SkillImportPreview = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  body: z.string(),
+  source_file: z.string(),
+  ignored_files: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
 
 export const CommunitySkill = z.object({
   name: z.string(),
@@ -188,6 +240,8 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  /** Linked skills enabled for this agent (list/detail endpoints). */
+  skill_count: z.number().int().nullish(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -195,6 +249,8 @@ export const AgentSkillLink = z.object({
   agent_id: z.string(),
   skill_id: z.string(),
   order: z.number().int(),
+  /** Per-agent switch; a skill reaches the prompt only if this AND Skill.enabled. */
+  enabled: z.boolean(),
 });
 export type AgentSkillLink = z.infer<typeof AgentSkillLink>;
 

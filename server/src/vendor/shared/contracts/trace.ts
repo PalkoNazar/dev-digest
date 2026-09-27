@@ -48,6 +48,8 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Tokens the skills block added to the prompt; null when absent. */
+  skills_tokens: z.number().int().nullish(),
   user: z.string(),
 });
 export type PromptAssembly = z.infer<typeof PromptAssembly>;
@@ -57,6 +59,13 @@ export const MemoryPulled = z.object({
   text: z.string(),
 });
 export type MemoryPulled = z.infer<typeof MemoryPulled>;
+
+export const SkillUsed = z.object({
+  id: z.string(),
+  name: z.string(),
+  version: z.number().int(),
+});
+export type SkillUsed = z.infer<typeof SkillUsed>;
 
 export const RunStats = z.object({
   duration_ms: z.number().int(),
@@ -85,6 +94,8 @@ export const RunTrace = z.object({
   raw_output: z.string(),
   memory_pulled: z.array(MemoryPulled),
   specs_read: z.array(z.string()),
+  /** Skills rendered into the prompt, in order. Nullish: pre-L02 traces lack it. */
+  skills_used: z.array(SkillUsed).nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;
