@@ -5,7 +5,7 @@ import {
   pickCoreEntry,
   toSkillName,
 } from '../src/modules/skills/helpers.js';
-import { listZipEntries } from '../src/modules/skills/archive.js';
+import { listZipEntries, readZipEntry } from '../src/modules/skills/archive.js';
 import { rate, toSkillStats } from '../src/modules/skills/helpers.js';
 import { ValidationError } from '../src/platform/errors.js';
 import { makeZip } from './helpers/zip.js';
@@ -172,5 +172,46 @@ describe('skill stats helpers', () => {
     );
     expect(stats.pull_rate).toBeNull();
     expect(stats.accept_rate).toBe(1);
+  });
+});
+
+describe('zip reader error branches', () => {
+  const zip = () => makeZip({ 'SKILL.md': '# a' }, { store: true });
+  const entry = (buf: Buffer) => listZipEntries(buf, 10)[0]!;
+
+  it('refuses encrypted entries', () => {
+    const buf = zip();
+    const cd = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    buf.writeUInt16LE(1, cd + 8); // general-purpose flag bit 0 = encrypted
+    expect(() => readZipEntry(buf, entry(buf), 1024)).toThrow(/encrypted/);
+  });
+
+  it('refuses unsupported compression methods', () => {
+    const buf = zip();
+    const e = { ...entry(buf), method: 12 }; // bzip2
+    expect(() => readZipEntry(buf, e, 1024)).toThrow(/unsupported compression \(method 12\)/);
+  });
+
+  it('refuses a truncated entry and a broken local header', () => {
+    const buf = zip();
+    expect(() => readZipEntry(buf, { ...entry(buf), compressedSize: 10_000 }, 20_000)).toThrow(
+      /truncated/,
+    );
+    expect(() => readZipEntry(buf, { ...entry(buf), localHeaderOffset: 5 }, 1024)).toThrow(
+      /corrupt local header/,
+    );
+  });
+
+  it('caps inflation even when the header under-reports the size', () => {
+    const buf = makeZip({ 'SKILL.md': 'x'.repeat(5000) });
+    const lying = { ...entry(buf), size: 10 };
+    expect(() => readZipEntry(buf, lying, 100)).toThrow(/could not be decompressed/);
+  });
+
+  it('refuses ZIP64 archives', () => {
+    const buf = zip();
+    const eocd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    buf.writeUInt16LE(0xffff, eocd + 10);
+    expect(() => listZipEntries(buf, 10)).toThrow(/ZIP64/);
   });
 });

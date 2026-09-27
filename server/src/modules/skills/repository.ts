@@ -53,11 +53,17 @@ export class SkillsRepository implements SkillsRepo {
     return skill ?? null;
   }
 
-  async listVersions(skillId: string): Promise<SkillVersion[]> {
+  async listVersions(workspaceId: string, skillId: string): Promise<SkillVersion[]> {
+    // skill_versions has no workspace column — scope through the parent skill.
     const rows = await this.db
-      .select()
+      .select({
+        version: t.skillVersions.version,
+        body: t.skillVersions.body,
+        createdAt: t.skillVersions.createdAt,
+      })
       .from(t.skillVersions)
-      .where(eq(t.skillVersions.skillId, skillId))
+      .innerJoin(t.skills, eq(t.skillVersions.skillId, t.skills.id))
+      .where(and(eq(t.skillVersions.skillId, skillId), eq(t.skills.workspaceId, workspaceId)))
       .orderBy(desc(t.skillVersions.version));
     return rows.map((r) => ({
       version: r.version,
