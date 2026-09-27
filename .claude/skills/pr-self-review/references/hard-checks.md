@@ -17,7 +17,7 @@ in sync.
 | 4 | A `@devdigest/shared` file was identical in `server/src/vendor/shared` and `client/src/vendor/shared` at base and differs after this diff | `broken-contract` | critical | yes (anywhere in the file) |
 | 4 | Only one copy of an already-drifted shared file changed | `shared-copy-one-side` | major | yes |
 | 5 | `docs/agent-prompts/*-reviewer.md` changed without `server/src/db/seed-prompts.ts`, or the reverse | `prompt-copies` | major | yes |
-| 7 | A command below fails | `build-broken` | critical | no |
+| 7 | A command below fails (for `arch:check`: only violations whose source file is in the diff) | `build-broken` | critical | no |
 
 The secret report never prints the matched value — only file, line and which key matched.
 
@@ -47,4 +47,5 @@ need Docker and belong to CI. Missing `node_modules` or a missing tool → the c
 | `staged-only` | Run with `--staged-only` — informational only |
 | `feature-mix` | A later commit has a different conventional-commit scope than the first AND touches none of the first commit's top-level dirs; or commits reference more than one course spec (`L01`, `L02`, …). Several commits for one feature are fine. |
 | `unmapped-skill` | A `.claude/skills/*` folder is in no routing row and not in "Never routed" |
+| `arch-preexisting` | `arch:check` fails only on files this branch does not touch — main's known-violations baseline is stale |
 | `guard-file-touched` | `reviewer-core/src/grounding.ts` or `prompt.ts` changed — reviewers look at it closely |

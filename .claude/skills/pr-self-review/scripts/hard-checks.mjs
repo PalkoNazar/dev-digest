@@ -208,7 +208,32 @@ if (args['no-commands'] === true) {
       continue;
     }
     const ok = res.status === 0;
-    commands.push({ package: pkg, command: label, status: ok ? 'pass' : 'fail', seconds: Math.round((Date.now() - started) / 1000), tail: ok ? undefined : tail });
+    const seconds = Math.round((Date.now() - started) / 1000);
+    // arch:check fails for the whole tree. Only violations FROM a file this diff touches
+    // are this branch's fault; the rest is an outdated baseline on main — warn, don't block.
+    const violations = label === 'pnpm arch:check' && !ok
+      ? [...output.matchAll(/^\s*error ([\w-]+): (\S+) → (\S+)/gm)].map((m) => ({ rule: m[1], from: `${pkg}/${m[2]}`, to: m[3] }))
+      : [];
+    if (violations.length) {
+      const own = violations.filter((v) => changed(v.from));
+      const preexisting = violations.length - own.length;
+      commands.push({ package: pkg, command: label, status: own.length ? 'fail' : 'pass (pre-existing violations)', seconds, tail: own.length ? tail : undefined });
+      for (const v of own) {
+        add({
+          severity: 'critical', rule: 'build-broken', file: v.from, suppressible: false,
+          message: `\`${label}\`: ${v.rule} — \`${v.from}\` → \`${v.to}\`.`,
+          fix: 'Follow the onion-architecture skill for this import (move it behind a port / into a repository).',
+        });
+      }
+      if (preexisting) {
+        warnings.push({
+          rule: 'arch-preexisting',
+          message: `\`${label}\` reports ${preexisting} violation(s) in files this branch does not touch — the known-violations baseline on main is out of date (not blocking).`,
+        });
+      }
+      continue;
+    }
+    commands.push({ package: pkg, command: label, status: ok ? 'pass' : 'fail', seconds, tail: ok ? undefined : tail });
     if (!ok) {
       add({
         severity: 'critical', rule: 'build-broken', file: `${pkg}/`, suppressible: false,
