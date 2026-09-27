@@ -71,5 +71,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-27 — CLAUDE.md → AGENTS.md + CLAUDE.md symlinks (PR #6): 1 entry (rename+symlink history vs. single-commit branch).
 2026-09-27 — PR-list FINDINGS column (server+client): 1 entry (list aggregates source); +1 in client/INSIGHTS.md.
 2026-09-27 — findings card deep link + stale tsx-watch debugging: 1 entry (stale watch after checkout/pull).
+2026-09-27 — pr-self-review skill (.claude/skills + .githooks): 1 entry in server/INSIGHTS.md (arch:check red on main) + 1 open question.
 
 ## Open Questions
