@@ -18,11 +18,14 @@ export function FindingsPanel({
   prId,
   repoFullName,
   headSha,
+  targetFindingId = null,
 }: {
   findings: FindingRecord[];
   prId: string;
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Deep-linked finding: focused, expanded and scrolled into view once. */
+  targetFindingId?: string | null;
 }) {
   const t = useTranslations("prReview");
   const action = useFindingAction();
@@ -39,6 +42,19 @@ export function FindingsPanel({
 
   // A filter change reshuffles the list — keep a/d off a card that's now hidden.
   React.useEffect(() => setFocusIdx(0), [sevFilter, hideLow]);
+
+  // Deep link (`?finding=`): declared after the reset above so it wins on mount.
+  // Only ids that match a real finding reach the selector (the param is user input).
+  const targetIdx = targetFindingId ? shown.findIndex((f) => f.id === targetFindingId) : -1;
+  React.useEffect(() => {
+    if (targetIdx < 0) return;
+    setFocusIdx(targetIdx);
+    document
+      .querySelector(`[data-finding-id="${shown[targetIdx]!.id}"]`)
+      ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    // Once per target — later filter changes shouldn't yank the focus back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetFindingId]);
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -86,7 +102,7 @@ export function FindingsPanel({
               key={f.id}
               f={f}
               focused={i === focusIdx}
-              defaultExpanded={i === 0}
+              defaultExpanded={i === 0 || f.id === targetFindingId}
               pending={action.isPending}
               repoFullName={repoFullName}
               headSha={headSha}

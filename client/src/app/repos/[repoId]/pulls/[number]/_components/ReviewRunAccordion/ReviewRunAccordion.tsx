@@ -31,6 +31,7 @@ export function ReviewRunAccordion({
   headSha,
   targetRunId = null,
   targetNonce = 0,
+  targetFindingId = null,
 }: {
   review: ReviewRecord;
   prId: string;
@@ -41,8 +42,14 @@ export function ReviewRunAccordion({
    *  (driven from the Timeline: clicking an agent name navigates here). */
   targetRunId?: string | null;
   targetNonce?: number;
+  /** Deep-linked finding (`?finding=`): the run holding it starts open. */
+  targetFindingId?: string | null;
 }) {
-  const [open, setOpen] = React.useState(defaultOpen);
+  const holdsTarget = !!targetFindingId && review.findings.some((f) => f.id === targetFindingId);
+  const [open, setOpen] = React.useState(defaultOpen || holdsTarget);
+  React.useEffect(() => {
+    if (holdsTarget) setOpen(true);
+  }, [holdsTarget]);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     if (review.run_id && review.run_id === targetRunId) {
@@ -152,6 +159,7 @@ export function ReviewRunAccordion({
             prId={prId}
             repoFullName={repoFullName}
             headSha={headSha}
+            targetFindingId={holdsTarget ? targetFindingId : null}
           />
         </div>
       )}

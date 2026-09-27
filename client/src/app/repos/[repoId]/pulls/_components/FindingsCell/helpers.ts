@@ -1,6 +1,11 @@
 import type { ReviewRecord, SeverityCounts } from "@devdigest/shared";
 import { CARD_GAP, CARD_MAX_HEIGHT, CARD_WIDTH } from "./constants";
 
+/** PR detail link that opens the Findings tab scrolled to one finding. */
+export function findingHref(prHref: string, findingId: string): string {
+  return `${prHref}?${new URLSearchParams({ tab: "findings", finding: findingId })}`;
+}
+
 export function totalFindings(c: SeverityCounts): number {
   return c.critical + c.warning + c.suggestion;
 }

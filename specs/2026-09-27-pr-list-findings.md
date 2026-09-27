@@ -27,13 +27,18 @@ per-run severity chips (`client/specs/2026-09-27-severity-filter.md`).
   icon + count per non-zero level. Hover → card portalled to `body` with fixed
   coordinates (the table card has `overflow: hidden`); flips above near the viewport
   bottom. Findings are fetched on first hover via `usePrReviews`, the latest review is
-  picked client-side by the same rule, sorted with `visibleFindings`.
+  picked client-side by the same rule, sorted with `sortBySeverity`.
+- Deep link: `?finding=<id>` on the PR page → `FindingsTab` → `ReviewRunAccordion`
+  (opens if it holds the id) → `FindingsPanel` (focus + expand + `scrollIntoView`).
 - i18n: `prReview.list.columns.findings`, `prReview.list.findings.{title,empty,error}`.
 
 ## Acceptance criteria
 - [x] Never reviewed → `—`; reviewed with no findings → `0`; else non-zero levels only.
 - [x] Counts = latest review only (older reviews and `summary` rows ignored).
 - [x] Hover shows "N findings" card with the latest review's findings, most severe first.
+- [x] Each finding in the card links to `<pr>?tab=findings&finding=<id>`: the PR page opens
+      the run holding it, expands + focuses that finding and scrolls it into view (once;
+      an unknown id is ignored). Clicks elsewhere in the card don't open the PR.
 - [x] Keyboard: the counts are a focusable `role=button` (`aria-expanded`/`aria-controls`);
       focus or Enter/Space opens the card, Escape/blur closes it.
 - [x] Integration test (`reviews.it.test.ts`), RTL + helper tests (`FindingsCell.test.tsx`);
