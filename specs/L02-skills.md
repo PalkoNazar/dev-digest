@@ -22,8 +22,9 @@ Nothing in a skill is ever run; an imported archive contributes only its markdow
     used (`skills_used`); a Live Log line per run naming the attached skills.
   - Client: Skills page (card grid + side preview + "Add" → Create / Import), skill
     editor page, import modal with preview → confirm, sidebar entry.
-  - Two new seeded agents: **Test Quality Reviewer**, **API Contract Reviewer**.
-  - Skill files for both agents in `docs/skills/` (created/imported by hand via the UI).
+  - One new seeded agent: **Test Quality Reviewer** (like the lesson plan; an API Contract
+    agent was built and then dropped — the checklist's "both agents" is not pursued).
+  - Its 4 skill files in `docs/skills/` (created/imported by hand via the UI).
   - Control-experiment fixtures + instructions in `docs/experiments/L02-skills/`.
   - `pr-self-review` Claude Code skill gets `disable-model-invocation: true`.
 - Out:
@@ -118,13 +119,13 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
 
 ## Acceptance criteria
 - [ ] A skill can be created and edited in the UI; a body edit bumps its version.
-- [ ] Both new agents (Test Quality, API Contract) have skills attached.
+- [ ] Test Quality Reviewer has its skills attached.
 - [ ] An enabled skill appears in the run's prompt as its own block (trace + Live Log);
       a disabled one (globally or per agent) does not.
 - [ ] Import goes through a preview; nothing is saved before confirm; archive
       scripts are listed as ignored and never executed or extracted.
 - [ ] At least one skill was brought in through import.
-- [ ] Control experiment reproduces on both agents (without skills → miss; with → catch).
+- [ ] Control experiment reproduces on Test Quality (without skills → miss; with → catch).
 - [ ] `pr-self-review` has model auto-invocation disabled; invoked manually it pulls
       both frontend and backend project skills.
 - [ ] server + client typecheck and tests pass; `arch:check` adds no violations;
