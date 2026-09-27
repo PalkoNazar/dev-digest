@@ -61,6 +61,11 @@
     "boilerplateLabel": "Boilerplate",
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
+    "findings": {
+      "title": "{count, plural, one {# finding} other {# findings}}",
+      "empty": "No findings in the latest review.",
+      "error": "Couldn’t load findings."
+    },
     "filesCount": "{count} files",
     "findingLines": "{count} finding-lines",
     "groupedByRole": "Smart Diff · grouped by role"
@@ -96,9 +101,15 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "status": "Status",
       "cost": "Cost",
       "updated": "Updated"
+    },
+    "findings": {
+      "title": "{count, plural, one {# finding} other {# findings}}",
+      "empty": "No findings in the latest review.",
+      "error": "Couldn’t load findings."
     },
     "filesCount": "{count} files",
     "errorTitle": "Couldn’t load pull requests",

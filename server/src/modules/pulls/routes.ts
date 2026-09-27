@@ -7,7 +7,7 @@ import * as t from '../../db/schema.js';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { AppError, NotFoundError } from '../../platform/errors.js';
-import { deriveReviewStatus } from './status.js';
+import { deriveReviewStatus, rollupSeverities } from './status.js';
 
 /**
  * F1 — pulls module. PR import via Octokit (list + per-PR detail).
@@ -111,21 +111,41 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
-    // Latest-review SCORE per PR for the list's score ring. Computed on read
-    // from reviews (no FK denorm); the list is small, so one IN-query + JS
-    // grouping is cheap. (The per-severity FINDINGS breakdown is intentionally
-    // not surfaced on the list — findings live on the PR detail page.)
+    // Latest-review SCORE + FINDINGS (per-severity counts) per PR for the list.
+    // Computed on read from reviews (no FK denorm); the list is small, so one
+    // IN-query + JS grouping is cheap. Counts come from the same review as the
+    // score, so the ring and the breakdown never disagree.
     const prIds = rows.map((r) => r.id);
-    const latestReviewByPr = new Map<string, { score: number | null }>();
+    const latestReviewByPr = new Map<string, { id: string; score: number | null }>();
     if (prIds.length > 0) {
       const reviewRows = await container.db
-        .select({ prId: t.reviews.prId, score: t.reviews.score })
+        .select({ id: t.reviews.id, prId: t.reviews.prId, score: t.reviews.score })
         .from(t.reviews)
-        .where(and(inArray(t.reviews.prId, prIds), eq(t.reviews.kind, 'review')))
+        .where(
+          and(
+            eq(t.reviews.workspaceId, workspaceId),
+            inArray(t.reviews.prId, prIds),
+            eq(t.reviews.kind, 'review'),
+          ),
+        )
         .orderBy(desc(t.reviews.createdAt));
       // Rows are newest-first → first seen per PR is the latest review.
       for (const rv of reviewRows) {
-        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, { score: rv.score });
+        if (!latestReviewByPr.has(rv.prId)) latestReviewByPr.set(rv.prId, rv);
+      }
+    }
+
+    const findingsByReview = new Map<string, { severity: string }[]>();
+    const latestReviewIds = [...latestReviewByPr.values()].map((rv) => rv.id);
+    if (latestReviewIds.length > 0) {
+      const findingRows = await container.db
+        .select({ reviewId: t.findings.reviewId, severity: t.findings.severity })
+        .from(t.findings)
+        .where(inArray(t.findings.reviewId, latestReviewIds));
+      for (const f of findingRows) {
+        const list = findingsByReview.get(f.reviewId) ?? [];
+        list.push(f);
+        findingsByReview.set(f.reviewId, list);
       }
     }
 
@@ -186,6 +206,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        findings_count: review ? rollupSeverities(findingsByReview.get(review.id) ?? []) : null,
         cost_usd: roundCostByPr.get(r.id) ?? null,
       };
     });

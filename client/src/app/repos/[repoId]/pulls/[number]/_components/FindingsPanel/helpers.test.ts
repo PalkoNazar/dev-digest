@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { FindingRecord } from "@devdigest/shared";
-import { countBySeverity, visibleFindings } from "./helpers";
+import { countBySeverity, sortBySeverity, visibleFindings } from "./helpers";
 
 const f = (id: string, severity: FindingRecord["severity"], confidence = 0.9) =>
   ({ id, severity, confidence }) as FindingRecord;
@@ -11,6 +11,14 @@ describe("countBySeverity", () => {
   it("counts every level, zero when absent", () => {
     expect(countBySeverity(FINDINGS)).toEqual({ CRITICAL: 2, WARNING: 1, SUGGESTION: 1 });
     expect(countBySeverity([])).toEqual({ CRITICAL: 0, WARNING: 0, SUGGESTION: 0 });
+  });
+});
+
+describe("sortBySeverity", () => {
+  it("puts the most severe first, keeps order within a level, doesn't mutate", () => {
+    const input = [...FINDINGS];
+    expect(sortBySeverity(input).map((x) => x.id)).toEqual(["c1", "c2", "w1", "s1"]);
+    expect(input.map((x) => x.id)).toEqual(FINDINGS.map((x) => x.id));
   });
 });
 

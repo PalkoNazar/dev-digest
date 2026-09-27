@@ -38,6 +38,11 @@ ALWAYS add fields to `RunTrace`/`RunStats` as `.nullish()`, never required or `.
 Why: `run_traces.trace` is one jsonb doc per run; rows written before the field existed lack it
 and `GET /runs/:id/trace` must still parse. Evidence: `contracts/trace.ts` `RunStats.cost_usd`.
 
+### 2026-09-27 — PR-list aggregates: SCORE/FINDINGS = latest review, COST = SHA round
+Take per-PR review data for the list from the latest `kind='review'` row; only COST matches runs by `head_sha`.
+Why: `agent_runs.head_sha` exists only since migration 0010 — a SHA-round match hides every pre-L01
+review's data. Evidence: `server/src/modules/pulls/routes.ts` (`latestReviewByPr` vs `roundCostByPr`).
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — pnpm isn't on PATH; `corepack pnpm` leaves a stray file
@@ -59,5 +64,6 @@ lost `--follow` history for the AGENTS.md files.
 2026-09-27 — L01 cost badge (server+client): 2 entries (trace contract nullish, corepack pnpm).
 2026-09-27 — L01 PR-list COST: SQL SUM + agent_runs_ws_pr_sha_idx (review fix): 1 entry (no formatter config).
 2026-09-27 — CLAUDE.md → AGENTS.md + CLAUDE.md symlinks (PR #6): 1 entry (rename+symlink history vs. single-commit branch).
+2026-09-27 — PR-list FINDINGS column (server+client): 1 entry (list aggregates source); +1 in client/INSIGHTS.md.
 
 ## Open Questions
