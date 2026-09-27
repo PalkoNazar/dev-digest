@@ -158,9 +158,12 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     }
     app.log.error(err);
     const e = err as { statusCode?: number; message?: string };
-    reply.status(e.statusCode ?? 500).send({
-      error: { code: 'internal_error', message: e.message ?? 'Internal error' },
-    });
+    const status = e.statusCode ?? 500;
+    // Unknown 5xx: the raw message may carry SQL, paths or SDK internals —
+    // it stays in the log only. Framework 4xx (bad JSON, 415, 429…) are safe
+    // and actionable, so their message goes to the client as before.
+    const message = status >= 500 ? 'Internal error' : (e.message ?? 'Internal error');
+    reply.status(status).send({ error: { code: 'internal_error', message } });
   });
 
   // Register feature modules from the static registry (src/modules/index.ts).

@@ -64,4 +64,29 @@ describe('routes (no DB)', () => {
     expect(res.json().error.code).toBe('validation_error');
     await app.close();
   });
+
+  it('unknown 5xx error → generic message; the raw one stays out of the response', async () => {
+    const app = await buildApp({ config });
+    app.get('/boom', async () => {
+      throw new Error('relation "secret_table" does not exist at /home/me/app/db.ts');
+    });
+    const res = await app.inject({ method: 'GET', url: '/boom' });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ error: { code: 'internal_error', message: 'Internal error' } });
+    expect(res.body).not.toContain('secret_table');
+    await app.close();
+  });
+
+  it('framework 4xx keeps its message (e.g. malformed JSON body)', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/settings/test-connection',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"provider":',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).not.toBe('Internal error');
+    await app.close();
+  });
 });
