@@ -24,12 +24,30 @@ so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
 
 ## What Doesn't Work
 
+### 2026-09-27 — listing "core" files by name leaves holes in dependency-cruiser rules
+NEVER define the module core as a filename allowlist (`service|helpers|…`); define it as `modules/**` minus `routes.ts` minus `repository*`.
+Why: the allowlist silently skipped `repo-intel/pipeline/*`, which imports `Container`. Evidence: `MODULE_CORE` in `.dependency-cruiser.cjs`.
+
 ## Codebase Patterns
 
 ## Tool & Library Notes
 
+### 2026-09-27 — dependency-cruiser `exclude: '(^|/)dist/'` hides pnpm packages
+NEVER exclude `dist/` by an unanchored pattern in `.dependency-cruiser.cjs`; cruising `src` is enough.
+Why: pnpm resolves to `node_modules/.pnpm/<pkg>/…/dist/index.js`, so the exclude silently dropped p-queue/graphology edges and SDK rules never fired.
+
+### 2026-09-27 — match banned packages as `(^|node_modules/)pkg(/|$)`
+Do write package rules so they also match unresolved bare imports.
+Why: reviewer-core has no `drizzle-orm` in its own `node_modules`, so the edge is `drizzle-orm` (unresolved), not `node_modules/drizzle-orm/`. Evidence: rule `reviewer-core-is-pure`.
+
 ## Recurring Errors & Fixes
 
+### 2026-09-27 — "has an unsafe regular expression. Bailing out."
+dependency-cruiser's safe-regex check rejects nested quantifiers like `^src/modules/[^/]+/(.+/)?x`.
+Fix: use `.*` instead (`^src/modules/.*/x`), or a `{ path, pathNot }` pair.
+
 ## Session Notes
+
+2026-09-27 — onion-architecture skill + dependency-cruiser rules (`pnpm arch:check`, 41-violation baseline): 4 entries.
 
 ## Open Questions
