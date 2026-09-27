@@ -57,7 +57,17 @@ rename, and `git log --follow AGENTS.md` stops at that commit. A squash-merge (o
 the same effect. PR #6 was squashed to one commit by owner's choice (one commit per branch), accepting the
 lost `--follow` history for the AGENTS.md files.
 
+### 2026-09-27 — `corepack pnpm add <pkg>` churns unrelated lockfile entries
+NEVER add a dependency with corepack's pnpm 12 without reading the lockfile diff; revert if it touches other packages.
+Why: `add fflate` in `server/` re-resolved peers (`debug`, `testcontainers`… gained `(supports-color@7.2.0)`),
+~70 lines of noise. L02 dropped the dep and read zips via `node:zlib` (`server/src/modules/skills/archive.ts`).
+
 ## Recurring Errors & Fixes
+
+### 2026-09-27 — `ERR_PNPM_IGNORED_BUILDS` on install in a fresh git worktree
+Run `corepack pnpm install --frozen-lockfile --config.strict-dep-builds=false` (then delete `pnpm-workspace.yaml`).
+Why: pnpm 12 fails on unapproved build scripts (esbuild, ssh2, protobufjs…); without the flag nothing
+usable is linked. The binaries work without those scripts: tsc/vitest/next/drizzle-kit all ran in the worktree.
 
 ### 2026-09-27 — new API field "missing" after checkout/pull → stale `tsx watch`
 After `git checkout`/`git pull` under a running `pnpm dev`, check the process start time and `touch server/src/server.ts`.
@@ -72,5 +82,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-27 — PR-list FINDINGS column (server+client): 1 entry (list aggregates source); +1 in client/INSIGHTS.md.
 2026-09-27 — findings card deep link + stale tsx-watch debugging: 1 entry (stale watch after checkout/pull).
 2026-09-27 — pr-self-review skill (.claude/skills + .githooks): 1 entry in server/INSIGHTS.md (arch:check red on main) + 1 open question.
+2026-09-27 — L02 skills (server+client+docs, worktree feat/l02-skills): 2 entries (pnpm add churn, IGNORED_BUILDS); +1 in client/INSIGHTS.md.
 
 ## Open Questions

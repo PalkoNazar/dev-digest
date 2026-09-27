@@ -41,10 +41,16 @@ Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
 
 ## Recurring Errors & Fixes
 
+### 2026-09-27 — "Module not found: Can't resolve './contracts/findings.js'" in `next dev`
+Fixed by `webpack.resolve.extensionAlias { ".js": [".ts", ".tsx", ".js"] }` in `client/next.config.mjs`.
+Why: `vendor/shared` is ESM TS with `.js` suffixes; the first RUNTIME import (a Zod schema, not `import type`)
+hits webpack. vitest resolves it, so tests pass while every page 500s — load a page after such an import.
+
 ## Session Notes
 
 2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
 2026-09-27 — PR-list FINDINGS column + hover card: 1 entry (portal out of the table card).
 2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
+2026-09-27 — L02 Skills UI (skills page, editor, import modal, agent Skills tab, trace): 1 entry (shared runtime imports in webpack); +2 in root INSIGHTS.md.
 
 ## Open Questions
