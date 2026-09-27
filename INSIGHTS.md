@@ -59,11 +59,17 @@ lost `--follow` history for the AGENTS.md files.
 
 ## Recurring Errors & Fixes
 
+### 2026-09-27 — new API field "missing" after checkout/pull → stale `tsx watch`
+After `git checkout`/`git pull` under a running `pnpm dev`, check the process start time and `touch server/src/server.ts`.
+Why: tsx watch restarted on the checkout, before the pull's files landed, and kept serving the old code —
+the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o lstart -p <pid on :3001>`.
+
 ## Session Notes
 
 2026-09-27 — L01 cost badge (server+client): 2 entries (trace contract nullish, corepack pnpm).
 2026-09-27 — L01 PR-list COST: SQL SUM + agent_runs_ws_pr_sha_idx (review fix): 1 entry (no formatter config).
 2026-09-27 — CLAUDE.md → AGENTS.md + CLAUDE.md symlinks (PR #6): 1 entry (rename+symlink history vs. single-commit branch).
 2026-09-27 — PR-list FINDINGS column (server+client): 1 entry (list aggregates source); +1 in client/INSIGHTS.md.
+2026-09-27 — findings card deep link + stale tsx-watch debugging: 1 entry (stale watch after checkout/pull).
 
 ## Open Questions

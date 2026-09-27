@@ -56,7 +56,11 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         )}
       </div>
       <div>
-        <FindingsCell prId={pr.id} counts={pr.findings_count} />
+        <FindingsCell
+          prId={pr.id}
+          prHref={`/repos/${repoId}/pulls/${pr.number}`}
+          counts={pr.findings_count}
+        />
       </div>
       <div>
         <Badge dot color={st.c} bg="transparent">

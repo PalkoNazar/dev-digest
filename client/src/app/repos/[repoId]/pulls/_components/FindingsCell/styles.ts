@@ -48,6 +48,9 @@ export const s = {
     gap: 8,
   } satisfies CSSProperties,
   item: (color: string): CSSProperties => ({
+    color: "inherit",
+    textDecoration: "none",
+    cursor: "pointer",
     padding: "10px 12px",
     borderRadius: 8,
     border: "1px solid var(--border)",

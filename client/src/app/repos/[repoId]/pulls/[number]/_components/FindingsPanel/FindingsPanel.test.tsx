@@ -103,3 +103,23 @@ describe("FindingsPanel severity filter", () => {
     expect(chip("Critical")).toHaveTextContent("Critical2");
   });
 });
+
+describe("FindingsPanel deep link (?finding=)", () => {
+  it("expands the target finding and scrolls it into view", () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const target = { ...finding("w1", "WARNING"), rationale: "Target rationale." };
+    renderWithIntl(<FindingsPanel findings={[...MIXED.slice(0, 2), target]} prId="pr1" targetFindingId="w1" />);
+
+    expect(screen.getByText("Target rationale.")).toBeInTheDocument();
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(scroll.mock.contexts[0]).toBe(document.querySelector('[data-finding-id="w1"]'));
+  });
+
+  it("ignores an id that isn't in this run", () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" targetFindingId={'x"]'} />);
+    expect(scroll).not.toHaveBeenCalled();
+  });
+});

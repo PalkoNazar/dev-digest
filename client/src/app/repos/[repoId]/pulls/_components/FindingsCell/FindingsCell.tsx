@@ -5,6 +5,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   Icon,
@@ -20,14 +21,17 @@ import { usePrReviews } from "@/lib/hooks/reviews";
 import { sortBySeverity } from "@/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/helpers";
 import { lineLabel } from "@/app/repos/[repoId]/pulls/[number]/_components/FindingCard/helpers";
 import { CLOSE_DELAY_MS, LEVELS } from "./constants";
-import { cardPosition, latestReview, totalFindings } from "./helpers";
+import { cardPosition, findingHref, latestReview, totalFindings } from "./helpers";
 import { s } from "./styles";
 
 export function FindingsCell({
   prId,
+  prHref,
   counts,
 }: {
   prId: string | null | undefined;
+  /** PR detail route — each finding links to `?tab=findings&finding=<id>` there. */
+  prHref: string;
   counts: SeverityCounts | null | undefined;
 }) {
   const t = useTranslations("prReview");
@@ -106,14 +110,14 @@ export function FindingsCell({
             role="dialog"
             aria-label={t("list.findings.title", { count: total })}
             style={s.card(pos)}
-            // Portal events still bubble to PRRow's onClick — keep clicks and text
-            // selection (copying a file:line) in the card from navigating away.
+            // Portal events still bubble to PRRow's onClick — a click in the card
+            // goes only where the finding's own link points, not to the PR root.
             onClick={(e) => e.stopPropagation()}
             onMouseEnter={open}
             onMouseLeave={close}
           >
             <div style={s.cardHeader}>{t("list.findings.title", { count: total })}</div>
-            <FindingsList prId={prId} />
+            <FindingsList prId={prId} prHref={prHref} />
           </div>,
           document.body,
         )}
@@ -122,7 +126,7 @@ export function FindingsCell({
 }
 
 /** Body of the hover card — mounts on first hover, so the fetch is lazy. */
-function FindingsList({ prId }: { prId: string | null | undefined }) {
+function FindingsList({ prId, prHref }: { prId: string | null | undefined; prHref: string }) {
   const t = useTranslations("prReview");
   const { data, isLoading, isError } = usePrReviews(prId);
 
@@ -143,7 +147,11 @@ function FindingsList({ prId }: { prId: string | null | undefined }) {
   return (
     <div style={s.cardBody}>
       {findings.map((f) => (
-        <div key={f.id} style={s.item(SEV[f.severity].c)}>
+        <Link
+          key={f.id}
+          href={findingHref(prHref, f.id)}
+          style={s.item(SEV[f.severity].c)}
+        >
           <div style={s.itemTitleRow}>
             <SeverityBadge severity={f.severity} compact />
             <span style={s.itemTitle}>{f.title}</span>
@@ -156,7 +164,7 @@ function FindingsList({ prId }: { prId: string | null | undefined }) {
             <ConfidenceNum value={f.confidence} />
           </div>
           <div style={s.itemRationale}>{f.rationale}</div>
-        </div>
+        </Link>
       ))}
     </div>
   );

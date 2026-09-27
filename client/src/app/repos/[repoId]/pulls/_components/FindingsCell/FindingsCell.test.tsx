@@ -10,7 +10,7 @@ vi.mock("@/lib/hooks/reviews", () => ({
 }));
 
 import { FindingsCell } from "./FindingsCell";
-import { cardPosition, latestReview } from "./helpers";
+import { cardPosition, findingHref, latestReview } from "./helpers";
 
 afterEach(cleanup);
 
@@ -57,15 +57,15 @@ const review = (id: string, created_at: string, findings: FindingRecord[]): Revi
 
 describe("FindingsCell", () => {
   it("shows — when the PR was never reviewed, 0 when the review is clean", () => {
-    renderWithIntl(<FindingsCell prId="pr1" counts={null} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={null} />);
     expect(screen.getByText("—")).toBeInTheDocument();
     cleanup();
-    renderWithIntl(<FindingsCell prId="pr1" counts={{ critical: 0, warning: 0, suggestion: 0 }} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={{ critical: 0, warning: 0, suggestion: 0 }} />);
     expect(screen.getByText("0")).toBeInTheDocument();
   });
 
   it("shows only non-zero severities", () => {
-    renderWithIntl(<FindingsCell prId="pr1" counts={{ critical: 7, warning: 3, suggestion: 0 }} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={{ critical: 7, warning: 3, suggestion: 0 }} />);
     expect(screen.getByTitle("Critical")).toHaveTextContent("7");
     expect(screen.getByTitle("Warning")).toHaveTextContent("3");
     expect(screen.queryByTitle("Suggestion")).not.toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("FindingsCell", () => {
       review("old", "2026-01-01T00:00:00Z", [finding("x", "CRITICAL")]),
       review("new", "2026-01-02T00:00:00Z", [finding("w", "WARNING"), finding("c", "CRITICAL")]),
     ];
-    renderWithIntl(<FindingsCell prId="pr1" counts={{ critical: 1, warning: 1, suggestion: 0 }} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={{ critical: 1, warning: 1, suggestion: 0 }} />);
     fireEvent.mouseEnter(screen.getByLabelText("2 findings"));
 
     const card = screen.getByRole("dialog");
@@ -96,7 +96,7 @@ describe("FindingsCell keyboard", () => {
 
   it("is a focusable button; focus opens the card, Escape closes it", () => {
     reviews.data = [review("r", "2026-01-01T00:00:00Z", [finding("c", "CRITICAL")])];
-    renderWithIntl(<FindingsCell prId="pr1" counts={counts} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={counts} />);
     expect(trigger()).toHaveAttribute("tabindex", "0");
     expect(trigger()).toHaveAttribute("aria-expanded", "false");
 
@@ -110,7 +110,7 @@ describe("FindingsCell keyboard", () => {
   });
 
   it("Enter / Space toggle the card", () => {
-    renderWithIntl(<FindingsCell prId="pr1" counts={counts} />);
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={counts} />);
     fireEvent.keyDown(trigger(), { key: "Enter" });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.keyDown(trigger(), { key: " " });
@@ -120,7 +120,7 @@ describe("FindingsCell keyboard", () => {
   it("blur closes the card after the grace delay", () => {
     vi.useFakeTimers();
     try {
-      renderWithIntl(<FindingsCell prId="pr1" counts={counts} />);
+      renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={counts} />);
       fireEvent.focus(trigger());
       fireEvent.blur(trigger());
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -133,17 +133,30 @@ describe("FindingsCell keyboard", () => {
 });
 
 describe("FindingsCell inside a clickable row", () => {
-  it("clicks in the card don't reach the row (no navigation)", () => {
+  it("each finding links to its spot on the PR page", () => {
+    reviews.data = [review("r", "2026-01-01T00:00:00Z", [finding("c", "CRITICAL"), finding("w", "WARNING")])];
+    renderWithIntl(<FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={{ critical: 1, warning: 1, suggestion: 0 }} />);
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "2 findings" }));
+    const links = screen.getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([
+      "/repos/r1/pulls/5?tab=findings&finding=c",
+      "/repos/r1/pulls/5?tab=findings&finding=w",
+    ]);
+    expect(links[0]).toHaveTextContent("CRITICAL c");
+  });
+
+  it("clicking a finding doesn't also trigger the row's click (PR root)", () => {
     reviews.data = [review("r", "2026-01-01T00:00:00Z", [finding("c", "CRITICAL")])];
     const rowClick = vi.fn();
     renderWithIntl(
       <div onClick={rowClick}>
-        <FindingsCell prId="pr1" counts={{ critical: 1, warning: 0, suggestion: 0 }} />
+        <FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={{ critical: 1, warning: 0, suggestion: 0 }} />
       </div>,
     );
     const trigger = screen.getByRole("button", { name: "1 finding" });
     fireEvent.mouseEnter(trigger);
-    fireEvent.click(screen.getByText("CRITICAL c"));
+    // Card chrome (header) — a finding's own <a> navigates by itself.
+    fireEvent.click(screen.getByRole("dialog").firstElementChild!);
     expect(rowClick).not.toHaveBeenCalled();
 
     fireEvent.click(trigger); // the counts themselves stay part of the row
@@ -157,7 +170,7 @@ describe("FindingsCell open state", () => {
     const one = { critical: 1, warning: 0, suggestion: 0 };
     const cell = (counts: typeof one) => (
       <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-        <FindingsCell prId="pr1" counts={counts} />
+        <FindingsCell prId="pr1" prHref="/repos/r1/pulls/5" counts={counts} />
       </NextIntlClientProvider>
     );
     const { rerender } = render(cell(one));
@@ -173,6 +186,10 @@ describe("FindingsCell open state", () => {
 });
 
 describe("helpers", () => {
+  it("findingHref opens the Findings tab on one finding", () => {
+    expect(findingHref("/repos/r1/pulls/5", "f-1")).toBe("/repos/r1/pulls/5?tab=findings&finding=f-1");
+  });
+
   it("latestReview ignores summaries and picks the newest review", () => {
     const summary = { ...review("s", "2026-02-01T00:00:00Z", []), kind: "summary" as const };
     const a = review("a", "2026-01-01T00:00:00Z", []);
