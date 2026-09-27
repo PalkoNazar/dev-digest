@@ -144,6 +144,7 @@ export class ReviewRepository {
     prId: string;
     provider: string | null;
     model: string | null;
+    headSha: string | null;
   }): Promise<string> {
     return runRepo.createAgentRun(this.db, values);
   }
@@ -155,6 +156,8 @@ export class ReviewRepository {
       durationMs: number;
       tokensIn: number;
       tokensOut: number;
+      /** USD cost; null when unknown (failed/cancelled runs, unpriced model). */
+      costUsd: number | null;
       findingsCount: number;
       grounding: string;
       /** Review score (0-100); null on failed/cancelled runs. */

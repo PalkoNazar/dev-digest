@@ -71,6 +71,20 @@
       "when": 1781464392464,
       "tag": "0009_complex_runaways",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790508978380,
+      "tag": "0010_polite_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790512458563,
+      "tag": "0011_stale_lockjaw",
+      "breakpoints": true
     }
   ]
 }
