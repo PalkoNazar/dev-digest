@@ -5,11 +5,11 @@
 //   node collect-diff.mjs [--base <ref>] [--staged-only]
 //
 // Prints the run dir on the last stdout line; later steps take it via --run.
-import { readdirSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { readdirSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import {
   EXCLUDED, SKILL_DIR, committedDiffHash, git, loadRouting, packageOf, parseArgs,
-  parseUnifiedDiff, readJson, repoRoot, route, sha256, stateDir, tryGit, writeJson,
+  parseUnifiedDiff, readJson, readWorkingFile, repoRoot, route, sha256, stateDir, tryGit, writeJson,
 } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -38,7 +38,11 @@ if (!stagedOnly) {
   const untracked = git(['ls-files', '--others', '--exclude-standard'], { cwd: root })
     .split('\n').filter(Boolean);
   for (const p of untracked) {
-    const buf = readFileSync(path.join(root, p));
+    const r = readWorkingFile(root, p);
+    if (!r) continue; // vanished, special file, or its dir resolves outside the repo
+    // A symlink contributes only its target text (as git would diff it), never the
+    // content it points at.
+    const buf = r.kind === 'file' ? r.buf : Buffer.from(r.target);
     const binary = buf.includes(0);
     const lines = binary ? [] : buf.toString('utf8').split('\n');
     if (lines.at(-1) === '') lines.pop();
@@ -59,10 +63,14 @@ const routing = loadRouting();
 const cacheDir = path.join(state, 'cache');
 const out = [];
 for (const f of files) {
-  const excluded = f.binary || f.status === 'D' || EXCLUDED.some((re) => re.test(f.path));
+  const onDisk = f.status === 'D' ? null : readWorkingFile(root, f.path);
+  // Symlinks are never handed to a reviewer: its Read tool would follow the link.
+  const symlink = onDisk?.kind === 'symlink';
+  const excluded = f.binary || symlink || f.status === 'D' || EXCLUDED.some((re) => re.test(f.path));
   const addedText = f.added.map((a) => a.text).join('\n');
   const r = excluded ? { skills: [], groups: [] } : route(f.path, addedText, routing);
-  const content = f.status === 'D' ? null : readFileOrEmpty(path.join(root, f.path));
+  const content = f.status === 'D' ? null
+    : symlink ? `symlink:${onDisk.target}` : onDisk ? onDisk.buf.toString('utf8') : '';
   // Cache key = file content + its skill set: same bytes reviewed by the same skills
   // give the same findings, so fix-and-rerun only re-reviews what changed.
   const cacheKey = content === null ? null : sha256(`${r.skills.join(',')}\n${content}`);
@@ -74,6 +82,7 @@ for (const f of files) {
     status: f.status,
     package: packageOf(f.path),
     excluded,
+    symlink,
     skills: r.skills,
     groups: r.groups,
     cacheKey,
@@ -120,11 +129,3 @@ for (const f of reviewed) {
 }
 if (unmappedSkills.length) console.log(`\nunmapped skills: ${unmappedSkills.join(', ')}`);
 console.log(`\nRUN_DIR=${runDir}`);
-
-function readFileOrEmpty(file) {
-  try {
-    return readFileSync(file, 'utf8');
-  } catch {
-    return '';
-  }
-}

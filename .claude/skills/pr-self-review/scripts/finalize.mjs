@@ -9,7 +9,7 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  SEVERITIES, parseArgs, readFileOrNull, readJson, severityRank, stateDir, writeJson,
+  SEVERITIES, parseArgs, readJson, readWorkingText, severityRank, stateDir, writeJson,
 } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -24,7 +24,7 @@ const state = stateDir(collect.root);
 const byPath = new Map(collect.files.map((f) => [f.path, f]));
 const contentCache = new Map();
 const content = (p) => {
-  if (!contentCache.has(p)) contentCache.set(p, readFileOrNull(path.join(collect.root, p)));
+  if (!contentCache.has(p)) contentCache.set(p, readWorkingText(collect.root, p));
   return contentCache.get(p);
 };
 

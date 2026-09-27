@@ -47,6 +47,9 @@ A false critical is silenced in code with a reason:
 - **Grounding like `groundFindings`.** A reviewer finding must sit on an added line and quote
   it verbatim; otherwise it is dropped. The main agent writes reviewer replies verbatim and
   never re-grades them, so the verdict does not depend on its mood.
+- **Symlinks are never followed.** Repo files are read with `O_NOFOLLOW` (`readWorkingFile`);
+  a symlink contributes only its target text and is excluded from LLM review, so a link to
+  `~/.devdigest/secrets.json` cannot pull outside content into the run, cache or a reviewer.
 - **One subagent per skill group** (ui / backend / shared, ≤ 20 files each): each loads only
   its own skills, which keeps context small and rules from bleeding across stacks.
 - **One feature per branch, any number of commits.** The `feature-mix` warning looks at

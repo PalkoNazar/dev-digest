@@ -2,7 +2,10 @@
 // from a git hook and from any worktree, so they cannot depend on a package's node_modules.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync,
+  readlinkSync, realpathSync, writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -212,6 +215,54 @@ export function packageOf(filePath) {
   return ['server', 'client', 'reviewer-core', 'e2e'].includes(top) ? top : 'root';
 }
 
+/**
+ * Read a working-tree file WITHOUT following symlinks — the only way these scripts read
+ * repo files. A symlink (`notes.md -> ~/.devdigest/secrets.json`) would otherwise pull a
+ * file from outside the repo into collect.json, the cache and the reviewer's context.
+ *
+ * → { kind: 'file', buf } | { kind: 'symlink', target } (the link text, as git stores it)
+ *   | null (missing, not a regular file, or its directory resolves outside the repo).
+ */
+export function readWorkingFile(root, rel) {
+  const abs = path.join(root, rel);
+  let dir;
+  let realRoot;
+  try {
+    realRoot = realpathSync(root);
+    dir = realpathSync(path.dirname(abs));
+  } catch {
+    return null;
+  }
+  // O_NOFOLLOW only guards the last path segment; a symlinked parent dir is checked here.
+  if (dir !== realRoot && !dir.startsWith(realRoot + path.sep)) return null;
+  const file = path.join(dir, path.basename(abs));
+  try {
+    if (lstatSync(file).isSymbolicLink()) return { kind: 'symlink', target: readlinkSync(file) };
+  } catch {
+    return null;
+  }
+  let fd;
+  try {
+    // O_NOFOLLOW: a file swapped for a symlink after the lstat above fails with ELOOP
+    // instead of being followed. O_NONBLOCK: a FIFO can't hang the hook.
+    fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+  } catch {
+    return null;
+  }
+  try {
+    return fstatSync(fd).isFile() ? { kind: 'file', buf: readFileSync(fd) } : null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Text of a regular working-tree file; null for symlinks, missing or special files. */
+export function readWorkingText(root, rel) {
+  const r = readWorkingFile(root, rel);
+  return r?.kind === 'file' ? r.buf.toString('utf8') : null;
+}
+
+/** For files outside the repo (e.g. ~/.devdigest/secrets.json) — never for repo paths. */
 export function readFileOrNull(file) {
   try {
     return existsSync(file) ? readFileSync(file, 'utf8') : null;
