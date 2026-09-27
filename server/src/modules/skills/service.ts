@@ -64,7 +64,7 @@ export class SkillsService {
   /** Body history of a skill, newest first. */
   async versions(workspaceId: string, id: string): Promise<SkillVersion[]> {
     await this.get(workspaceId, id);
-    return this.deps.repo.listVersions(id);
+    return this.deps.repo.listVersions(workspaceId, id);
   }
 
   /** Stats tab: agents using the skill, pull frequency and finding outcomes. */

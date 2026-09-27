@@ -41,8 +41,8 @@ export interface SkillsRepo {
    * body in `skill_versions` — atomically.
    */
   update(workspaceId: string, id: string, patch: SkillPatch, bumpTo?: number): Promise<Skill | null>;
-  /** Body versions of a skill, newest first (caller checks the workspace). */
-  listVersions(skillId: string): Promise<SkillVersion[]>;
+  /** Body versions of a workspace's skill, newest first ([] for another workspace). */
+  listVersions(workspaceId: string, skillId: string): Promise<SkillVersion[]>;
   /** Usage of a skill since `since` (caller checks the skill is in the workspace). */
   usage(workspaceId: string, skillId: string, since: Date): Promise<SkillUsageCounts>;
   /** Delete the skill; its versions and agent links cascade. */

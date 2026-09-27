@@ -9,6 +9,7 @@ import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import { MockEmbedder, MockGitClient, MockLLMProvider } from '../src/adapters/mocks.js';
+import { SkillsRepository } from '../src/modules/skills/repository.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -108,6 +109,12 @@ d('L02 skills (Testcontainers pg)', () => {
     const history = (await app.inject({ method: 'GET', url: `/skills/${skill.id}/versions` })).json();
     expect(history.map((v: { version: number }) => v.version)).toEqual([2, 1]);
     expect(history[0].body).toBe('Changed.');
+
+    // skill_versions is scoped through its parent skill: another workspace sees nothing.
+    const [otherWs] = await pg.handle.db.insert(t.workspaces).values({ name: 'other' }).returning();
+    const repo = new SkillsRepository(pg.handle.db);
+    expect(await repo.listVersions(otherWs!.id, skill.id)).toEqual([]);
+    expect(await repo.listVersions(workspaceId, skill.id)).toHaveLength(2);
 
     const list = (await app.inject({ method: 'GET', url: '/skills' })).json();
     expect(list.some((s: { id: string }) => s.id === skill.id)).toBe(true);

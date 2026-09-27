@@ -33,7 +33,8 @@ class FakeSkillsRepo implements SkillsRepo {
     if (bumpTo !== undefined) this.versions.push({ skillId: id, version: bumpTo, body: s.body });
     return s;
   }
-  async listVersions(skillId: string) {
+  async listVersions(ws: string, skillId: string) {
+    if (!(await this.get(ws, skillId))) return [];
     return this.versions
       .filter((v) => v.skillId === skillId)
       .map((v) => ({ version: v.version, body: v.body, created_at: '' }))
