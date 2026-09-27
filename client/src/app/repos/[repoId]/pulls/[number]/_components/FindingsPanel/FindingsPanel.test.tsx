@@ -76,11 +76,16 @@ describe("FindingsPanel severity filter", () => {
 
   it("click shows only that severity; clicking it again shows all", () => {
     renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    expect(screen.queryByRole("button", { pressed: true })).not.toBeInTheDocument();
+
     fireEvent.click(chip("Warning"));
+    expect(screen.getByRole("button", { pressed: true })).toBe(chip("Warning"));
+    expect(chip("Critical")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("WARNING finding w1")).toBeInTheDocument();
     expect(screen.queryByText("CRITICAL finding c1")).not.toBeInTheDocument();
 
     fireEvent.click(chip("Warning"));
+    expect(chip("Warning")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByText("CRITICAL finding c1")).toBeInTheDocument();
     expect(screen.getByText("WARNING finding w1")).toBeInTheDocument();
   });

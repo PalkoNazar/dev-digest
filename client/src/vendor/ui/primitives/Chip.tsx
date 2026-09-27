@@ -21,6 +21,9 @@ export function Chip({
   return (
     <button
       onClick={onClick}
+      // Toggle state for assistive tech — only when `active` is passed, so a
+      // plain action chip isn't announced as an unpressed toggle.
+      aria-pressed={active}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{
