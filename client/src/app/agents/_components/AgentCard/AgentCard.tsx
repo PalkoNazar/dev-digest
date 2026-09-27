@@ -26,6 +26,7 @@ export function AgentCard({
   const t = useTranslations("agents");
   const del = useDeleteAgent();
   const color = modelColor(ag.model);
+  const skills = skillCount ?? ag.skill_count;
   return (
     <div onClick={onClick} style={s.card(!!active, ag.enabled)}>
       <div style={s.headerRow}>
@@ -63,9 +64,9 @@ export function AgentCard({
         <span className="mono" style={s.modelChip(color)}>
           {ag.model}
         </span>
-        {skillCount != null && (
+        {skills != null && (
           <Badge color="var(--text-secondary)" icon="Sparkles">
-            {t("card.skillCount", { count: skillCount })}
+            {t("card.skillCount", { count: skills })}
           </Badge>
         )}
       </div>
