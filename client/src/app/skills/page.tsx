@@ -1,7 +1,7 @@
-import { SkillsListView } from "./_components/SkillsListView";
+import { SkillsWorkspace } from "./_components/SkillsWorkspace";
 
-/* Route: /skills (L02). Thin entry — grid, preview drawer and import modal live
-   under _components/. */
+/* Route: /skills (L02). Master-detail: skill list on the left, nothing selected
+   on the right. */
 export default function SkillsPage() {
-  return <SkillsListView />;
+  return <SkillsWorkspace />;
 }

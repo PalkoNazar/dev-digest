@@ -84,6 +84,10 @@ d('L02 skills (Testcontainers pg)', () => {
       .where(eq(t.skillVersions.skillId, skill.id));
     expect(versions.map((v) => v.body).sort()).toEqual(['Changed.', 'Every new if/else needs a test for each side.']);
 
+    const history = (await app.inject({ method: 'GET', url: `/skills/${skill.id}/versions` })).json();
+    expect(history.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+    expect(history[0].body).toBe('Changed.');
+
     const list = (await app.inject({ method: 'GET', url: '/skills' })).json();
     expect(list.some((s: { id: string }) => s.id === skill.id)).toBe(true);
 
@@ -143,6 +147,8 @@ d('L02 skills (Testcontainers pg)', () => {
       { agent_id: agent.id, skill_id: b.id, order: 0, enabled: true },
       { agent_id: agent.id, skill_id: a.id, order: 1, enabled: false },
     ]);
+
+    expect((await app.inject({ method: 'GET', url: `/skills/${a.id}` })).json().agent_count).toBe(1);
 
     const after = (await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json();
     expect(after.version).toBe(2);

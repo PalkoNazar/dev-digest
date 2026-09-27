@@ -1,4 +1,10 @@
-import type { Skill, SkillCreate, SkillImportPreview, SkillUpdate } from '@devdigest/shared';
+import type {
+  Skill,
+  SkillCreate,
+  SkillImportPreview,
+  SkillUpdate,
+  SkillVersion,
+} from '@devdigest/shared';
 import { ConflictError, NotFoundError } from '../../platform/errors.js';
 import { buildImportPreview } from './helpers.js';
 import type { SkillsDeps } from './ports.js';
@@ -51,6 +57,12 @@ export class SkillsService {
     );
     if (!updated) throw new NotFoundError('Skill not found');
     return updated;
+  }
+
+  /** Body history of a skill, newest first. */
+  async versions(workspaceId: string, id: string): Promise<SkillVersion[]> {
+    await this.get(workspaceId, id);
+    return this.deps.repo.listVersions(id);
   }
 
   async delete(workspaceId: string, id: string): Promise<void> {

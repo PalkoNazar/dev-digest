@@ -1,4 +1,5 @@
-/* SkillCard — name, type, directive description and the global enabled toggle. */
+/* SkillCard — list card on /skills: name, global enabled toggle, description,
+   type + source badges and how many agents use the skill. */
 "use client";
 
 import React from "react";
@@ -6,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Badge, Icon, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
+import { SOURCE_ICON } from "./constants";
 import { s } from "./styles";
 
 export function SkillCard({
@@ -56,15 +58,14 @@ export function SkillCard({
         <Badge color={color.fg} bg={color.bg}>
           {t(`type.${skill.type}`)}
         </Badge>
-        {skill.source !== "manual" && (
-          <Badge color="var(--warn)" bg="var(--warn-bg)" icon="Upload">
-            {t("card.imported")}
-          </Badge>
-        )}
-        <span className="mono" style={s.version}>
-          v{skill.version}
+        <span style={s.source}>
+          {React.createElement(Icon[SOURCE_ICON[skill.source]], { size: 12 })}
+          {t(`source.${skill.source}`)}
         </span>
       </div>
+      {skill.agent_count != null && (
+        <div style={s.footer}>{t("card.agents", { count: skill.agent_count })}</div>
+      )}
     </div>
   );
 }

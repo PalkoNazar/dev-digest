@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { SkillEditorView } from "../_components/SkillEditorView";
+import { SkillsWorkspace } from "../_components/SkillsWorkspace";
 
-/* Route: /skills/:id — edit a skill. */
+/* Route: /skills/:id — the list with the selected skill (Config / Preview /
+   Versions via ?tab=) on the right. */
 export default function SkillPage() {
   const { id } = useParams<{ id: string }>();
-  return <SkillEditorView id={id} />;
+  return <SkillsWorkspace id={id} />;
 }

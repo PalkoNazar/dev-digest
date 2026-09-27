@@ -58,7 +58,7 @@ and the blocks are joined in order into reviewer-core's existing `## Skills / ru
 section (`assemblePrompt` unchanged; `INJECTION_GUARD` and grounding untouched).
 
 ### Contracts (`@devdigest/shared`, both copies)
-- `SkillSource` += `imported_file`.
+- `SkillSource` += `imported_file`; `Skill` += `agent_count?`; new `SkillVersion`.
 - `AgentSkillLink` += `enabled: boolean`.
 - `Agent` += `skill_count?: number | null` (enabled links; list/detail endpoints).
 - `SkillImportPreview` `{ name, description, type, body, source_file, ignored_files[], warnings[] }`.
@@ -73,6 +73,7 @@ section (`assemblePrompt` unchanged; `INJECTION_GUARD` and grounding untouched).
 | POST | `/skills` | create `{name, description, type, body, enabled?, source?}` |
 | PUT | `/skills/:id` | update (any field; body change bumps version) |
 | DELETE | `/skills/:id` | delete (links cascade) |
+| GET | `/skills/:id/versions` | body history, newest first |
 | POST | `/skills/import/preview` | `{filename, content_base64}` → `SkillImportPreview`, **nothing stored** |
 | GET | `/agents/:id/skills` | links `{skill_id, order, enabled}` (exists; + enabled) |
 | POST | `/agents/:id/skills` | + `links: [{skill_id, enabled}]` = replace whole ordered set |
@@ -98,11 +99,15 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
 "review before enabling" notice, executable parts never processed.
 
 ### UI entry points
-- Sidebar: **Skills** (`/skills`) next to Agents.
-- `/skills`: grid of cards (name, type, description, enabled toggle); click → side
-  preview; "Add skill" ▾ → Create / Import.
-- `/skills/new`, `/skills/:id`: editor (name, description with the hint "write it as a
-  directive: when/what the agent must do", type, markdown body with preview, enabled).
+- Sidebar: section **SKILLS LAB** → Skills (`/skills`), Agents.
+- `/skills`, `/skills/new`, `/skills/:id` — master-detail (mockup "Skills Lab › Skills"):
+  left, skill cards (name, enabled toggle, description, type + source badges, "N agents")
+  with search and "Add skill" ▾ → Create / Import; right, the selected skill: header
+  (name, type, `vN`, "needs vetting" for a disabled import) + tabs `?tab=`
+  **Config** (name, directive description with hint, type, body editor with
+  `name.md · unsaved · ≈N tokens` and write/preview, enabled, save/delete),
+  **Preview** (rendered description + body, trust notice for imports),
+  **Versions** (body history, current marked). Evals/Stats tabs come with later lessons.
 - `/agents/:id?tab=skills`: ordered linked skills (checkbox = enabled for this agent,
   drag or ↑/↓ to reorder, remove), "Attach skill" picker, "N of M enabled".
 - Run trace drawer → Prompt assembly → Skills block shows `+N tok`.

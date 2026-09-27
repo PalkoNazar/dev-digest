@@ -2,8 +2,6 @@
   "page": {
     "crumbLab": "Skills Lab",
     "crumbSkills": "Skills",
-    "heading": "Skills",
-    "subtitle": "Reusable review instructions. Text and config only — attach them to agents in the agent editor.",
     "addSkill": "Add skill",
     "menu": {
       "create": "Create skill",
@@ -16,7 +14,10 @@
       "body": "A skill is a named block of review rules that agents reuse. Create one or import a SKILL.md / .zip.",
       "cta": "Create skill"
     },
-    "noMatch": "No skills match “{query}”."
+    "listTitle": "Skills",
+    "selectTitle": "Select a skill",
+    "selectBody": "Pick a skill on the left to edit it, or add a new one.",
+    "noMatch": "No skills match."
   },
   "type": {
     "rubric": "rubric",
@@ -33,30 +34,12 @@
   },
   "card": {
     "toggle": "Enable skill “{name}” for every agent it is attached to",
-    "imported": "imported",
-    "noDescription": "No description"
-  },
-  "preview": {
-    "edit": "Edit",
-    "delete": "Delete",
-    "deleteConfirm": "Delete skill “{name}”? It is detached from every agent. This cannot be undone.",
-    "deleted": "Deleted “{name}”.",
-    "enabled": "Enabled",
-    "disabled": "Disabled",
-    "version": "v{version}",
-    "source": "Source",
-    "type": "Type",
-    "description": "Description",
-    "body": "Body",
-    "importedNotice": "Imported from a file: these are someone else’s instructions inside your agents’ prompts. Read the body before enabling it."
+    "noDescription": "No description",
+    "agents": "{count, plural, =0 {no agents} one {# agent} other {# agents}}"
   },
   "editor": {
     "crumbNew": "New skill",
     "titleNew": "New skill",
-    "back": "← All skills",
-    "loadError": "Could not load this skill.",
-    "notFoundTitle": "Skill not found",
-    "notFoundBody": "It may have been deleted.",
     "name": "Name",
     "nameHint": "A kebab-case handle: lowercase letters, digits and dashes. It becomes the block heading in the prompt.",
     "namePlaceholder": "branch-coverage",
@@ -64,7 +47,6 @@
     "descriptionHint": "This is the skill’s interface — write it as a directive: when it applies and what the agent must do. E.g. “When a diff adds a branch, flag it if no test exercises it.”",
     "descriptionPlaceholder": "When … , flag … / check …",
     "type": "Type",
-    "body": "Body (Markdown)",
     "bodyHint": "Rules, checklists, examples. Plain text in the prompt — nothing here is ever executed. Editing the body creates a new version.",
     "bodyPlaceholder": "# Rule\n- …",
     "write": "Write",
@@ -82,7 +64,11 @@
     "saved": "Saved “{name}” (v{version}).",
     "version": "v{version}",
     "nameInvalid": "Use lowercase letters, digits and dashes (max 64).",
-    "required": "Required"
+    "required": "Required",
+    "configuration": "Configuration",
+    "bodyLabel": "Skill body",
+    "unsaved": "unsaved",
+    "tokens": "≈{count} tokens"
   },
   "import": {
     "title": "Import a skill",
@@ -105,5 +91,30 @@
     "back": "Choose another file",
     "cancel": "Cancel",
     "saved": "Imported “{name}”."
+  },
+  "detail": {
+    "tabs": {
+      "config": "Config",
+      "preview": "Preview",
+      "versions": "Versions"
+    },
+    "needsVetting": "needs vetting",
+    "needsVettingTitle": "Imported and not enabled yet — read the body before enabling it.",
+    "loadError": "Could not load this skill.",
+    "notFoundTitle": "Skill not found",
+    "notFoundBody": "It may have been deleted."
+  },
+  "versions": {
+    "title": "Versions",
+    "hint": "Every body change is kept as an immutable version. Agents always use the current one.",
+    "current": "current",
+    "loadError": "Could not load the version history.",
+    "empty": "No versions recorded."
+  },
+  "preview": {
+    "description": "Description",
+    "importedNotice": "Imported from a file: these are someone else’s instructions inside your agents’ prompts. Read the body before enabling it.",
+    "deleteConfirm": "Delete skill “{name}”? It is detached from every agent. This cannot be undone.",
+    "deleted": "Deleted “{name}”."
   }
 }
