@@ -209,6 +209,56 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // L01 cost: the mock LLM reports $0.001 per call → persisted on the run,
+    // echoed into the trace stats and the runs list; the run remembers the SHA.
+    expect(run!.costUsd).toBeGreaterThan(0);
+    expect(run!.headSha).toBe('a1b2c3d4');
+    expect(trace.stats.cost_usd).toBe(run!.costUsd);
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs[0].cost_usd).toBe(run!.costUsd);
+
+    await app.close();
+  });
+
+  it('PR list COST sums only the done runs of the last review round', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const db = pg.handle.db;
+    const { repo, pr } = await setupRepoAndPr(db, workspaceId);
+    // A new commit landed after the last review (stale PR): the round is still
+    // the reviewed SHA, not the current head.
+    await db
+      .update(t.pullRequests)
+      .set({ lastReviewedSha: 'reviewed1', headSha: 'newhead2' })
+      .where(eq(t.pullRequests.id, pr.id));
+    const base = { workspaceId, prId: pr.id, provider: 'openai', model: 'gpt-4.1' };
+    await db.insert(t.agentRuns).values([
+      { ...base, status: 'done', headSha: 'reviewed1', costUsd: 0.002 },
+      { ...base, status: 'done', headSha: 'reviewed1', costUsd: 0.0015 },
+      { ...base, status: 'done', headSha: 'reviewed1', costUsd: null }, // unpriced model
+      { ...base, status: 'failed', headSha: 'reviewed1', costUsd: 0.5 }, // not done
+      { ...base, status: 'done', headSha: 'older0', costUsd: 0.9 }, // previous round
+    ]);
+    // A second PR with no runs at all → no cost.
+    const [bare] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId: repo.id,
+        number: 483,
+        title: 'Unreviewed',
+        author: 'deepak.r',
+        branch: 'feat/x',
+        base: 'main',
+        headSha: 'ffff',
+        status: 'open',
+      })
+      .returning();
+
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const byId = new Map(list.map((p: { id: string; cost_usd: number | null }) => [p.id, p.cost_usd]));
+    expect(byId.get(pr.id)).toBeCloseTo(0.0035, 10);
+    expect(byId.get(bare!.id)).toBeNull();
+
     await app.close();
   });
 

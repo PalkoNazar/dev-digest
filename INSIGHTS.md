@@ -25,12 +25,31 @@ server fails to boot. `scripts/dev.sh` installs it since commit 66727c8.
 
 ## What Doesn't Work
 
+### 2026-09-27 — no formatter config: never run `npx prettier --write`
+NEVER run prettier (or any formatter) on repo files; format edits by hand to match the file.
+Why: there is no prettier/eslint/biome/editorconfig in root, `server/` or `client/`, so prettier
+falls back to defaults (double quotes, 80 cols) and rewrites the whole file against the repo's
+single-quote ~100-col style. Evidence: `ls -a . server client` — no formatter config.
+
 ## Codebase Patterns
 
+### 2026-09-27 — new fields on the stored trace contract must be nullish
+ALWAYS add fields to `RunTrace`/`RunStats` as `.nullish()`, never required or `.nullable()`.
+Why: `run_traces.trace` is one jsonb doc per run; rows written before the field existed lack it
+and `GET /runs/:id/trace` must still parse. Evidence: `contracts/trace.ts` `RunStats.cost_usd`.
+
 ## Tool & Library Notes
+
+### 2026-09-27 — pnpm isn't on PATH; `corepack pnpm` leaves a stray file
+Use `COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm <cmd>`, then delete `server/pnpm-workspace.yaml`
+and `client/pnpm-workspace.yaml`. Why: corepack fetches pnpm 12, whose install writes an `allowBuilds`
+workspace file — which contradicts "not a monorepo". Lockfiles stay unchanged.
 
 ## Recurring Errors & Fixes
 
 ## Session Notes
+
+2026-09-27 — L01 cost badge (server+client): 2 entries (trace contract nullish, corepack pnpm).
+2026-09-27 — L01 PR-list COST: SQL SUM + agent_runs_ws_pr_sha_idx (review fix): 1 entry (no formatter config).
 
 ## Open Questions

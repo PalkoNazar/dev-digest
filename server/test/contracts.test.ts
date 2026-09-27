@@ -12,6 +12,7 @@ import {
   EvalRun,
   MemoryItem,
   RunTrace,
+  RunStats,
   Settings,
   Repo,
   PrDetail,
@@ -166,6 +167,14 @@ describe('AI contracts parse fixtures', () => {
       log: [{ t: '00.00', kind: 'info', msg: 'started' }],
     });
     expect(trace.tool_calls).toHaveLength(1);
+    // Pre-L01 traces have no cost_usd — they must still parse.
+    expect(trace.stats.cost_usd).toBeUndefined();
+  });
+
+  it('RunStats carries cost_usd (L01), null when the price is unknown', () => {
+    const base = { duration_ms: 8200, tokens_in: 14820, tokens_out: 1240, findings: 3, grounding: '3/3 passed' };
+    expect(RunStats.parse({ ...base, cost_usd: 0.06 }).cost_usd).toBe(0.06);
+    expect(RunStats.parse({ ...base, cost_usd: null }).cost_usd).toBeNull();
   });
 });
 

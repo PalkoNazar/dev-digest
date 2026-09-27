@@ -1,0 +1,1 @@
+CREATE INDEX "agent_runs_ws_pr_sha_idx" ON "agent_runs" USING btree ("workspace_id","pr_id","head_sha");

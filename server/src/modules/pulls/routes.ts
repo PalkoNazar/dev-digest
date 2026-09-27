@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PrMeta, PrDetail, GitHubClient, PrReviewComment } from '@devdigest/shared';
 import { PrCommentInput } from '@devdigest/shared';
 import * as t from '../../db/schema.js';
@@ -129,6 +129,39 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       }
     }
 
+    // COST of the last review round (L01): sum of `done` runs that reviewed the
+    // PR's `last_reviewed_sha`, so a new push (stale PR) keeps its last cost.
+    // SHA match + SUM run in SQL (index agent_runs_ws_pr_sha_idx) so only the
+    // current round is read, not the whole run history. SUM over all-null costs
+    // is null → client shows "—".
+    const roundCostByPr = new Map<string, number>();
+    if (prIds.length > 0) {
+      const costRows = await container.db
+        .select({
+          prId: t.agentRuns.prId,
+          costUsd: sql<number | null>`sum(${t.agentRuns.costUsd})`,
+        })
+        .from(t.agentRuns)
+        .innerJoin(
+          t.pullRequests,
+          and(
+            eq(t.pullRequests.id, t.agentRuns.prId),
+            eq(t.pullRequests.lastReviewedSha, t.agentRuns.headSha),
+          ),
+        )
+        .where(
+          and(
+            eq(t.agentRuns.workspaceId, workspaceId),
+            inArray(t.agentRuns.prId, prIds),
+            eq(t.agentRuns.status, 'done'),
+          ),
+        )
+        .groupBy(t.agentRuns.prId);
+      for (const row of costRows) {
+        if (row.prId && row.costUsd != null) roundCostByPr.set(row.prId, Number(row.costUsd));
+      }
+    }
+
     const now = Date.now();
     return rows.map((r) => {
       const review = latestReviewByPr.get(r.id);
@@ -153,6 +186,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
         opened_at: r.openedAt?.toISOString() ?? null,
         updated_at: r.updatedAt?.toISOString() ?? null,
         score: review ? review.score : null,
+        cost_usd: roundCostByPr.get(r.id) ?? null,
       };
     });
   });
