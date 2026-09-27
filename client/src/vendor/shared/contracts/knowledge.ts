@@ -134,8 +134,18 @@ export const Skill = z.object({
   enabled: z.boolean(),
   version: z.number().int(),
   evidence_files: z.array(z.string()).nullish(),
+  /** Agents this skill is attached to (list/detail endpoints). */
+  agent_count: z.number().int().nullish(),
 });
 export type Skill = z.infer<typeof Skill>;
+
+/** One immutable body version of a skill (GET /skills/:id/versions, newest first). */
+export const SkillVersion = z.object({
+  version: z.number().int(),
+  body: z.string(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
 
 // A skill name is its handle in prompts and exports: a kebab-case slug.
 export const SkillName = z

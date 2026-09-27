@@ -1,4 +1,4 @@
-import type { Skill, SkillSource, SkillType } from '@devdigest/shared';
+import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
 
 /** What the skills use cases need from persistence, in domain terms. */
 
@@ -30,6 +30,8 @@ export interface SkillsRepo {
    * body in `skill_versions` — atomically.
    */
   update(workspaceId: string, id: string, patch: SkillPatch, bumpTo?: number): Promise<Skill | null>;
+  /** Body versions of a skill, newest first (caller checks the workspace). */
+  listVersions(skillId: string): Promise<SkillVersion[]>;
   /** Delete the skill; its versions and agent links cascade. */
   delete(workspaceId: string, id: string): Promise<boolean>;
 }

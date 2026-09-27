@@ -15,6 +15,18 @@ export const s = {
     color: "var(--text-secondary)",
   } satisfies CSSProperties,
   bodyTabs: { display: "flex", gap: 6 } satisfies CSSProperties,
+  fileBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 12px",
+    marginBottom: -1,
+    borderRadius: "7px 7px 0 0",
+    border: "1px solid var(--border-strong)",
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
+  fileName: { fontSize: 13, fontWeight: 600 } satisfies CSSProperties,
+  tokens: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   preview: {
     minHeight: 200,
     fontSize: 13,

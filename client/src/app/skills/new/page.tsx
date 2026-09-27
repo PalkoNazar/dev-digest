@@ -1,6 +1,6 @@
-import { SkillEditorView } from "../_components/SkillEditorView";
+import { SkillsWorkspace } from "../_components/SkillsWorkspace";
 
-/* Route: /skills/new — create a skill by hand. */
+/* Route: /skills/new — the list with a blank skill form on the right. */
 export default function NewSkillPage() {
-  return <SkillEditorView />;
+  return <SkillsWorkspace creating />;
 }

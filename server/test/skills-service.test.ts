@@ -33,6 +33,12 @@ class FakeSkillsRepo implements SkillsRepo {
     if (bumpTo !== undefined) this.versions.push({ skillId: id, version: bumpTo, body: s.body });
     return s;
   }
+  async listVersions(skillId: string) {
+    return this.versions
+      .filter((v) => v.skillId === skillId)
+      .map((v) => ({ version: v.version, body: v.body, created_at: '' }))
+      .reverse();
+  }
   async delete(ws: string, id: string) {
     return (await this.get(ws, id)) ? this.skills.delete(id) : false;
   }
@@ -81,6 +87,13 @@ describe('SkillsService', () => {
     const edited = await service.update('w', s.id, { body: 'New rule.' });
     expect(edited.version).toBe(2);
     expect(repo.versions.map((v) => v.version)).toEqual([1, 2]);
+  });
+
+  it('versions are newest first and scoped to the workspace', async () => {
+    const s = await service.create('w', input);
+    await service.update('w', s.id, { body: 'v2 body' });
+    expect((await service.versions('w', s.id)).map((v) => v.version)).toEqual([2, 1]);
+    await expect(service.versions('x', s.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('renaming onto an existing name is a conflict', async () => {

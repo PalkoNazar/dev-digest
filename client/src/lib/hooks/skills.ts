@@ -10,6 +10,7 @@ import type {
   SkillCreate,
   SkillImportPreview,
   SkillUpdate,
+  SkillVersion,
 } from "@devdigest/shared";
 
 export function useSkills() {
@@ -23,6 +24,15 @@ export function useSkill(id: string | null | undefined) {
   return useQuery({
     queryKey: ["skill", id],
     queryFn: () => api.get<Skill>(`/skills/${id}`),
+    enabled: !!id,
+  });
+}
+
+/** Body history of a skill, newest first. */
+export function useSkillVersions(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ["skill-versions", id],
+    queryFn: () => api.get<SkillVersion[]>(`/skills/${id}/versions`),
     enabled: !!id,
   });
 }
@@ -52,6 +62,7 @@ export function useUpdateSkill() {
       api.put<Skill>(`/skills/${id}`, patch),
     onSuccess: (data) => {
       qc.setQueryData(["skill", data.id], data);
+      qc.invalidateQueries({ queryKey: ["skill-versions", data.id] });
       invalidateSkillViews(qc);
     },
   });

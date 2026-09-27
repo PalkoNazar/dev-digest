@@ -6,8 +6,10 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
+  Badge,
   Button,
   Chip,
+  Icon,
   FormField,
   Markdown,
   SelectInput,
@@ -19,7 +21,7 @@ import type { Skill, SkillType } from "@devdigest/shared";
 import { useCreateSkill, useUpdateSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { SKILL_TYPES } from "@/lib/skill-types";
-import { validateSkillDraft, type SkillDraft } from "../../helpers";
+import { approxTokens, isDirty, validateSkillDraft, type SkillDraft } from "../../helpers";
 import { EMPTY_DRAFT } from "./constants";
 import { s } from "./styles";
 
@@ -52,6 +54,7 @@ export function SkillEditor({
     setDraft((d) => ({ ...d, [key]: value }));
 
   const errors = touched ? validateSkillDraft(draft) : {};
+  const dirty = !!skill && isDirty(skill, draft);
   const pending = create.isPending || update.isPending;
   const typeOptions = SKILL_TYPES.map((v) => ({ value: v, label: t(`type.${v}`) }));
 
@@ -89,7 +92,7 @@ export function SkillEditor({
     <div style={s.wrap}>
       <div style={s.header}>
         <h2 style={s.h2}>
-          {skill ? <span className="mono">{skill.name}</span> : t("editor.titleNew")}
+          {skill ? t("editor.configuration") : t("editor.titleNew")}
         </h2>
         {skill && (
           <span className="mono" style={s.version}>
@@ -136,10 +139,17 @@ export function SkillEditor({
         />
       </FormField>
       <FormField
-        label={t("editor.body")}
+        label={t("editor.bodyLabel")}
         required
         hint={errors.body ? <Err>{t("editor.required")}</Err> : t("editor.bodyHint")}
-        right={
+      >
+        <div style={s.fileBar}>
+          <Icon.FileText size={14} style={s.muted} />
+          <span className="mono" style={s.fileName}>
+            {(draft.name || t("editor.namePlaceholder")) + ".md"}
+          </span>
+          {dirty && <Badge color="var(--text-muted)">{t("editor.unsaved")}</Badge>}
+          <span style={s.tokens}>{t("editor.tokens", { count: approxTokens(draft.body) })}</span>
           <div style={s.bodyTabs}>
             <Chip active={!preview} onClick={() => setPreview(false)}>
               {t("editor.write")}
@@ -148,8 +158,7 @@ export function SkillEditor({
               {t("editor.previewTab")}
             </Chip>
           </div>
-        }
-      >
+        </div>
         {preview ? (
           <div style={s.preview}>
             {draft.body.trim() ? (
