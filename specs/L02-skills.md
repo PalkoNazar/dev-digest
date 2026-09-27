@@ -100,7 +100,7 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
 "review before enabling" notice, executable parts never processed.
 
 ### UI entry points
-- Sidebar: section **SKILLS LAB** → Skills (`/skills`), Agents.
+- Sidebar: Agents stays under WORKSPACE; new section **SKILLS LAB** → Skills (`/skills`).
 - `/skills`, `/skills/new`, `/skills/:id` — master-detail (mockup "Skills Lab › Skills"):
   left, skill cards (name, enabled toggle, description, type + source badges, "N agents")
   with search and "Add skill" ▾ → Create / Import; right, the selected skill: header
