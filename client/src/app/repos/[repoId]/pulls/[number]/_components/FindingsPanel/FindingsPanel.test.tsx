@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
@@ -51,5 +51,50 @@ describe("FindingsPanel (smoke)", () => {
   it("shows the empty state when nothing matches", () => {
     renderWithIntl(<FindingsPanel findings={[]} prId="pr1" />);
     expect(screen.getByText("No findings match")).toBeInTheDocument();
+  });
+});
+
+function finding(id: string, severity: FindingRecord["severity"], confidence = 0.9): FindingRecord {
+  return { ...FINDINGS[0]!, id, severity, confidence, title: `${severity} finding ${id}` };
+}
+
+const MIXED: FindingRecord[] = [
+  finding("c1", "CRITICAL"),
+  finding("c2", "CRITICAL", 0.4),
+  finding("w1", "WARNING"),
+];
+
+const chip = (label: string) => screen.getByRole("button", { name: new RegExp(`^${label}`) });
+
+describe("FindingsPanel severity filter", () => {
+  it("shows a count chip per severity, including zero", () => {
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    expect(chip("Critical")).toHaveTextContent("Critical2");
+    expect(chip("Warning")).toHaveTextContent("Warning1");
+    expect(chip("Suggestion")).toHaveTextContent("Suggestion0");
+  });
+
+  it("click shows only that severity; clicking it again shows all", () => {
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    fireEvent.click(chip("Warning"));
+    expect(screen.getByText("WARNING finding w1")).toBeInTheDocument();
+    expect(screen.queryByText("CRITICAL finding c1")).not.toBeInTheDocument();
+
+    fireEvent.click(chip("Warning"));
+    expect(screen.getByText("CRITICAL finding c1")).toBeInTheDocument();
+    expect(screen.getByText("WARNING finding w1")).toBeInTheDocument();
+  });
+
+  it("a level with no findings shows the empty state", () => {
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    fireEvent.click(chip("Suggestion"));
+    expect(screen.getByText("No findings match")).toBeInTheDocument();
+  });
+
+  it("counts ignore hide-low-confidence", () => {
+    renderWithIntl(<FindingsPanel findings={MIXED} prId="pr1" />);
+    fireEvent.click(screen.getByRole("switch"));
+    expect(screen.queryByText("CRITICAL finding c2")).not.toBeInTheDocument();
+    expect(chip("Critical")).toHaveTextContent("Critical2");
   });
 });

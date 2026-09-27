@@ -24,8 +24,15 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## Tool & Library Notes
 
+### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
+Filter by a folder or file NAME instead: `pnpm exec vitest run FindingsPanel`.
+Why: vitest escapes the brackets in a path filter (`[repoId/]`) → "No test files found", exit 1.
+Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
+
 ## Recurring Errors & Fixes
 
 ## Session Notes
+
+2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
 
 ## Open Questions
