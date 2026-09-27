@@ -262,6 +262,89 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('PR list FINDINGS counts the latest review per severity (same review as SCORE)', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const db = pg.handle.db;
+    const { repo, pr } = await setupRepoAndPr(db, workspaceId);
+    const review = (createdAt: string, score: number, kind: 'review' | 'summary' = 'review') => ({
+      workspaceId,
+      prId: pr.id,
+      kind,
+      score,
+      createdAt: new Date(createdAt),
+    });
+    const [older, latest] = await db
+      .insert(t.reviews)
+      .values([
+        review('2026-01-01T00:00:00Z', 30),
+        review('2026-01-02T00:00:00Z', 70),
+        review('2026-01-03T00:00:00Z', 0, 'summary'), // not a review → ignored
+      ])
+      .returning();
+    const finding = (reviewId: string, severity: string) => ({
+      reviewId,
+      severity,
+      file: 'src/config.ts',
+      startLine: 11,
+      endLine: 11,
+      category: 'bug',
+      title: `${severity} finding`,
+      rationale: 'r',
+      confidence: 0.9,
+    });
+    await db.insert(t.findings).values([
+      finding(older!.id, 'CRITICAL'), // previous review → not counted
+      finding(older!.id, 'CRITICAL'),
+      finding(latest!.id, 'CRITICAL'),
+      finding(latest!.id, 'SUGGESTION'),
+      finding(latest!.id, 'SUGGESTION'),
+    ]);
+    // Reviewed with a clean result → zeros, not null.
+    const [clean] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId: repo.id,
+        number: 484,
+        title: 'Clean',
+        author: 'deepak.r',
+        branch: 'feat/clean',
+        base: 'main',
+        headSha: 'eeee',
+        status: 'open',
+      })
+      .returning();
+    await db.insert(t.reviews).values({ workspaceId, prId: clean!.id, kind: 'review', score: 100 });
+    // Never reviewed → null.
+    const [bare] = await db
+      .insert(t.pullRequests)
+      .values({
+        workspaceId,
+        repoId: repo.id,
+        number: 485,
+        title: 'Unreviewed',
+        author: 'deepak.r',
+        branch: 'feat/y',
+        base: 'main',
+        headSha: 'dddd',
+        status: 'open',
+      })
+      .returning();
+
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const byId = new Map(list.map((p: { id: string }) => [p.id, p]));
+    expect(byId.get(pr.id)).toMatchObject({
+      score: 70,
+      findings_count: { critical: 1, warning: 0, suggestion: 2 },
+    });
+    expect(byId.get(clean!.id)).toMatchObject({
+      findings_count: { critical: 0, warning: 0, suggestion: 0 },
+    });
+    expect(byId.get(bare!.id)).toMatchObject({ findings_count: null });
+
+    await app.close();
+  });
+
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
     const app = await appWith(REVIEW_FIXTURE, 'anthropic');
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);

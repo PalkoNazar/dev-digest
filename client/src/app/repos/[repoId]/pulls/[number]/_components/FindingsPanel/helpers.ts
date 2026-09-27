@@ -8,6 +8,13 @@ export function countBySeverity(findings: FindingRecord[]): Record<Severity, num
   return counts;
 }
 
+/** Most severe first (CRITICAL → WARNING → SUGGESTION); stable within a level. */
+export function sortBySeverity(findings: FindingRecord[]): FindingRecord[] {
+  return [...findings].sort(
+    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
+  );
+}
+
 /** Optionally keep one severity, drop low-confidence findings, sort by severity. */
 export function visibleFindings(
   findings: FindingRecord[],
@@ -17,7 +24,5 @@ export function visibleFindings(
   let shown = findings;
   if (severity) shown = shown.filter((f) => f.severity === severity);
   if (hideLow) shown = shown.filter((f) => f.confidence >= LOW_CONFIDENCE_THRESHOLD);
-  return [...shown].sort(
-    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
-  );
+  return sortBySeverity(shown);
 }

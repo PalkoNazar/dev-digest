@@ -22,6 +22,12 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## Codebase Patterns
 
+### 2026-09-27 — PR-list popovers must portal out of the table card
+Render hover cards from a PR row via `createPortal(…, document.body)` with `position: fixed` coords.
+Why: `s.tableCard` has `overflow: hidden` (rounded corners) and clips anything absolutely positioned
+below the last rows. React events still bubble through the portal to `PRRow`'s onClick (navigates).
+Evidence: `src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.tsx`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
@@ -34,5 +40,6 @@ Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
 ## Session Notes
 
 2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
+2026-09-27 — PR-list FINDINGS column + hover card: 1 entry (portal out of the table card).
 
 ## Open Questions
