@@ -1,0 +1,11 @@
+#!/bin/sh
+# pr-self-review gate: a push needs a fresh PASS verdict from /pr-self-review.
+# Enable once per clone: git config core.hooksPath .githooks
+# Bypass (logged):       SKIP_SELF_REVIEW=1 git push
+root="$(git rev-parse --show-toplevel)" || exit 1
+script="$root/.claude/skills/pr-self-review/scripts/check-verdict.mjs"
+if [ ! -f "$script" ]; then
+  # A branch created before the skill existed: nothing to enforce.
+  exit 0
+fi
+exec node "$script" "$@"
