@@ -27,7 +27,7 @@ describe("SkillStatsTab", () => {
       window_days: 30,
       agents: [
         { id: "a1", name: "Test Quality Reviewer", link_enabled: true, agent_enabled: true },
-        { id: "a2", name: "API Contract Reviewer", link_enabled: false, agent_enabled: true },
+        { id: "a2", name: "Security Reviewer", link_enabled: false, agent_enabled: true },
       ],
       runs_total: 7,
       runs_with_skill: 5,

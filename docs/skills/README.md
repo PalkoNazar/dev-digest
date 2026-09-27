@@ -1,6 +1,6 @@
 # Skills for the L02 agents
 
-Reusable review instructions for the two agents added in L02. A skill is **text +
+Reusable review instructions for the Test Quality Reviewer added in L02. A skill is **text +
 config only** (name, directive description, type, markdown body) — see
 `specs/L02-skills.md`. These files are sources to bring into DevDigest through the UI;
 the DB is the source of truth once a skill is saved.
@@ -11,10 +11,8 @@ the DB is the source of truth once a skill is saved.
 | `corner-cases` | rubric | Test Quality Reviewer | **Create** |
 | `mocking-discipline` | convention | Test Quality Reviewer | **Import** `.md` — Add skill → Import → `mocking-discipline/SKILL.md` |
 | `flaky-test-hunter` | rubric | Test Quality Reviewer | **Import** `.zip` — `flaky-test-hunter.zip` (shows ignored `scripts/`, `references/`) |
-| `route-breaking-change` | rubric | API Contract Reviewer | **Create** |
-| `shared-contract-sync` | convention | API Contract Reviewer | **Import** `.md` |
 
-Then open **Agents → <agent> → Skills**, attach the skills, keep them ticked and order
+Then open **Agents → Test Quality Reviewer → Skills**, attach the skills, keep them ticked and order
 them (earlier = earlier in the prompt). Imported skills are saved **disabled**: read the
 body, then enable it on the Skills page.
 
@@ -40,5 +38,4 @@ cd docs/skills && rm -f flaky-test-hunter.zip && zip -r flaky-test-hunter.zip fl
 
 The description is the skill's interface — it is rendered right under the skill's name
 in the prompt, so write it as a **directive**: *when* it applies and *what* the agent
-must do. "When a diff changes an HTTP route, report every breaking change as CRITICAL"
-beats "API breaking changes".
+must do. "When a diff adds a branch, flag it if no test exercises it" beats "branch coverage".

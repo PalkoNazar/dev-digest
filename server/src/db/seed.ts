@@ -7,7 +7,6 @@ import {
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
   TEST_QUALITY_REVIEWER_PROMPT,
-  API_CONTRACT_REVIEWER_PROMPT,
 } from './seed-prompts.js';
 
 /** Default provider/model for the built-in reviewer agents. */
@@ -213,7 +212,7 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       version: 1,
       createdBy: userId,
     },
-    // L02 — lean prompts on purpose: the detailed rubrics are skills
+    // L02 — lean prompt on purpose: the detailed rubric lives in skills
     // (docs/skills/), created/imported in the UI and linked per agent.
     {
       workspaceId,
@@ -222,17 +221,6 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       provider: DEFAULT_PROVIDER,
       model: DEFAULT_MODEL,
       systemPrompt: TEST_QUALITY_REVIEWER_PROMPT,
-      enabled: true,
-      version: 1,
-      createdBy: userId,
-    },
-    {
-      workspaceId,
-      name: 'API Contract Reviewer',
-      description: 'Guards the HTTP API contract: breaking route changes, schema drift, status codes.',
-      provider: DEFAULT_PROVIDER,
-      model: DEFAULT_MODEL,
-      systemPrompt: API_CONTRACT_REVIEWER_PROMPT,
       enabled: true,
       version: 1,
       createdBy: userId,
