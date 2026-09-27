@@ -147,6 +147,36 @@ export const SkillVersion = z.object({
 });
 export type SkillVersion = z.infer<typeof SkillVersion>;
 
+/**
+ * GET /skills/:id/stats — usage over the last `window_days`, from real runs:
+ * a run "pulled" the skill when it is in that run's trace `skills_used`.
+ * Finding numbers are for runs that had the skill in the prompt (attribution,
+ * not proof the skill caused the finding). Rates are 0..1, null without data.
+ */
+export const SkillStats = z.object({
+  window_days: z.number().int(),
+  agents: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      /** Per-agent link switch. */
+      link_enabled: z.boolean(),
+      agent_enabled: z.boolean(),
+    }),
+  ),
+  /** Finished runs of the agents the skill is attached to. */
+  runs_total: z.number().int(),
+  /** …of which had this skill in the prompt. */
+  runs_with_skill: z.number().int(),
+  pull_rate: z.number().nullable(),
+  findings: z.number().int(),
+  accepted: z.number().int(),
+  dismissed: z.number().int(),
+  accept_rate: z.number().nullable(),
+  by_category: z.array(z.object({ category: z.string(), count: z.number().int() })),
+});
+export type SkillStats = z.infer<typeof SkillStats>;
+
 // A skill name is its handle in prompts and exports: a kebab-case slug.
 export const SkillName = z
   .string()

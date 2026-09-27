@@ -2,11 +2,13 @@ import type {
   Skill,
   SkillCreate,
   SkillImportPreview,
+  SkillStats,
   SkillUpdate,
   SkillVersion,
 } from '@devdigest/shared';
 import { ConflictError, NotFoundError } from '../../platform/errors.js';
-import { buildImportPreview } from './helpers.js';
+import { STATS_WINDOW_DAYS } from './constants.js';
+import { buildImportPreview, toSkillStats } from './helpers.js';
 import type { SkillsDeps } from './ports.js';
 
 /**
@@ -63,6 +65,14 @@ export class SkillsService {
   async versions(workspaceId: string, id: string): Promise<SkillVersion[]> {
     await this.get(workspaceId, id);
     return this.deps.repo.listVersions(id);
+  }
+
+  /** Stats tab: agents using the skill, pull frequency and finding outcomes. */
+  async stats(workspaceId: string, id: string, now = new Date()): Promise<SkillStats> {
+    await this.get(workspaceId, id);
+    const since = new Date(now.getTime() - STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const counts = await this.deps.repo.usage(workspaceId, id, since);
+    return toSkillStats(counts, STATS_WINDOW_DAYS);
   }
 
   async delete(workspaceId: string, id: string): Promise<void> {

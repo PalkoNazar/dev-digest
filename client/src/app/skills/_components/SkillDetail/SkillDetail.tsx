@@ -12,6 +12,7 @@ import { useDeleteSkill, useSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
 import { SkillEditor } from "../SkillEditor";
+import { SkillStatsTab } from "../SkillStatsTab";
 import { SkillVersions } from "../SkillVersions";
 import { DETAIL_TABS } from "./constants";
 import { s } from "./styles";
@@ -101,6 +102,7 @@ export function SkillDetail({ id, tab }: { id: string; tab: string }) {
             </div>
           </div>
         )}
+        {active === "stats" && <SkillStatsTab skillId={skill.id} />}
         {active === "versions" && <SkillVersions skill={skill} />}
       </div>
     </>

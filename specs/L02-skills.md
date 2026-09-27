@@ -29,7 +29,7 @@ Nothing in a skill is ever run; an imported archive contributes only its markdow
 - Out:
   - Import from URL, community catalog, convention extraction (`imported_url`,
     `community`, `extracted` sources stay unused).
-  - Skill evals, stats, CI export of skills, skill version history UI.
+  - Skill evals, full skill stats (see Open questions), CI export of skills.
   - Sanitizing / wrapping skill bodies as untrusted: a skill is *meant* to be
     instructions. Trust is the user's decision at import time (see Trust).
 
@@ -58,7 +58,7 @@ and the blocks are joined in order into reviewer-core's existing `## Skills / ru
 section (`assemblePrompt` unchanged; `INJECTION_GUARD` and grounding untouched).
 
 ### Contracts (`@devdigest/shared`, both copies)
-- `SkillSource` += `imported_file`; `Skill` += `agent_count?`; new `SkillVersion`.
+- `SkillSource` += `imported_file`; `Skill` += `agent_count?`; new `SkillVersion`, `SkillStats`.
 - `AgentSkillLink` += `enabled: boolean`.
 - `Agent` += `skill_count?: number | null` (enabled links; list/detail endpoints).
 - `SkillImportPreview` `{ name, description, type, body, source_file, ignored_files[], warnings[] }`.
@@ -74,6 +74,7 @@ section (`assemblePrompt` unchanged; `INJECTION_GUARD` and grounding untouched).
 | PUT | `/skills/:id` | update (any field; body change bumps version) |
 | DELETE | `/skills/:id` | delete (links cascade) |
 | GET | `/skills/:id/versions` | body history, newest first |
+| GET | `/skills/:id/stats` | 30-day usage: agents, pull rate, finding count / accept rate / by category |
 | POST | `/skills/import/preview` | `{filename, content_base64}` → `SkillImportPreview`, **nothing stored** |
 | GET | `/agents/:id/skills` | links `{skill_id, order, enabled}` (exists; + enabled) |
 | POST | `/agents/:id/skills` | + `links: [{skill_id, enabled}]` = replace whole ordered set |
@@ -107,7 +108,10 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
   **Config** (name, directive description with hint, type, body editor with
   `name.md · unsaved · ≈N tokens` and write/preview, enabled, save/delete),
   **Preview** (rendered description + body, trust notice for imports),
-  **Versions** (body history, current marked). Evals/Stats tabs come with later lessons.
+  **Stats** (partial: used by, pull frequency = runs of attached agents whose trace
+  `skills_used` has the skill, accept rate + findings (30d) + by category for findings of
+  those runs — correlation, not causation; agents list with Open),
+  **Versions** (body history, current marked). Evals tab comes with a later lesson.
 - `/agents/:id?tab=skills`: ordered linked skills (checkbox = enabled for this agent,
   drag or ↑/↓ to reorder, remove), "Attach skill" picker, "N of M enabled".
 - Run trace drawer → Prompt assembly → Skills block shows `+N tok`.
@@ -127,4 +131,6 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
       both shared copies updated.
 
 ## Open questions
+- Stats (partial, to finish later): per-card "71% pull · 74% accept" on the list, trends
+  over time, and whether accept rate should credit only findings the skill plausibly caused.
 - Skill version history UI and "pin agent to skill version" are left for later lessons.

@@ -1,9 +1,9 @@
-import { and, asc, count, desc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
 import { INITIAL_SKILL_VERSION } from './constants.js';
-import type { NewSkill, SkillPatch, SkillsRepo } from './ports.js';
+import type { NewSkill, SkillPatch, SkillsRepo, SkillUsageCounts } from './ports.js';
 
 /**
  * L02 — skills data-access. Owns `skills` + `skill_versions`; the agent side of
@@ -64,6 +64,71 @@ export class SkillsRepository implements SkillsRepo {
       body: r.body,
       created_at: r.createdAt.toISOString(),
     }));
+  }
+
+  async usage(workspaceId: string, skillId: string, since: Date): Promise<SkillUsageCounts> {
+    const agents = await this.db
+      .select({
+        id: t.agents.id,
+        name: t.agents.name,
+        link_enabled: t.agentSkills.enabled,
+        agent_enabled: t.agents.enabled,
+      })
+      .from(t.agentSkills)
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .where(and(eq(t.agentSkills.skillId, skillId), eq(t.agents.workspaceId, workspaceId)))
+      .orderBy(asc(t.agentSkills.order), asc(t.agents.name));
+
+    // Finished runs in the window, and whether each one had this skill in its prompt
+    // (the run trace records `skills_used: [{ id, name, version }]`).
+    const pulled = sql<boolean>`coalesce(${t.runTraces.trace} -> 'skills_used' @> ${JSON.stringify([
+      { id: skillId },
+    ])}::jsonb, false)`;
+    const runs = await this.db
+      .select({ id: t.agentRuns.id, agentId: t.agentRuns.agentId, pulled })
+      .from(t.agentRuns)
+      .leftJoin(t.runTraces, eq(t.runTraces.runId, t.agentRuns.id))
+      .where(
+        and(
+          eq(t.agentRuns.workspaceId, workspaceId),
+          eq(t.agentRuns.status, 'done'),
+          gte(t.agentRuns.ranAt, since),
+        ),
+      );
+    const linked = new Set(agents.map((a) => a.id));
+    const ofLinked = runs.filter((r) => r.agentId !== null && linked.has(r.agentId));
+    const withSkill = runs.filter((r) => r.pulled).map((r) => r.id);
+
+    const byCategory =
+      withSkill.length === 0
+        ? []
+        : await this.db
+            .select({
+              category: t.findings.category,
+              count: count(),
+              accepted: count(t.findings.acceptedAt),
+              dismissed: count(t.findings.dismissedAt),
+            })
+            .from(t.findings)
+            .innerJoin(t.reviews, eq(t.findings.reviewId, t.reviews.id))
+            .where(
+              and(
+                eq(t.reviews.workspaceId, workspaceId),
+                isNotNull(t.reviews.runId),
+                inArray(t.reviews.runId, withSkill),
+              ),
+            )
+            .groupBy(t.findings.category);
+
+    return {
+      agents,
+      runsTotal: ofLinked.length,
+      runsWithSkill: ofLinked.filter((r) => r.pulled).length,
+      findings: byCategory.reduce((n, c) => n + c.count, 0),
+      accepted: byCategory.reduce((n, c) => n + c.accepted, 0),
+      dismissed: byCategory.reduce((n, c) => n + c.dismissed, 0),
+      byCategory: byCategory.map((c) => ({ category: c.category, count: c.count })),
+    };
   }
 
   async findByName(workspaceId: string, name: string): Promise<Skill | null> {

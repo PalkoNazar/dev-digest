@@ -96,7 +96,8 @@
     "tabs": {
       "config": "Config",
       "preview": "Preview",
-      "versions": "Versions"
+      "versions": "Versions",
+      "stats": "Stats"
     },
     "needsVetting": "needs vetting",
     "needsVettingTitle": "Imported and not enabled yet — read the body before enabling it.",
@@ -116,5 +117,25 @@
     "importedNotice": "Imported from a file: these are someone else’s instructions inside your agents’ prompts. Read the body before enabling it.",
     "deleteConfirm": "Delete skill “{name}”? It is detached from every agent. This cannot be undone.",
     "deleted": "Deleted “{name}”."
+  },
+  "stats": {
+    "usedBy": "USED BY",
+    "agentsUnit": "{count, plural, one {agent} other {agents}}",
+    "pullFrequency": "PULL FREQUENCY",
+    "pullHint": "{pulled} of {total} runs of these agents had the skill in the prompt",
+    "acceptRate": "ACCEPT RATE",
+    "acceptHint": "{accepted} accepted · {dismissed} dismissed",
+    "findings": "FINDINGS ({days}D)",
+    "findingsHint": "in runs that used this skill",
+    "noData": "—",
+    "agentsTitle": "AGENTS USING THIS SKILL",
+    "noAgents": "Not attached to any agent yet.",
+    "open": "Open",
+    "offForAgent": "off for this agent",
+    "agentDisabled": "agent disabled",
+    "byCategoryTitle": "FINDINGS BY CATEGORY",
+    "noFindings": "No findings in runs with this skill yet.",
+    "footnote": "Last {days} days, from recorded runs. Findings are counted for runs whose prompt contained this skill — correlation, not proof the skill caused them.",
+    "loadError": "Could not load the stats."
   }
 }

@@ -6,6 +6,7 @@ import {
   toSkillName,
 } from '../src/modules/skills/helpers.js';
 import { listZipEntries } from '../src/modules/skills/archive.js';
+import { rate, toSkillStats } from '../src/modules/skills/helpers.js';
 import { ValidationError } from '../src/platform/errors.js';
 import { makeZip } from './helpers/zip.js';
 
@@ -147,5 +148,29 @@ describe('buildImportPreview — zip archive', () => {
       10,
     );
     expect(pickCoreEntry(entries)?.name).toBe('a/SKILL.md');
+  });
+});
+
+describe('skill stats helpers', () => {
+  it('rate is null without data, not 0%', () => {
+    expect(rate(0, 0)).toBeNull();
+    expect(rate(1, 4)).toBe(0.25);
+  });
+
+  it('accept rate ignores findings nobody has acted on yet', () => {
+    const stats = toSkillStats(
+      {
+        agents: [],
+        runsTotal: 0,
+        runsWithSkill: 0,
+        findings: 10,
+        accepted: 2,
+        dismissed: 0,
+        byCategory: [],
+      },
+      30,
+    );
+    expect(stats.pull_rate).toBeNull();
+    expect(stats.accept_rate).toBe(1);
   });
 });

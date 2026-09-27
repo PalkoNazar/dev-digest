@@ -19,6 +19,17 @@ export interface SkillPatch {
   enabled?: boolean;
 }
 
+/** Raw usage counts for a skill since a date (rates are derived in helpers). */
+export interface SkillUsageCounts {
+  agents: { id: string; name: string; link_enabled: boolean; agent_enabled: boolean }[];
+  runsTotal: number;
+  runsWithSkill: number;
+  findings: number;
+  accepted: number;
+  dismissed: number;
+  byCategory: { category: string; count: number }[];
+}
+
 export interface SkillsRepo {
   list(workspaceId: string): Promise<Skill[]>;
   get(workspaceId: string, id: string): Promise<Skill | null>;
@@ -32,6 +43,8 @@ export interface SkillsRepo {
   update(workspaceId: string, id: string, patch: SkillPatch, bumpTo?: number): Promise<Skill | null>;
   /** Body versions of a skill, newest first (caller checks the workspace). */
   listVersions(skillId: string): Promise<SkillVersion[]>;
+  /** Usage of a skill since `since` (caller checks the skill is in the workspace). */
+  usage(workspaceId: string, skillId: string, since: Date): Promise<SkillUsageCounts>;
   /** Delete the skill; its versions and agent links cascade. */
   delete(workspaceId: string, id: string): Promise<boolean>;
 }
