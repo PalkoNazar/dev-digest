@@ -1,5 +1,5 @@
 # Skills — reusable review instructions for agents
-Status: in-progress · Lesson: L02 · Packages: server, client, reviewer-core (read-only), docs
+Status: done (manual checks pending) · Lesson: L02 · Packages: server, client, reviewer-core (read-only), docs
 
 ## Goal
 A **skill** is a named, reusable block of review instructions (markdown text + a little

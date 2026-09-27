@@ -18,7 +18,7 @@ Reusable AI skills that provide specialized knowledge and workflows. Canonical l
 | [typescript-expert](typescript-expert/SKILL.md) | Full-stack | Type-level programming, performance, tooling, migrations |
 | [security](security/SKILL.md) | Full-stack | OWASP Top 10:2025, auth, injection, uploads, secrets |
 | [mermaid-diagram](mermaid-diagram/SKILL.md) | Shared | Mermaid diagrams in markdown (flowcharts, sequence, ERD, …) |
-| [pr-self-review](pr-self-review/SKILL.md) | Shared | Pre-push review of the branch diff: routes files to skills, hard checks, subagent reviewers; a critical blocks `git push` (v1.0.0) |
+| [pr-self-review](pr-self-review/SKILL.md) | Shared | Pre-push review of the branch diff: routes files to skills, hard checks, subagent reviewers; a critical blocks `git push`; manual only — `/pr-self-review` (v1.0.1) |
 | [engineering-insights](engineering-insights/SKILL.md) | Shared | Captures module insights into `INSIGHTS.md` (append-only, wrap-up + as you go) |
 
 ## What Are Skills?

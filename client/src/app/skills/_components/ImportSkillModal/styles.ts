@@ -1,0 +1,57 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for ImportSkillModal. */
+export const s = {
+  footer: { display: "flex", alignItems: "center", width: "100%" } satisfies CSSProperties,
+  footerRight: { marginLeft: "auto", display: "flex", gap: 8 } satisfies CSSProperties,
+  error: {
+    marginBottom: 16,
+    padding: "10px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--crit)",
+    background: "var(--crit-bg)",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  review: { display: "flex", flexDirection: "column", gap: 14 } satisfies CSSProperties,
+  trust: {
+    display: "flex",
+    gap: 10,
+    padding: "12px 14px",
+    borderRadius: 7,
+    border: "1px solid var(--warn)",
+    background: "var(--warn-bg)",
+    fontSize: 13,
+    lineHeight: 1.45,
+  } satisfies CSSProperties,
+  trustIcon: { color: "var(--warn)", flexShrink: 0, marginTop: 2 } satisfies CSSProperties,
+  trustTitle: { fontWeight: 650, marginBottom: 2 } satisfies CSSProperties,
+  sourceRow: { display: "flex", gap: 10, fontSize: 13 } satisfies CSSProperties,
+  muted: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  warnings: {
+    padding: "10px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  list: { margin: "4px 0 0 18px", lineHeight: 1.5 } satisfies CSSProperties,
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    color: "var(--text-muted)",
+    marginBottom: 6,
+  } satisfies CSSProperties,
+  row: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } satisfies CSSProperties,
+  body: {
+    maxHeight: 280,
+    overflow: "auto",
+    fontSize: 13,
+    padding: "12px 14px",
+    borderRadius: 7,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
+  ignored: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 } satisfies CSSProperties,
+} as const;

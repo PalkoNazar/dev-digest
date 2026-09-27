@@ -1,7 +1,7 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count} skills"
+    "skillCount": "{count, plural, one {# skill} other {# skills}}"
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
@@ -89,9 +89,24 @@
   },
   "skills": {
     "title": "Skills",
-    "enabledCount": "{linked} of {total} enabled",
+    "enabledCount": "{enabled} of {total} enabled",
+    "hint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag or use the arrows to reorder.",
     "filterPlaceholder": "Filter skills…",
-    "orderHint": "Order matters — earlier skills appear earlier in the assembled prompt. Toggle to attach."
+    "attach": "Attach skill",
+    "attachEmpty": "All skills are attached",
+    "manage": "Manage skills",
+    "empty": "No skills attached. Attach one to add its rules to this agent’s prompt.",
+    "noSkills": "No skills in this workspace yet.",
+    "createFirst": "Create a skill",
+    "noMatch": "No attached skill matches “{query}”.",
+    "enableFor": "Enable “{name}” for this agent",
+    "moveUp": "Move “{name}” up",
+    "moveDown": "Move “{name}” down",
+    "detach": "Detach “{name}”",
+    "dragHandle": "Drag to reorder “{name}”",
+    "disabledGlobally": "disabled globally",
+    "disabledGloballyTitle": "This skill is switched off on the Skills page, so no agent gets it.",
+    "loadError": "Could not load this agent’s skills."
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."

@@ -1,8 +1,11 @@
 ---
 name: pr-self-review
 description: "Local pre-PR self-review of the current branch in DevDigest: collects every open change (commits vs origin/main + staged + unstaged + untracked), routes each changed file to the matching project skills (UI skills on client files, onion/Fastify/Drizzle on backend files, security/zod everywhere), runs deterministic checks (Do-not-touch rules, secrets, shared-contract drift, typecheck/tests/arch:check), reviews the diff with one subagent per skill group, and writes a PASS/BLOCK verdict that the git pre-push hook enforces — any critical finding blocks the push. Use before every git push / opening a PR, when the pre-push hook says 'run /pr-self-review', or when the user says 'self-review', 'review my changes', 'check before PR', 'перевір зміни перед PR', or /pr-self-review."
+# Manual only: the user runs /pr-self-review (or the pre-push hook asks for it);
+# Claude never starts this long, multi-agent review on its own.
+disable-model-invocation: true
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   updated: 2026-09-27
   scope: whole repo (local changes of the current branch)
 ---
