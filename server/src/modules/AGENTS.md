@@ -7,8 +7,9 @@ One folder = one Fastify plugin = one feature.
    (`appBase.withTypeProvider<ZodTypeProvider>()`).
 2. Register it with ONE import + ONE entry in `index.ts` (this folder)
    (static on purpose — no autoload; dynamic import of .ts is not portable).
-3. Typical split: `routes.ts` → `service.ts` → `repository.ts`, plus `helpers.ts`
-   (pure, unit-testable) and `constants.ts`.
+3. Split: `routes.ts` (edge + wiring) → `service.ts` (takes a `…Deps` from `ports.ts`,
+   never `Container`) → `repository.ts` (implements the port), plus `helpers.ts` (pure)
+   and `constants.ts`. Full rules: skill `onion-architecture`; `pnpm arch:check`.
 
 ## Rules
 - Start every handler with `getContext(container, req)` (`_shared/context.ts`) and

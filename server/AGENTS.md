@@ -8,6 +8,8 @@ runs reviews through `@devdigest/reviewer-core`.
 - `pnpm db:migrate` · `pnpm db:seed` (idempotent) · `pnpm db:generate` (after schema edits)
 - Unit (no Docker): `pnpm exec vitest run --exclude '**/*.it.test.ts'`
 - Integration (Docker, testcontainers): `pnpm exec vitest run .it.test`
+- Architecture: `pnpm arch:check` (dependency-cruiser, onion rules) · `pnpm arch:baseline`
+  only after FIXING violations — the known-violations file may only shrink
 
 ## Layout
 - `src/app.ts` — builds the app: plugins first, then `src/modules/index.ts`
@@ -20,6 +22,8 @@ runs reviews through `@devdigest/reviewer-core`.
 - `test/` — all tests (flat, not colocated); `test/helpers/` — pg testcontainer, app builders
 
 ## Conventions
+- Onion architecture (skill `onion-architecture`): imports point inward only; Drizzle only
+  in `repository*`, SDKs only in `adapters/`, `Container` only in `routes.ts`/composition root.
 - Imports use `.js` suffix on relative paths (ESM, `moduleResolution: Bundler`).
 - Throw `AppError` / `NotFoundError` / `ConfigError` (`src/platform/errors.ts`); the global
   handler turns them into `{ error: { code, message, details } }`. Validation → 422.
