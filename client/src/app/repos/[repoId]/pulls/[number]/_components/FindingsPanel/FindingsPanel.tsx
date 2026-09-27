@@ -1,15 +1,16 @@
-/* FindingsPanel — hide-low-confidence + j/k navigation + FindingCard list,
+/* FindingsPanel — severity count chips (click = show only that level, click
+   again = all) + hide-low-confidence + j/k navigation + FindingCard list,
    wiring the accept/dismiss action hook (A2). */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Toggle, EmptyState } from "@devdigest/ui";
-import type { FindingRecord } from "@devdigest/shared";
+import { Chip, Toggle, EmptyState, SEV } from "@devdigest/ui";
+import type { FindingRecord, Severity } from "@devdigest/shared";
 import { FindingCard } from "../FindingCard";
 import { useFindingAction } from "../../../../../../../lib/hooks/reviews";
-import { KEY_TO_ACTION } from "./constants";
-import { visibleFindings } from "./helpers";
+import { KEY_TO_ACTION, SEVERITY_LEVELS } from "./constants";
+import { countBySeverity, visibleFindings } from "./helpers";
 import { s } from "./styles";
 
 export function FindingsPanel({
@@ -26,9 +27,18 @@ export function FindingsPanel({
   const t = useTranslations("prReview");
   const action = useFindingAction();
   const [hideLow, setHideLow] = React.useState(false);
+  const [sevFilter, setSevFilter] = React.useState<Severity | null>(null);
   const [focusIdx, setFocusIdx] = React.useState(0);
 
-  const shown = React.useMemo(() => visibleFindings(findings, hideLow), [findings, hideLow]);
+  // Counts cover the whole run — they don't shrink with the active filters.
+  const counts = React.useMemo(() => countBySeverity(findings), [findings]);
+  const shown = React.useMemo(
+    () => visibleFindings(findings, hideLow, sevFilter),
+    [findings, hideLow, sevFilter],
+  );
+
+  // A filter change reshuffles the list — keep a/d off a card that's now hidden.
+  React.useEffect(() => setFocusIdx(0), [sevFilter, hideLow]);
 
   // j/k navigation + a/d shortcuts on the focused finding (keyboard).
   React.useEffect(() => {
@@ -48,6 +58,19 @@ export function FindingsPanel({
   return (
     <div>
       <div style={s.toolbar}>
+        {SEVERITY_LEVELS.map((sv) => (
+          <Chip
+            key={sv}
+            icon={SEV[sv].icon}
+            color={SEV[sv].c}
+            count={counts[sv]}
+            active={sevFilter === sv}
+            onClick={() => setSevFilter((cur) => (cur === sv ? null : sv))}
+          >
+            {t(`panel.severity.${sv}`)}
+          </Chip>
+        ))}
+        <div style={s.divider} />
         <div style={s.toggleGroup}>
           {t("panel.hideLowConfidence")}
           <Toggle on={hideLow} onChange={setHideLow} size={16} />
