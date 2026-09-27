@@ -1,5 +1,5 @@
 import { buildApp } from './app.js';
-import { loadConfig } from './platform/config.js';
+import { isLoopbackHost, loadConfig } from './platform/config.js';
 
 /** Production/dev entrypoint. `pnpm dev` runs `tsx watch src/server.ts`. */
 async function main() {
@@ -26,8 +26,14 @@ async function main() {
   }
 
   try {
-    await app.listen({ port: config.apiPort, host: '0.0.0.0' });
-    app.log.info(`DevDigest API listening on http://localhost:${config.apiPort}`);
+    await app.listen({ port: config.apiPort, host: config.host });
+    app.log.info(`DevDigest API listening on http://${config.host}:${config.apiPort}`);
+    if (!isLoopbackHost(config.host)) {
+      app.log.warn(
+        { host: config.host },
+        'API is reachable from other machines and has NO authentication — anyone on this network can change keys and run reviews. Set HOST=localhost unless the network is trusted.',
+      );
+    }
   } catch (err) {
     app.log.error(err);
     process.exit(1);

@@ -26,6 +26,11 @@ const EnvSchema = z.object({
   // Note: even when on, sections only populate once the repo is indexed; an
   // unindexed repo degrades gracefully. Per-agent override: agents.repo_intel.
   REPO_INTEL_ENABLED: z.string().optional(),
+  // Interface the API binds to. Default loopback only: there is no auth
+  // (LocalNoAuthProvider), so anything reachable on the LAN could replace keys,
+  // spend LLM credits and post to GitHub. `localhost` binds every loopback
+  // address (127.0.0.1 and ::1). Set 0.0.0.0 only on a trusted network.
+  HOST: z.preprocess((v) => (v === '' ? undefined : v), z.string().default('localhost')),
   API_PORT: z.coerce.number().int().default(3001),
   WEB_PORT: z.coerce.number().int().default(3000),
   DEVDIGEST_CLONE_DIR: z.string().optional(),
@@ -40,6 +45,8 @@ const EnvSchema = z.object({
 
 export type AppConfig = {
   databaseUrl: string;
+  /** Interface the API listens on (`localhost` = loopback only). */
+  host: string;
   apiPort: number;
   webPort: number;
   /** Absolute path where repos are cloned (~/.devdigest/workspace by default). */
@@ -68,6 +75,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const cloneDir = isAbsolute(cloneDirRaw) ? cloneDirRaw : resolve(process.cwd(), cloneDirRaw);
   return {
     databaseUrl: parsed.DATABASE_URL,
+    host: parsed.HOST,
     apiPort: parsed.API_PORT,
     webPort: parsed.WEB_PORT,
     cloneDir,
@@ -78,4 +86,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     embeddingsEnabled: parsed.EMBEDDINGS_ENABLED === 'true',
     repoIntelEnabled: parsed.REPO_INTEL_ENABLED !== 'false',
   };
+}
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+/** Whether `host` keeps the API reachable from this machine only. */
+export function isLoopbackHost(host: string): boolean {
+  return LOOPBACK_HOSTS.has(host.toLowerCase());
 }
