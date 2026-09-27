@@ -25,6 +25,27 @@ const DIFF = `diff --git a/src/discount.ts b/src/discount.ts
 
 const EMPTY_REVIEW: Review = { verdict: 'approve', summary: 'ok', score: 100, findings: [] };
 
+/** One grounded finding on the added branch (new-side line 2 of DIFF). */
+const TEST_FINDING_REVIEW: Review = {
+  verdict: 'comment',
+  summary: 'Branch not tested.',
+  score: 88,
+  findings: [
+    {
+      id: 'f1',
+      severity: 'WARNING',
+      category: 'test',
+      title: 'The >100 discount branch has no test',
+      file: 'src/discount.ts',
+      start_line: 2,
+      end_line: 2,
+      rationale: 'No test reaches total > 100.',
+      confidence: 0.9,
+      kind: 'finding',
+    },
+  ],
+};
+
 /**
  * L02 skills — CRUD + versions, import preview (stores nothing), per-agent links
  * (enabled + order + agent version bump), and the review run: only skills that
@@ -174,7 +195,7 @@ d('L02 skills (Testcontainers pg)', () => {
   });
 
   it('a review run puts only enabled skills into the prompt and the trace', async () => {
-    const llm = new MockLLMProvider('openai', { structured: EMPTY_REVIEW });
+    const llm = new MockLLMProvider('openai', { structured: TEST_FINDING_REVIEW });
     const app = await makeApp(llm);
     const db = pg.handle.db;
 
@@ -247,6 +268,27 @@ d('L02 skills (Testcontainers pg)', () => {
     expect(trace.prompt_assembly.skills_tokens).toBeGreaterThan(0);
     expect(trace.skills_used).toEqual([{ id: on.id, name: 'branch-coverage', version: 1 }]);
     expect(trace.log.some((l: { msg: string }) => l.msg.startsWith('Skills: 1 attached (branch-coverage v1)'))).toBe(true);
+
+    // Stats: the run pulled `branch-coverage` (not the agent-disabled one); its
+    // finding counts for the skill, and accepting it moves the accept rate.
+    const reviews = (await app.inject({ method: 'GET', url: `/pulls/${pr!.id}/reviews` })).json();
+    await app.inject({ method: 'POST', url: `/findings/${reviews[0].findings[0].id}/accept` });
+    const stats = (await app.inject({ method: 'GET', url: `/skills/${on.id}/stats` })).json();
+    expect(stats).toMatchObject({
+      window_days: 30,
+      runs_total: 1,
+      runs_with_skill: 1,
+      pull_rate: 1,
+      findings: 1,
+      accepted: 1,
+      accept_rate: 1,
+      by_category: [{ category: 'test', count: 1 }],
+    });
+    expect(stats.agents).toEqual([
+      { id: agent.id, name: 'Test Quality', link_enabled: true, agent_enabled: true },
+    ]);
+    const off = (await app.inject({ method: 'GET', url: `/skills/${offForAgent.id}/stats` })).json();
+    expect(off).toMatchObject({ runs_total: 1, runs_with_skill: 0, pull_rate: 0, findings: 0, accept_rate: null });
     await app.close();
   });
 });

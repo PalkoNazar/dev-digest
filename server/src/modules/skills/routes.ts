@@ -14,6 +14,7 @@ import { SkillsRepository } from './repository.js';
  *   PUT    /skills/:id              → update; a body change bumps the version
  *   DELETE /skills/:id              → delete (agent links cascade)
  *   GET    /skills/:id/versions     → body history, newest first
+ *   GET    /skills/:id/stats        → usage: agents, pull rate, finding outcomes (30 days)
  *   POST   /skills/import/preview   → parse a .md/.zip upload; stores nothing
  * Linking skills to agents lives on the agent: /agents/:id/skills.
  */
@@ -50,6 +51,11 @@ export default async function skillsRoutes(appBase: FastifyInstance) {
   app.get('/skills/:id/versions', { schema: { params: IdParams } }, async (req) => {
     const { workspaceId } = await getContext(app.container, req);
     return service.versions(workspaceId, req.params.id);
+  });
+
+  app.get('/skills/:id/stats', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(app.container, req);
+    return service.stats(workspaceId, req.params.id);
   });
 
   app.delete('/skills/:id', { schema: { params: IdParams } }, async (req) => {

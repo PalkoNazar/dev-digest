@@ -10,5 +10,8 @@ export const IMPORT_MAX_FILE_BYTES = 1024 * 1024;
 export const IMPORT_MAX_ARCHIVE_ENTRIES = 200;
 export const IMPORT_MAX_CORE_BYTES = 200 * 1024;
 
+/** Window of the Stats tab (runs / findings of the last N days). */
+export const STATS_WINDOW_DAYS = 30;
+
 /** The file that holds a skill's core inside an archive (Claude-style skill folder). */
 export const SKILL_CORE_FILENAME = 'skill.md';

@@ -4,9 +4,11 @@ import {
   SkillName,
   SkillType,
   type SkillImportPreview,
+  type SkillStats,
 } from '@devdigest/shared';
 import { ValidationError } from '../../platform/errors.js';
 import { listZipEntries, readZipEntry, type ZipEntry } from './archive.js';
+import type { SkillUsageCounts } from './ports.js';
 import {
   IMPORT_MAX_ARCHIVE_ENTRIES,
   IMPORT_MAX_CORE_BYTES,
@@ -180,3 +182,23 @@ export function buildImportPreview(filename: string, bytes: Buffer): SkillImport
   };
 }
 
+/** part / whole, or null when there is nothing to divide (no data ≠ 0%). */
+export function rate(part: number, whole: number): number | null {
+  return whole > 0 ? part / whole : null;
+}
+
+/** Usage counts → the Stats tab contract. Accept rate = accepted / (accepted + dismissed). */
+export function toSkillStats(counts: SkillUsageCounts, windowDays: number): SkillStats {
+  return {
+    window_days: windowDays,
+    agents: counts.agents,
+    runs_total: counts.runsTotal,
+    runs_with_skill: counts.runsWithSkill,
+    pull_rate: rate(counts.runsWithSkill, counts.runsTotal),
+    findings: counts.findings,
+    accepted: counts.accepted,
+    dismissed: counts.dismissed,
+    accept_rate: rate(counts.accepted, counts.accepted + counts.dismissed),
+    by_category: [...counts.byCategory].sort((a, b) => b.count - a.count),
+  };
+}
