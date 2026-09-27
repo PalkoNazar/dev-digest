@@ -51,9 +51,14 @@ Why: reviewer-core has no `drizzle-orm` in its own `node_modules`, so the edge i
 dependency-cruiser's safe-regex check rejects nested quantifiers like `^src/modules/[^/]+/(.+/)?x`.
 Fix: use `.*` instead (`^src/modules/.*/x`), or a `{ path, pathNot }` pair.
 
+### 2026-09-27 — `pnpm arch:check` is already red on main (5 errors not in the baseline)
+Before blaming your change for an arch:check failure, check whether the `from` file is in your diff.
+Why: on origin/main `2925183`, `drizzle-only-in-repositories` fires for `modules/{workspace,settings,pulls,polling}/routes.ts` and `settings/feature-models.ts`, none of them in `.dependency-cruiser-known-violations.json`. Evidence: `cd server && pnpm arch:check` → "5 errors, 36 known violations ignored".
+
 ## Session Notes
 
 2026-09-27 — onion-architecture skill + dependency-cruiser rules (`pnpm arch:check`, 41-violation baseline): 4 entries.
 2026-09-27 — whole-project review → docs/improvement-plan.md: 1 entry (withTimeout doesn't cancel).
 
 ## Open Questions
+- 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.
