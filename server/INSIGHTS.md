@@ -15,3 +15,21 @@ in the container, so `container.invalidateSecretCaches()` must follow a write.
 ## 2026-09-27 — `src/prompts` is not copied by `build`
 `platform/prompts.ts` reads templates relative to itself; `tsc` doesn't copy `.md`,
 so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
+
+---
+<!-- engineering-insights: new entries go into the sections below. The rules above
+     ("Newest on top", top-level ## entries) apply only to the entries above this line. -->
+
+## What Works
+
+## What Doesn't Work
+
+## Codebase Patterns
+
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions

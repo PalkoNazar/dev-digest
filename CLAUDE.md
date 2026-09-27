@@ -54,5 +54,7 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.7 (strict, `noUncheckedIndexedAccess`) 
 ## Before you start
 - Architecture and diagrams: `README.md` · testing strategy: `TESTING.md`
 - Task is a course feature → read its spec in `specs/` or `<package>/specs/` first
-- Something behaves oddly → check the nearest `INSIGHTS.md` before debugging
-- Learned something non-obvious → append it to the nearest `INSIGHTS.md` (dated)
+- Before working in a package, read its `INSIGHTS.md` — treat it as high-confidence
+  guidance unless the user says otherwise
+- Confirmed something non-obvious, or finished a non-trivial task → run
+  `/engineering-insights` (append-only; do not skip this step)

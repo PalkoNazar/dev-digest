@@ -11,3 +11,21 @@ us, why something broke, what the code doesn't say. Newest on top.
 ## 2026-09-27 — aliases are declared twice
 `@/*`, `@devdigest/ui`, `@devdigest/shared` live in `tsconfig.json` AND
 `vitest.config.ts`; a new alias added to one only breaks tests or typecheck.
+
+---
+<!-- engineering-insights: new entries go into the sections below. The rules above
+     ("Newest on top", top-level ## entries) apply only to the entries above this line. -->
+
+## What Works
+
+## What Doesn't Work
+
+## Codebase Patterns
+
+## Tool & Library Notes
+
+## Recurring Errors & Fixes
+
+## Session Notes
+
+## Open Questions
