@@ -22,7 +22,15 @@ so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
 
 ## What Works
 
+### 2026-09-28 — live-check a server feature through `Container` in a script, not a 2nd API
+Do drive the service from a `tsx` script (`.mts`, absolute imports into `server/src`, `new Container(loadConfig(env), db)`) against the dev DB.
+Why: `buildApp` reaps every `running` agent_run on boot (`src/app.ts:81`), so a second API on another port would fail the reviews of the user's server on :3001. Evidence: the L02 conventions live scan.
+
 ## What Doesn't Work
+
+### 2026-09-28 — NEVER store or show a raw LLM provider error
+Pass provider error messages through `redactSecrets` (`src/platform/errors.ts`) before a DB write, log or UI.
+Why: OpenAI's 401 echoes the key ("Incorrect API key provided: sk-or-v1****…8443") — a conventions scan stored it in `convention_scans.error`.
 
 ### 2026-09-27 — listing "core" files by name leaves holes in dependency-cruiser rules
 NEVER define the module core as a filename allowlist (`service|helpers|…`); define it as `modules/**` minus `routes.ts` minus `repository*`.
@@ -45,7 +53,19 @@ Why: pnpm resolves to `node_modules/.pnpm/<pkg>/…/dist/index.js`, so the exclu
 Do write package rules so they also match unresolved bare imports.
 Why: reviewer-core has no `drizzle-orm` in its own `node_modules`, so the edge is `drizzle-orm` (unresolved), not `node_modules/drizzle-orm/`. Evidence: rule `reviewer-core-is-pure`.
 
+### 2026-09-28 — `@vscode/ripgrep` has no binary under pnpm 12 → `codeIndex.grep` runs in Node
+Expect `RipgrepCodeIndex.grep` to use the pure-Node fallback in dev: slow over a whole clone, and patterns run as JS `RegExp`.
+Why: the rg binary comes from a postinstall that pnpm skips (IGNORED_BUILDS); before 2026-09-28 `rgPath` pointed at the missing file and every grep rejected with ENOENT. Check: `ls server/node_modules/@vscode/ripgrep/bin`.
+
 ## Recurring Errors & Fixes
+
+### 2026-09-28 — `drizzle-kit generate` hangs on "created or renamed from another column?"
+Split a schema change that adds AND drops columns of one table into two generates: add (keep old columns) → generate → drop → generate.
+Why: the rename prompt is interactive; `< /dev/null` just stops at it. Evidence: migrations `0014_safe_vivisector.sql` (add) + `0015_wild_psylocke.sql` (drop).
+
+### 2026-09-28 — `pnpm arch:check` is green on main again
+Supersedes: "`pnpm arch:check` is already red on main (5 errors not in the baseline)" (2026-09-27)
+A red arch:check on a branch off `ee72f12` is your change. Evidence: only a new cycle (`settings/feature-models.ts` ↔ `platform/container.ts`) failed, then "no dependency violations found, 41 known".
 
 ### 2026-09-27 — "has an unsafe regular expression. Bailing out."
 dependency-cruiser's safe-regex check rejects nested quantifiers like `^src/modules/[^/]+/(.+/)?x`.
@@ -59,6 +79,7 @@ Why: on origin/main `2925183`, `drizzle-only-in-repositories` fires for `modules
 
 2026-09-27 — onion-architecture skill + dependency-cruiser rules (`pnpm arch:check`, 41-violation baseline): 4 entries.
 2026-09-27 — whole-project review → docs/improvement-plan.md: 1 entry (withTimeout doesn't cancel).
+2026-09-28 — L02 homework Conventions Extractor (server+client, worktree feat/l02-conventions-extractor): 5 entries (script live-check, provider error redaction, rg binary, drizzle-kit rename prompt, arch:check green).
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.
