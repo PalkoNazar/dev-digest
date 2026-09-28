@@ -68,7 +68,7 @@ async function walk(dir, acc) {
   for (const e of entries) {
     const full = join(dir, e.name);
     if (e.isDirectory()) { if (!ignore.has(e.name)) await walk(full, acc); }
-    else if (e.isFile() && !e.name.startsWith('.env')) {
+    else if (e.isFile() && !e.name.toLowerCase().startsWith('.env')) {
       const s = await stat(full).catch(() => null);
       if (s && s.size < 2000000) acc.push(full);
     }
@@ -123,7 +123,7 @@ export class RipgrepCodeIndex implements CodeIndex {
         '--no-heading',
         '--color=never',
         // never search env files, even when they are tracked
-        '--glob',
+        '--iglob',
         '!.env*',
         '-e',
         pattern,
