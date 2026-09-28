@@ -21,12 +21,14 @@ describe('RipgrepCodeIndex Node fallback', () => {
     await writeFile(join(root, 'src/a.ts'), "import x from 'y';\nthrow new NotFoundError('a');\n");
     await writeFile(join(root, 'node_modules/b.ts'), "throw new NotFoundError('b');\n");
     await writeFile(join(root, 'src/long.txt'), `${'a'.repeat(60)}b\n`);
+    await writeFile(join(root, '.env'), "SECRET=NotFoundError('env')\n");
+    await writeFile(join(root, 'src/.env.local.ts'), "throw new NotFoundError('env');\n");
   });
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it('finds matches with repo-relative paths and skips ignored dirs', async () => {
+  it('finds matches with repo-relative paths; skips ignored dirs and env files', async () => {
     expect(await index().grep(repo, 'NotFoundError\\(')).toEqual([
       { path: 'src/a.ts', line: 2, text: "throw new NotFoundError('a');" },
     ]);

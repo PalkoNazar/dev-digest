@@ -291,6 +291,25 @@ describe('ConventionsService.runScan', () => {
     expect(content.match(/<untrusted source="([^"]*)">/g)?.every((tag) => !tag.includes('/'))).toBe(true);
   });
 
+  it('never reads or sends env files, even when they are ranked', async () => {
+    const read: string[] = [];
+    const { service, llm } = build({
+      structured: { conventions: [] },
+      ranked: ['server/src/x/service.ts', 'server/.env.ts', 'server/.ENV.local.js'],
+      deps: {
+        readFile: async (_r, path) => {
+          read.push(path);
+          return path.endsWith('.ts') || path.endsWith('.js') ? SERVICE_TS : null;
+        },
+      },
+    });
+    const scan = await service.start(WS, REPO.id);
+    await service.runScan({ workspaceId: WS, repoId: REPO.id, scanId: scan.id });
+    expect(read.some((p) => /\.env/i.test(p))).toBe(false);
+    const content = (llm.calls.at(-1)!.req as { messages: { content: string }[] }).messages[1]!.content;
+    expect(content).not.toMatch(/\.env/i);
+  });
+
   it('feeds decided rules back to the model', async () => {
     ctx.repo.known = [{ rule: 'Prefer early returns', status: 'rejected' }];
     const scan = await ctx.service.start(WS, REPO.id);

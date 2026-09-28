@@ -89,7 +89,9 @@ export class ConventionsService {
     kind: SampleFile['kind'],
   ): Promise<SampleFile[]> {
     const read = await Promise.all(
-      paths.map(async (path) => ({ path, kind, content: await this.deps.readFile(target, path) })),
+      paths
+        .filter((path) => !isEnvFile(path))
+        .map(async (path) => ({ path, kind, content: await this.deps.readFile(target, path) })),
     );
     return read.filter((f): f is SampleFile => !!f.content && f.content.trim().length > 0);
   }
@@ -188,6 +190,11 @@ export class ConventionsService {
     if (!updated) throw new NotFoundError(`Convention ${id} not found`);
     return updated;
   }
+}
+
+/** `.env`, `.env.local`, `.env.ts`… — never read, never sent to the model. */
+function isEnvFile(path: string): boolean {
+  return path.slice(path.lastIndexOf('/') + 1).toLowerCase().startsWith('.env');
 }
 
 /** A scan error as stored and shown — never with a provider's key echo in it. */
