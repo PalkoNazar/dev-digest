@@ -23,6 +23,7 @@ describe('RipgrepCodeIndex Node fallback', () => {
     await writeFile(join(root, 'src/long.txt'), `${'a'.repeat(60)}b\n`);
     await writeFile(join(root, '.env'), "SECRET=NotFoundError('env')\n");
     await writeFile(join(root, 'src/.env.local.ts'), "throw new NotFoundError('env');\n");
+    await writeFile(join(root, 'src/.ENV.prod.ts'), "throw new NotFoundError('env');\n");
   });
   afterAll(async () => {
     await rm(root, { recursive: true, force: true });
