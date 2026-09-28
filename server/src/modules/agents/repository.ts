@@ -308,6 +308,14 @@ export class AgentsRepository {
    */
   async setSkillLinks(agentId: string, links: SkillLinkInput[]): Promise<void> {
     await this.db.transaction(async (tx) => {
+      // Lock the agent row first: concurrent saves of one agent's set run one
+      // after another (last request wins) instead of interleaving delete/insert —
+      // which could drop a change or collide on the (agent_id, skill_id) key.
+      await tx
+        .select({ id: t.agents.id })
+        .from(t.agents)
+        .where(eq(t.agents.id, agentId))
+        .for('update');
       const before = await this.skillIdsForAgent(agentId, tx);
       await tx.delete(t.agentSkills).where(eq(t.agentSkills.agentId, agentId));
       if (links.length > 0) {

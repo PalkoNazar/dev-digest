@@ -117,6 +117,9 @@ export function useSetAgentSkillLinks(agentId: string) {
   const qc = useQueryClient();
   const key = ["agent-skills", agentId];
   return useMutation({
+    // One scope per agent: TanStack runs these saves strictly in order, so a quick
+    // second click never races the first (each sends the whole ordered set).
+    scope: { id: `agent-skills-${agentId}` },
     mutationFn: (links: SkillLinkDraft[]) =>
       api.post<AgentSkillLink[]>(`/agents/${agentId}/skills`, { links }),
     onMutate: async (links) => {

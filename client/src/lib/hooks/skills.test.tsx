@@ -64,6 +64,26 @@ describe("useSetAgentSkillLinks", () => {
     await act(async () => resolve([link("b", 0, false), link("a", 1)]));
   });
 
+  it("runs saves of one agent strictly one after another", async () => {
+    const pending: ((v: AgentSkillLink[]) => void)[] = [];
+    post.mockImplementation(() => new Promise((r) => pending.push(r)));
+    const { result } = setup();
+
+    act(() => {
+      result.current.mutate(NEXT);
+      result.current.mutate([{ skill_id: "a", enabled: false }]);
+    });
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    // the second save waits for the first to finish
+    await new Promise((r) => setTimeout(r, 20));
+    expect(post).toHaveBeenCalledTimes(1);
+
+    await act(async () => pending[0]!([link("b", 0, false), link("a", 1)]));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect(post.mock.calls[1]![1]).toEqual({ links: [{ skill_id: "a", enabled: false }] });
+    await act(async () => pending[1]!([link("a", 0, false)]));
+  });
+
   it("rolls the cache back when the save fails", async () => {
     post.mockImplementation(() => Promise.reject(new Error("boom")));
     const { qc, result } = setup();

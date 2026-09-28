@@ -222,6 +222,40 @@ d('L02 skills (Testcontainers pg)', () => {
     const v3 = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/versions/3` })).json();
     expect(v3.config.skills).toEqual([c.id, b.id]);
 
+    // five saves of the whole set at once: serialised by the agent row lock — all
+    // 200 (no key collision), the final set is one of the sent ones, and every
+    // effective change got its own version (no gaps, no duplicates)
+    const beforeRace = (await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json().version;
+    const sets = [
+      [a.id, b.id],
+      [b.id, a.id],
+      [c.id],
+      [a.id, c.id, b.id],
+      [b.id],
+    ].map((ids) => ids.map((skill_id) => ({ skill_id, enabled: true })));
+    const saves = await Promise.all(
+      sets.map((links) =>
+        app.inject({ method: 'POST', url: `/agents/${agent.id}/skills`, payload: { links } }),
+      ),
+    );
+    expect(saves.map((r) => r.statusCode)).toEqual([200, 200, 200, 200, 200]);
+    const finalIds = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` }))
+      .json()
+      .map((l: { skill_id: string }) => l.skill_id);
+    expect(sets.map((s) => s.map((l) => l.skill_id).join())).toContain(finalIds.join());
+    const versions = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/versions` }))
+      .json()
+      .map((v: { version: number }) => v.version);
+    const raceVersions = versions.filter((v: number) => v > beforeRace).sort((x: number, y: number) => x - y);
+    expect(raceVersions).toEqual(raceVersions.map((_: number, i: number) => beforeRace + 1 + i));
+    expect(raceVersions.length).toBeGreaterThanOrEqual(1);
+    // restore a known set for the checks below
+    await app.inject({
+      method: 'POST',
+      url: `/agents/${agent.id}/skills`,
+      payload: { links: [c.id, a.id, b.id].map((skill_id, i) => ({ skill_id, enabled: i !== 1 })) },
+    });
+
     // a stray cross-workspace row in agent_skills (FKs don't prevent it) is ignored
     // by every read: links, prompt skills, counts on both sides
     const [otherWs] = await pg.handle.db.insert(t.workspaces).values({ name: 'tenant-b' }).returning();
