@@ -76,7 +76,11 @@ export function readZipEntry(buf: Buffer, entry: ZipEntry, maxBytes: number): Bu
   const end = start + entry.compressedSize;
   if (end > buf.length) invalid(`${entry.name} is truncated`);
   const data = buf.subarray(start, end);
-  if (entry.method === 0) return Buffer.from(data);
+  if (entry.method === 0) {
+    // The header's `size` can lie; a stored entry's real size is its data length.
+    if (data.length > maxBytes) invalid(`${entry.name} is larger than ${maxBytes} bytes`);
+    return Buffer.from(data);
+  }
   if (entry.method === 8) {
     try {
       // maxOutputLength caps the inflate even if the header lies about `size`.

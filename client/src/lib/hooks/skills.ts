@@ -143,6 +143,10 @@ export function useSetAgentSkillLinks(agentId: string) {
       qc.setQueryData(key, data);
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: ["agent", agentId] });
+      // Skill cards show agent_count and the Stats tab lists attached agents.
+      qc.invalidateQueries({ queryKey: ["skills"] });
+      qc.invalidateQueries({ queryKey: ["skill"] });
+      qc.invalidateQueries({ queryKey: ["skill-stats"] });
     },
   });
 }

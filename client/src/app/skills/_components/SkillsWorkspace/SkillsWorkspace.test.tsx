@@ -100,3 +100,17 @@ describe("SkillsWorkspace", () => {
     expect(screen.getByText("import-modal")).toBeInTheDocument();
   });
 });
+
+describe("SkillCard accessibility", () => {
+  it("exposes one open button and a separate switch per card, not nested controls", () => {
+    SKILLS = [skill("a", "branch-coverage")];
+    renderWs({ id: "a" });
+    const open = screen.getByRole("button", { name: "branch-coverage" });
+    const toggle = screen.getByRole("switch");
+    expect(open).toHaveAttribute("aria-current", "true");
+    expect(open.contains(toggle)).toBe(false);
+    expect(toggle.closest("[role='button']")).toBeNull();
+    fireEvent.click(open);
+    expect(push).toHaveBeenCalledWith("/skills/a?tab=versions");
+  });
+});

@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gte, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
+import { ConflictError } from '../../platform/errors.js';
 import * as t from '../../db/schema.js';
 import { INITIAL_SKILL_VERSION } from './constants.js';
 import type { NewSkill, SkillPatch, SkillsRepo, SkillUsageCounts } from './ports.js';
@@ -11,6 +12,25 @@ import type { NewSkill, SkillPatch, SkillsRepo, SkillUsageCounts } from './ports
  */
 
 type SkillRow = typeof t.skills.$inferSelect;
+
+/** Postgres unique_violation (23505), as thrown by postgres-js or wrapped by Drizzle. */
+function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } } | null;
+  return e?.code === '23505' || e?.cause?.code === '23505';
+}
+
+/**
+ * The service checks the name first; this closes the race between two concurrent
+ * writes of the same name (skills_ws_name_idx) with the same 409, not a 500.
+ */
+async function mapNameConflict<T>(name: string | undefined, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new ConflictError(`A skill named "${name}" already exists`);
+    throw err;
+  }
+}
 
 function toSkillDto(row: SkillRow, agentCount?: number): Skill {
   return {
@@ -146,6 +166,10 @@ export class SkillsRepository implements SkillsRepo {
   }
 
   async insert(workspaceId: string, skill: NewSkill): Promise<Skill> {
+    return mapNameConflict(skill.name, () => this.insertTx(workspaceId, skill));
+  }
+
+  private insertTx(workspaceId: string, skill: NewSkill): Promise<Skill> {
     return this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
@@ -159,6 +183,15 @@ export class SkillsRepository implements SkillsRepo {
   }
 
   async update(
+    workspaceId: string,
+    id: string,
+    patch: SkillPatch,
+    bumpTo?: number,
+  ): Promise<Skill | null> {
+    return mapNameConflict(patch.name, () => this.updateTx(workspaceId, id, patch, bumpTo));
+  }
+
+  private updateTx(
     workspaceId: string,
     id: string,
     patch: SkillPatch,
