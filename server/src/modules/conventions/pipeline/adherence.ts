@@ -18,21 +18,25 @@ import { normalizePath } from './sampling.js';
  * so "91%" in the UI means "91% of matching files conform", not a model's hunch.
  */
 
-/** Nested quantifier like `(a+)+` / `(\w*)*` — catastrophic backtracking in JS. */
-const NESTED_QUANTIFIER = /\((?:[^()\\]|\\.)*[+*}](?:[^()\\]|\\.)*\)\s*[+*{]/;
+/**
+ * A repeated group — `(a+)+`, `(a|aa)+`, `(?:\w|\d)*`, `(x){2,}` — the shapes that
+ * backtrack exponentially in JS. Detectors are line patterns and don't need them.
+ */
+const QUANTIFIED_GROUP = /\)\s*(?:[+*]|\{\d*,?\d*\})/;
 
 /**
  * A model-written regex we are willing to run. It goes to ripgrep (after `-e`/`--`)
- * or, without the binary, to a JS RegExp over every file — so: bounded length, no
- * flag-looking prefix, no backreferences/lookaround (rg rejects them anyway), no
- * nested quantifiers, compiles, and does not match the empty string (`.*`).
+ * or, without the binary, to a JS RegExp over every file (in a worker with a
+ * deadline) — so: bounded length, no flag-looking prefix, no backreferences or
+ * lookaround (rg rejects them anyway), no repeated groups, compiles, and does not
+ * match the empty string (`.*`).
  */
 export function isSafePattern(pattern: string | null | undefined): pattern is string {
   if (!pattern) return false;
   if (pattern.length > MAX_PATTERN_LENGTH || pattern.trim() !== pattern) return false;
   if (pattern.startsWith('-') || /[\r\n]/.test(pattern)) return false;
   if (/\\[1-9]/.test(pattern) || /\(\?<?[=!]/.test(pattern)) return false;
-  if (NESTED_QUANTIFIER.test(pattern)) return false;
+  if (QUANTIFIED_GROUP.test(pattern.replace(/\\./g, ''))) return false;
   try {
     return !new RegExp(pattern).test('');
   } catch {
