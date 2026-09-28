@@ -20,7 +20,7 @@ For each convention return:
 - `rule`: one imperative sentence, concrete and repo-specific (≤ 200 chars), naming the
   real helper / folder / type when there is one.
 - `evidence`: 1–4 citations from DIFFERENT sample files where possible. `path` exactly as
-  given in the sample header, `line_start`/`line_end` from the line-number gutter, and
+  given on the sample's `Path:` line, `line_start`/`line_end` from the line-number gutter, and
   `snippet` = the code at those lines copied verbatim (without the gutter). Citations that
   do not match the file are discarded.
 - `detector`: how to measure the rule over the whole repo with ripgrep, or null:

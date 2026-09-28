@@ -47,7 +47,7 @@ mechanism.
 ### Pipeline (job `conventions.extract`, no retries — an LLM call must not run 3×)
 1. Samples: tooling configs (fixed allowlist, root + one level) + up to 12 source files
    picked round-robin across layers from the top-60 ranked + up to 2 tests. Each file
-   truncated (300 lines), lines numbered. `.env*` never read. No samples → scan fails with
+   truncated (250 lines × 240 chars — token budget of a cheap model), lines numbered. `.env*` never read. No samples → scan fails with
    "index the repo first".
 2. LLM `completeStructured('ConventionExtraction')`, model from feature model
    `conventions` (default lowered to a cheap one). Files are wrapped as untrusted data.
@@ -68,7 +68,7 @@ A live scan of this repo: 7 proposed → 5 kept (2 low adherence), 80 s, $0.005.
 ### Routes
 | Method | Path | |
 |---|---|---|
-| POST | `/repos/:id/conventions/extract` | start a scan → 202 `ConventionScan`; 409 if one is running |
+| POST | `/repos/:id/conventions/extract` | start a scan → 202 `ConventionScan`; 409 if one is running (partial unique index `convention_scans_one_running_uq`) |
 | GET | `/repos/:id/conventions` | `{ scan, candidates }` (latest scan) |
 | PATCH | `/conventions/:id` | `{ status?, rule?, category?, skill_id? }` |
 

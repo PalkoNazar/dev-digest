@@ -8,6 +8,7 @@ import {
   type ConventionUpdate,
 } from '@devdigest/shared';
 import type { Db } from '../../db/client.js';
+import { ConflictError } from '../../platform/errors.js';
 import * as t from '../../db/schema.js';
 import { KNOWN_RULES_IN_PROMPT } from './constants.js';
 import type { KnownRule } from './pipeline/prompt.js';
@@ -17,6 +18,18 @@ import type { NewConvention, ScanResult } from './types.js';
 /** Conventions data-access: `convention_scans` + `conventions`, workspace-scoped. */
 
 const FEATURE_ID = 'conventions';
+
+/** The partial unique index that allows one `running` scan per repo. */
+const ONE_RUNNING_CONSTRAINT = 'convention_scans_one_running_uq';
+
+type PgError = { code?: string; constraint_name?: string; cause?: PgError } | null;
+
+/** unique_violation (23505) on ONE_RUNNING_CONSTRAINT, from postgres-js or wrapped by Drizzle. */
+function isOneRunningConflict(err: unknown): boolean {
+  const e = err as PgError;
+  const pg = e?.code ? e : e?.cause;
+  return pg?.code === '23505' && pg.constraint_name === ONE_RUNNING_CONSTRAINT;
+}
 
 type ScanRow = typeof t.conventionScans.$inferSelect;
 type ConventionRow = typeof t.conventions.$inferSelect;
@@ -98,11 +111,17 @@ export class ConventionsRepository implements ConventionsRepo {
   }
 
   async createScan(workspaceId: string, repoId: string): Promise<ConventionScan> {
-    const [row] = await this.db
-      .insert(t.conventionScans)
-      .values({ workspaceId, repoId, status: 'running' })
-      .returning();
-    return toScanDto(row!);
+    try {
+      const [row] = await this.db
+        .insert(t.conventionScans)
+        .values({ workspaceId, repoId, status: 'running' })
+        .returning();
+      return toScanDto(row!);
+    } catch (err) {
+      // the service checks first; this closes the race between two concurrent starts
+      if (isOneRunningConflict(err)) throw new ConflictError('A conventions scan is already running');
+      throw err;
+    }
   }
 
   async completeScan(
