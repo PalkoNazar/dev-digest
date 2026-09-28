@@ -26,11 +26,11 @@ class FakeSkillsRepo implements SkillsRepo {
     this.versions.push({ skillId: s.id, version: 1, body: n.body });
     return s;
   }
-  async update(ws: string, id: string, patch: SkillPatch, bumpTo?: number) {
+  async update(ws: string, id: string, patch: SkillPatch, bumpVersion = false) {
     const s = await this.get(ws, id);
     if (!s) return null;
-    Object.assign(s, patch, bumpTo !== undefined ? { version: bumpTo } : {});
-    if (bumpTo !== undefined) this.versions.push({ skillId: id, version: bumpTo, body: s.body });
+    Object.assign(s, patch, bumpVersion ? { version: s.version + 1 } : {});
+    if (bumpVersion) this.versions.push({ skillId: id, version: s.version, body: s.body });
     return s;
   }
   async listVersions(ws: string, skillId: string) {

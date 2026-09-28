@@ -51,12 +51,8 @@ export class SkillsService {
       await this.assertNameFree(workspaceId, patch.name);
     }
     const bodyChanged = patch.body !== undefined && patch.body !== existing.body;
-    const updated = await this.deps.repo.update(
-      workspaceId,
-      id,
-      patch,
-      bodyChanged ? existing.version + 1 : undefined,
-    );
+    // The repository increments the version atomically (concurrent edits can't collide).
+    const updated = await this.deps.repo.update(workspaceId, id, patch, bodyChanged);
     if (!updated) throw new NotFoundError('Skill not found');
     return updated;
   }

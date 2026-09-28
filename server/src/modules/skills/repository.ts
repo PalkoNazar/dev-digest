@@ -13,10 +13,19 @@ import type { NewSkill, SkillPatch, SkillsRepo, SkillUsageCounts } from './ports
 
 type SkillRow = typeof t.skills.$inferSelect;
 
-/** Postgres unique_violation (23505), as thrown by postgres-js or wrapped by Drizzle. */
-function isUniqueViolation(err: unknown): boolean {
-  const e = err as { code?: string; cause?: { code?: string } } | null;
-  return e?.code === '23505' || e?.cause?.code === '23505';
+/** The unique index that makes a skill name unique per workspace. */
+const NAME_CONSTRAINT = 'skills_ws_name_idx';
+
+type PgError = { code?: string; constraint_name?: string; cause?: PgError } | null;
+
+/**
+ * Postgres unique_violation (23505) on the skill-name index, as thrown by postgres-js
+ * or wrapped by Drizzle. Any other unique violation is NOT a name conflict.
+ */
+function isNameConflict(err: unknown): boolean {
+  const e = err as PgError;
+  const pg = e?.code ? e : e?.cause;
+  return pg?.code === '23505' && pg.constraint_name === NAME_CONSTRAINT;
 }
 
 /**
@@ -27,7 +36,7 @@ async function mapNameConflict<T>(name: string | undefined, write: () => Promise
   try {
     return await write();
   } catch (err) {
-    if (isUniqueViolation(err)) throw new ConflictError(`A skill named "${name}" already exists`);
+    if (isNameConflict(err)) throw new ConflictError(`A skill named "${name}" already exists`);
     throw err;
   }
 }
@@ -53,9 +62,14 @@ export class SkillsRepository implements SkillsRepo {
   /** Skills matching `where`, each with the number of agents it is attached to. */
   private async withAgentCounts(where: SQL | undefined): Promise<Skill[]> {
     const rows = await this.db
-      .select({ skill: t.skills, agents: count(t.agentSkills.agentId) })
+      .select({ skill: t.skills, agents: count(t.agents.id) })
       .from(t.skills)
       .leftJoin(t.agentSkills, eq(t.agentSkills.skillId, t.skills.id))
+      // only agents of the skill's own workspace count
+      .leftJoin(
+        t.agents,
+        and(eq(t.agentSkills.agentId, t.agents.id), eq(t.agents.workspaceId, t.skills.workspaceId)),
+      )
       .where(where)
       .groupBy(t.skills.id)
       .orderBy(asc(t.skills.name));
@@ -186,26 +200,30 @@ export class SkillsRepository implements SkillsRepo {
     workspaceId: string,
     id: string,
     patch: SkillPatch,
-    bumpTo?: number,
+    bumpVersion = false,
   ): Promise<Skill | null> {
-    return mapNameConflict(patch.name, () => this.updateTx(workspaceId, id, patch, bumpTo));
+    return mapNameConflict(patch.name, () => this.updateTx(workspaceId, id, patch, bumpVersion));
   }
 
   private updateTx(
     workspaceId: string,
     id: string,
     patch: SkillPatch,
-    bumpTo?: number,
+    bumpVersion: boolean,
   ): Promise<Skill | null> {
     return this.db.transaction(async (tx) => {
+      // `version + 1` in the UPDATE itself: the row lock serialises concurrent edits,
+      // so two body saves get v+1 and v+2 — never the same history key.
       const [row] = await tx
         .update(t.skills)
-        .set({ ...patch, ...(bumpTo !== undefined ? { version: bumpTo } : {}) })
+        .set({ ...patch, ...(bumpVersion ? { version: sql`${t.skills.version} + 1` } : {}) })
         .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)))
         .returning();
       if (!row) return null;
-      if (bumpTo !== undefined) {
-        await tx.insert(t.skillVersions).values({ skillId: row.id, version: bumpTo, body: row.body });
+      if (bumpVersion) {
+        await tx
+          .insert(t.skillVersions)
+          .values({ skillId: row.id, version: row.version, body: row.body });
       }
       return toSkillDto(row);
     });

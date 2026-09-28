@@ -202,12 +202,20 @@ export class AgentsRepository {
 
   // ---- agent_skills link table (A2 owns the agent side) -------------------
 
-  /** Skills linked to an agent, in `order` ascending. */
+  /**
+   * Skills linked to an agent, in `order` ascending. Only skills of the agent's own
+   * workspace: agent_skills FKs don't enforce that, so a stray cross-workspace row
+   * must never reach a prompt, a list or a count.
+   */
   async linkedSkills(agentId: string, db: Exec = this.db): Promise<LinkedSkillRow[]> {
     return db
       .select({ skill: t.skills, order: t.agentSkills.order, enabled: t.agentSkills.enabled })
       .from(t.agentSkills)
-      .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
+      .innerJoin(
+        t.skills,
+        and(eq(t.agentSkills.skillId, t.skills.id), eq(t.skills.workspaceId, t.agents.workspaceId)),
+      )
       .where(eq(t.agentSkills.agentId, agentId))
       .orderBy(asc(t.agentSkills.order));
   }
@@ -251,9 +259,11 @@ export class AgentsRepository {
       .select({ agentId: t.agentSkills.agentId, n: count() })
       .from(t.agentSkills)
       .innerJoin(t.skills, eq(t.agentSkills.skillId, t.skills.id))
+      .innerJoin(t.agents, eq(t.agentSkills.agentId, t.agents.id))
       .where(
         and(
           eq(t.skills.workspaceId, workspaceId),
+          eq(t.agents.workspaceId, workspaceId),
           eq(t.agentSkills.enabled, true),
           eq(t.skills.enabled, true),
         ),

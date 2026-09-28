@@ -10,6 +10,7 @@ import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
 import { MockEmbedder, MockGitClient, MockLLMProvider } from '../src/adapters/mocks.js';
 import { SkillsRepository } from '../src/modules/skills/repository.js';
+import { AgentsRepository } from '../src/modules/agents/repository.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -112,15 +113,26 @@ d('L02 skills (Testcontainers pg)', () => {
       .where(eq(t.skillVersions.skillId, skill.id));
     expect(versions.map((v) => v.body).sort()).toEqual(['Changed.', 'Every new if/else needs a test for each side.']);
 
+    // two body edits at once: the version is bumped in the UPDATE, so they get
+    // distinct numbers and both land in the history (no key collision, no fake 409)
+    const racy = await Promise.all(
+      ['R1', 'R2'].map((body) =>
+        app.inject({ method: 'PUT', url: `/skills/${skill.id}`, payload: { body } }),
+      ),
+    );
+    expect(racy.map((r) => r.statusCode)).toEqual([200, 200]);
+    expect(racy.map((r) => r.json().version).sort()).toEqual([3, 4]);
+    await app.inject({ method: 'PUT', url: `/skills/${skill.id}`, payload: { body: 'Changed.' } });
+
     const history = (await app.inject({ method: 'GET', url: `/skills/${skill.id}/versions` })).json();
-    expect(history.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+    expect(history.map((v: { version: number }) => v.version)).toEqual([5, 4, 3, 2, 1]);
     expect(history[0].body).toBe('Changed.');
 
     // skill_versions is scoped through its parent skill: another workspace sees nothing.
     const [otherWs] = await pg.handle.db.insert(t.workspaces).values({ name: 'other' }).returning();
     const repo = new SkillsRepository(pg.handle.db);
     expect(await repo.listVersions(otherWs!.id, skill.id)).toEqual([]);
-    expect(await repo.listVersions(workspaceId, skill.id)).toHaveLength(2);
+    expect(await repo.listVersions(workspaceId, skill.id)).toHaveLength(5);
 
     const list = (await app.inject({ method: 'GET', url: '/skills' })).json();
     expect(list.some((s: { id: string }) => s.id === skill.id)).toBe(true);
@@ -209,6 +221,29 @@ d('L02 skills (Testcontainers pg)', () => {
     expect((await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json().version).toBe(3);
     const v3 = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/versions/3` })).json();
     expect(v3.config.skills).toEqual([c.id, b.id]);
+
+    // a stray cross-workspace row in agent_skills (FKs don't prevent it) is ignored
+    // by every read: links, prompt skills, counts on both sides
+    const [otherWs] = await pg.handle.db.insert(t.workspaces).values({ name: 'tenant-b' }).returning();
+    const [alien] = await pg.handle.db
+      .insert(t.skills)
+      .values({
+        workspaceId: otherWs!.id,
+        name: 'alien-skill',
+        description: 'd',
+        type: 'custom',
+        source: 'manual',
+        body: 'ALIEN_BODY',
+      })
+      .returning();
+    await pg.handle.db.insert(t.agentSkills).values({ agentId: agent.id, skillId: alien!.id, order: 9 });
+    const agentsRepo = new AgentsRepository(pg.handle.db);
+    expect((await agentsRepo.effectiveSkills(agent.id)).map((x) => x.name)).not.toContain('alien-skill');
+    const listed = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/skills` })).json();
+    expect(listed.map((l: { skill_id: string }) => l.skill_id)).not.toContain(alien!.id);
+    expect((await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json().skill_count).toBe(2);
+    const alienSeen = await new SkillsRepository(pg.handle.db).get(otherWs!.id, alien!.id);
+    expect(alienSeen?.agent_count).toBe(0);
 
     const foreign = await app.inject({
       method: 'POST',
