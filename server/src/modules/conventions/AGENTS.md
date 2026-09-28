@@ -10,7 +10,8 @@ accepted rules goes through the skills/agents APIs, not this module.
   (`pipeline/evidence.ts`), confidence comes from measured adherence
   (`pipeline/adherence.ts`), never from the model's number when a detector worked.
 - Model-written regexes go through `isSafePattern` before `codeIndex.grep` — no leading
-  `-`, no nested quantifiers (the Node fallback runs them as JS RegExp).
+  `-`, no repeated groups. The Node fallback runs them as JS RegExp in a worker with a
+  30 s deadline; never grep with such a pattern on the main thread.
 - Repo files enter the prompt only inside `wrapUntrusted` blocks.
 - Scan errors are stored via `redactSecrets` — provider errors echo API keys.
 - The job is registered with `retries: 0`: a timeout must not re-run a paid call.
