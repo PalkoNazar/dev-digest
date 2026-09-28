@@ -4,7 +4,7 @@ import type {
   ConventionUpdate,
   ConventionsList,
 } from '@devdigest/shared';
-import { AppError, ConflictError, NotFoundError } from '../../platform/errors.js';
+import { AppError, ConflictError, NotFoundError, redactSecrets } from '../../platform/errors.js';
 import {
   EXTRACT_JOB_KIND,
   RANKED_POOL,
@@ -183,6 +183,7 @@ export class ConventionsService {
   }
 }
 
+/** A scan error as stored and shown — never with a provider's key echo in it. */
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return redactSecrets(err instanceof Error ? err.message : String(err));
 }

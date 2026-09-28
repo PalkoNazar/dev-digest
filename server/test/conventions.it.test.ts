@@ -107,7 +107,7 @@ d('Conventions Extractor (Testcontainers pg)', () => {
         git: new MockGitClient({ files: FILES }),
         codeIndex,
         repoIntel,
-        llm: { openai: llm },
+        llm: { openrouter: llm },
       },
     });
   });
@@ -144,7 +144,7 @@ d('Conventions Extractor (Testcontainers pg)', () => {
       status: 'done',
       proposed: 2,
       kept: 2,
-      model: 'gpt-5.4-mini',
+      model: 'deepseek/deepseek-v4-flash',
       sample_paths: Object.keys(FILES),
     });
     const errors = list.candidates.find((c) => c.category === 'error-handling')!;
@@ -248,7 +248,10 @@ d('Conventions Extractor (Testcontainers pg)', () => {
     // the timed-out scan wrote nothing: pending candidates survive
     expect((await repo.list(workspaceId, repoId)).some((c) => c.status === 'pending')).toBe(true);
 
-    expect(await repo.featureModel(workspaceId)).toEqual({ provider: 'openai', model: 'gpt-5.4-mini' });
+    expect(await repo.featureModel(workspaceId)).toEqual({
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+    });
     await pg.handle.db.insert(t.settings).values({
       workspaceId,
       key: 'feature_models',
