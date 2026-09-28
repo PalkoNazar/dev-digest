@@ -59,8 +59,9 @@ export function useUpdateConvention(repoId: string) {
               ? {
                   ...c,
                   ...(patch.status ? { status: patch.status } : {}),
-                  ...(patch.rule ? { rule: patch.rule } : {}),
+                  ...(patch.rule && patch.rule !== c.rule ? { rule: patch.rule, edited: true } : {}),
                   ...(patch.category ? { category: patch.category } : {}),
+                  ...(patch.skill_id !== undefined ? { skill_id: patch.skill_id } : {}),
                 }
               : c,
           ),
