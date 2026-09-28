@@ -15,6 +15,12 @@ import { withTimeout, withRetry } from './resilience.js';
 
 export type JobHandler = (payload: unknown, ctx: { jobId: string }) => Promise<void>;
 
+/** Per-kind overrides of the runner defaults (e.g. no retries for a paid LLM call). */
+export interface JobKindOptions {
+  timeoutMs?: number;
+  retries?: number;
+}
+
 export interface JobRunnerOptions {
   concurrency?: number;
   timeoutMs?: number;
@@ -29,7 +35,7 @@ export interface EnqueuedJob {
 
 export class JobRunner {
   private queue: PQueue;
-  private handlers = new Map<string, JobHandler>();
+  private handlers = new Map<string, { handler: JobHandler; opts: JobKindOptions }>();
   private timeoutMs: number;
   private retries: number;
 
@@ -42,13 +48,16 @@ export class JobRunner {
     this.retries = opts.retries ?? 2;
   }
 
-  register(kind: string, handler: JobHandler): void {
-    this.handlers.set(kind, handler);
+  register(kind: string, handler: JobHandler, opts: JobKindOptions = {}): void {
+    this.handlers.set(kind, { handler, opts });
   }
 
   async enqueue(workspaceId: string, kind: string, payload: unknown): Promise<EnqueuedJob> {
-    const handler = this.handlers.get(kind);
-    if (!handler) throw new Error(`No job handler registered for kind '${kind}'`);
+    const entry = this.handlers.get(kind);
+    if (!entry) throw new Error(`No job handler registered for kind '${kind}'`);
+    const { handler, opts } = entry;
+    const timeoutMs = opts.timeoutMs ?? this.timeoutMs;
+    const retries = opts.retries ?? this.retries;
 
     const [row] = await this.db
       .insert(t.jobs)
@@ -64,14 +73,14 @@ export class JobRunner {
       try {
         await withRetry(
           () =>
-            withTimeout(handler(payload, { jobId }), this.timeoutMs).then(async () => {
+            withTimeout(handler(payload, { jobId }), timeoutMs).then(async () => {
               await this.db
                 .update(t.jobs)
                 .set({ attempts: 1 })
                 .where(eq(t.jobs.id, jobId));
             }),
           {
-            retries: this.retries,
+            retries,
             onRetry: async (attempt) => {
               await this.db
                 .update(t.jobs)

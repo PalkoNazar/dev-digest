@@ -192,7 +192,7 @@ export const SkillCreate = z.object({
   type: SkillType,
   body: z.string().trim().min(1).max(SKILL_BODY_MAX),
   enabled: z.boolean().optional(),
-  source: z.enum(['manual', 'imported_file']).optional(),
+  source: z.enum(['manual', 'imported_file', 'extracted']).optional(),
 });
 export type SkillCreate = z.infer<typeof SkillCreate>;
 
@@ -233,15 +233,102 @@ export const CommunitySkill = z.object({
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
 
 // ---- Conventions ----
+/** What a house rule is about (drives grouping in the UI and the skill body). */
+export const ConventionCategory = z.enum([
+  'naming',
+  'structure',
+  'error-handling',
+  'async',
+  'typing',
+  'imports',
+  'api',
+  'data',
+  'testing',
+  'style',
+  'other',
+]);
+export type ConventionCategory = z.infer<typeof ConventionCategory>;
+
+export const ConventionStatus = z.enum(['pending', 'accepted', 'rejected']);
+export type ConventionStatus = z.infer<typeof ConventionStatus>;
+
+/** One code-verified citation: the lines exist in the file and hold `snippet`. */
+export const ConventionEvidence = z.object({
+  path: z.string(),
+  line_start: z.number().int(),
+  line_end: z.number().int(),
+  /** The file's real text at those lines (not the model's quote). */
+  snippet: z.string(),
+});
+export type ConventionEvidence = z.infer<typeof ConventionEvidence>;
+
 export const ConventionCandidate = z.object({
   id: z.string(),
+  scan_id: z.string().nullish(),
+  category: ConventionCategory,
   rule: z.string(),
-  evidence_path: z.string(),
-  evidence_snippet: z.string(),
+  /** Verified evidence, primary first; never empty for a stored candidate. */
+  evidence: z.array(ConventionEvidence),
+  /** Computed from measured adherence (not the model's self-report). */
   confidence: z.number().min(0).max(1),
-  accepted: z.boolean(),
+  /** conforming / (conforming + violating) files; null = no usable detector. */
+  adherence: z.number().min(0).max(1).nullish(),
+  support_files: z.number().int().nullish(),
+  violation_files: z.number().int().nullish(),
+  /** Set when a tooling config already enforces the rule, e.g. "prettier (.prettierrc)". */
+  enforced_by: z.string().nullish(),
+  status: ConventionStatus,
+  /** The user changed the rule text. */
+  edited: z.boolean(),
+  /** The skill this convention was last saved into. */
+  skill_id: z.string().nullish(),
+  created_at: z.string(),
 });
 export type ConventionCandidate = z.infer<typeof ConventionCandidate>;
+
+export const ConventionScanStatus = z.enum(['running', 'done', 'failed']);
+export type ConventionScanStatus = z.infer<typeof ConventionScanStatus>;
+
+export const ConventionScan = z.object({
+  id: z.string(),
+  repo_id: z.string(),
+  status: ConventionScanStatus,
+  error: z.string().nullish(),
+  /** Source files the model was shown (configs excluded). */
+  sample_paths: z.array(z.string()),
+  /** Tooling configs found, e.g. "prettier (.prettierrc)". */
+  tooling: z.array(z.string()),
+  model: z.string().nullish(),
+  cost_usd: z.number().nullish(),
+  /** Candidates the model proposed / kept after verification. */
+  proposed: z.number().int(),
+  kept: z.number().int(),
+  /** Dropped candidates by reason (unverified_evidence, low_adherence, duplicate, …). */
+  dropped: z.record(z.string(), z.number().int()),
+  started_at: z.string(),
+  finished_at: z.string().nullish(),
+});
+export type ConventionScan = z.infer<typeof ConventionScan>;
+
+/** GET /repos/:id/conventions — the latest scan and every stored candidate. */
+export const ConventionsList = z.object({
+  scan: ConventionScan.nullable(),
+  candidates: z.array(ConventionCandidate),
+});
+export type ConventionsList = z.infer<typeof ConventionsList>;
+
+/** PATCH /conventions/:id — decide, edit, or record the skill it went into. */
+export const ConventionUpdate = z
+  .object({
+    status: ConventionStatus.optional(),
+    rule: z.string().trim().min(1).max(500).optional(),
+    category: ConventionCategory.optional(),
+    skill_id: z.string().uuid().nullable().optional(),
+  })
+  .refine((u) => Object.values(u).some((v) => v !== undefined), {
+    message: 'Nothing to update',
+  });
+export type ConventionUpdate = z.infer<typeof ConventionUpdate>;
 
 // ---- Agents ----
 // 'openrouter' routes through the OpenAI-compatible API (OpenAIProvider with a
