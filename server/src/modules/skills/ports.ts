@@ -37,10 +37,15 @@ export interface SkillsRepo {
   /** Insert the skill and its first `skill_versions` row. */
   insert(workspaceId: string, skill: NewSkill): Promise<Skill>;
   /**
-   * Apply `patch`. With `bumpTo`, also set `version = bumpTo` and record the new
-   * body in `skill_versions` — atomically.
+   * Apply `patch`. With `bumpVersion`, also increment `version` and record the new
+   * body in `skill_versions` — atomically (safe under concurrent edits).
    */
-  update(workspaceId: string, id: string, patch: SkillPatch, bumpTo?: number): Promise<Skill | null>;
+  update(
+    workspaceId: string,
+    id: string,
+    patch: SkillPatch,
+    bumpVersion?: boolean,
+  ): Promise<Skill | null>;
   /** Body versions of a workspace's skill, newest first ([] for another workspace). */
   listVersions(workspaceId: string, skillId: string): Promise<SkillVersion[]>;
   /** Usage of a skill since `since` (caller checks the skill is in the workspace). */
