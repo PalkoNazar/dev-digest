@@ -28,11 +28,6 @@ export function validateSkillDraft(draft: SkillDraft): SkillDraftErrors {
   return errors;
 }
 
-/** Rough token count for the editor (≈ 4 chars per token; the run trace has the exact one). */
-export function approxTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
-
 /** Whether the form differs from the saved skill. */
 export function isDirty(saved: SkillDraft, draft: SkillDraft): boolean {
   return (

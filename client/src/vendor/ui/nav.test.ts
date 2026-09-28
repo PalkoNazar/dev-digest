@@ -4,10 +4,11 @@ import { NAV, SETTINGS_ITEM, SHORTCUTS } from "./nav";
 const allItems = [...NAV.flatMap((g) => g.items), SETTINGS_ITEM];
 
 describe("NAV", () => {
-  it("groups Agents with Skills under SKILLS LAB", () => {
+  it("groups Skills, Agents and Conventions under SKILLS LAB", () => {
     const sectionOf = (key: string) => NAV.find((g) => g.items.some((it) => it.key === key))?.section;
     expect(sectionOf("agents")).toBe("SKILLS LAB");
     expect(sectionOf("skills")).toBe("SKILLS LAB");
+    expect(sectionOf("conventions")).toBe("SKILLS LAB");
     expect(sectionOf("pulls")).toBe("WORKSPACE");
   });
 

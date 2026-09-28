@@ -1,0 +1,1 @@
+export { SkillBodyField } from "./SkillBodyField";
