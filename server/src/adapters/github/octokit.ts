@@ -29,8 +29,12 @@ function mapStatus(state: string, merged: boolean | undefined): PrStatus {
 export class OctokitGitHubClient implements GitHubClient {
   private octokit: Octokit;
 
-  constructor(token: string) {
-    this.octokit = new Octokit({ auth: token });
+  /** `fetch` is a test seam (fake GitHub responses); production uses the global one. */
+  constructor(token: string, opts: { fetch?: typeof fetch } = {}) {
+    this.octokit = new Octokit({
+      auth: token,
+      ...(opts.fetch ? { request: { fetch: opts.fetch } } : {}),
+    });
   }
 
   async listPullRequests(repo: RepoRef): Promise<PrMeta[]> {
@@ -76,13 +80,16 @@ export class OctokitGitHubClient implements GitHubClient {
             repo: repo.name,
             pull_number: n,
           });
-          const { data: files } = await this.octokit.rest.pulls.listFiles({
+          // Paginate: one page is at most 100 items, and a big PR has more — a
+          // single page silently dropped every file after the 100th (GitHub caps
+          // listFiles at 3000 files, listCommits at 250 commits).
+          const files = await this.octokit.paginate(this.octokit.rest.pulls.listFiles, {
             owner: repo.owner,
             repo: repo.name,
             pull_number: n,
             per_page: 100,
           });
-          const { data: commits } = await this.octokit.rest.pulls.listCommits({
+          const commits = await this.octokit.paginate(this.octokit.rest.pulls.listCommits, {
             owner: repo.owner,
             repo: repo.name,
             pull_number: n,
