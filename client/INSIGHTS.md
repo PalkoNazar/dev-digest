@@ -56,6 +56,10 @@ In an optimistic `onError`, restore only a defined `previous` AND `invalidateQue
 Why: with nothing cached before `onMutate`, the rollback silently kept the optimistic list.
 Evidence: `useSetAgentSkillLinks` in `src/lib/hooks/skills.ts` + its test.
 
+### 2026-09-28 — "TS2593: Cannot find name 'describe'" in `pnpm typecheck`, tests still green
+ALWAYS `import { describe, expect, it } from "vitest"` in client test files.
+Why: `vitest.config.ts` sets `globals: true`, so `pnpm test` passes, but tsconfig has no `vitest/globals` types, so `tsc --noEmit` fails. Evidence: `src/vendor/ui/nav.test.ts`.
+
 ## Session Notes
 
 2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
@@ -63,5 +67,7 @@ Evidence: `useSetAgentSkillLinks` in `src/lib/hooks/skills.ts` + its test.
 2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
 2026-09-27 — L02 Skills UI (skills page, editor, import modal, agent Skills tab, trace): 1 entry (shared runtime imports in webpack); +2 in root INSIGHTS.md.
 2026-09-28 — L02 review follow-up: useSetAgentSkillLinks test + rollback fix: 2 entries (vitest beforeEach return, setQueryData undefined).
+
+- 2026-09-28 — moved Agents nav item to SKILLS LAB; added `src/vendor/ui/nav.test.ts` (invariants, not a snapshot).
 
 ## Open Questions
