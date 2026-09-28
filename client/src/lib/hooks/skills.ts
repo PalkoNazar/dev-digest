@@ -124,11 +124,21 @@ export function useSetAgentSkillLinks(agentId: string) {
       const previous = qc.getQueryData<AgentSkillLink[]>(key);
       qc.setQueryData<AgentSkillLink[]>(
         key,
-        links.map((l, order) => ({ agent_id: agentId, skill_id: l.skill_id, enabled: l.enabled, order })),
+        links.map((l, order) => ({
+          agent_id: agentId,
+          skill_id: l.skill_id,
+          enabled: l.enabled,
+          order,
+        })),
       );
       return { previous };
     },
-    onError: (_e, _links, ctx) => qc.setQueryData(key, ctx?.previous),
+    onError: (_e, _links, ctx) => {
+      // Restore the pre-save list; with nothing cached before, setQueryData(undefined)
+      // is a no-op, so also re-read the server's list to drop the optimistic one.
+      if (ctx?.previous !== undefined) qc.setQueryData(key, ctx.previous);
+      qc.invalidateQueries({ queryKey: key });
+    },
     onSuccess: (data) => {
       qc.setQueryData(key, data);
       qc.invalidateQueries({ queryKey: ["agents"] });

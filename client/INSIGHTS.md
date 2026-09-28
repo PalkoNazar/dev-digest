@@ -46,11 +46,22 @@ Fixed by `webpack.resolve.extensionAlias { ".js": [".ts", ".tsx", ".js"] }` in `
 Why: `vendor/shared` is ESM TS with `.js` suffixes; the first RUNTIME import (a Zod schema, not `import type`)
 hits webpack. vitest resolves it, so tests pass while every page 500s — load a page after such an import.
 
+### 2026-09-28 — test fails with the mock's own error, stack in `callCleanupHooks`
+NEVER write `beforeEach(() => fn.mockReset())` — use a block body `beforeEach(() => { fn.mockReset(); })`.
+Why: `mockReset()` returns the mock, and vitest runs a function returned from `beforeEach` as a cleanup hook,
+so it calls the mock after the test (a rejecting mock → the test fails). Evidence: `src/lib/hooks/skills.test.tsx`.
+
+### 2026-09-28 — TanStack Query v5: `setQueryData(key, undefined)` is a no-op
+In an optimistic `onError`, restore only a defined `previous` AND `invalidateQueries(key)`.
+Why: with nothing cached before `onMutate`, the rollback silently kept the optimistic list.
+Evidence: `useSetAgentSkillLinks` in `src/lib/hooks/skills.ts` + its test.
+
 ## Session Notes
 
 2026-09-27 — severity count chips + filter in FindingsPanel (+ FindingCard border-stripe fix): 1 entry (vitest bracket paths).
 2026-09-27 — PR-list FINDINGS column + hover card: 1 entry (portal out of the table card).
 2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
 2026-09-27 — L02 Skills UI (skills page, editor, import modal, agent Skills tab, trace): 1 entry (shared runtime imports in webpack); +2 in root INSIGHTS.md.
+2026-09-28 — L02 review follow-up: useSetAgentSkillLinks test + rollback fix: 2 entries (vitest beforeEach return, setQueryData undefined).
 
 ## Open Questions
