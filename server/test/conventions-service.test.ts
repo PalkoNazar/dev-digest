@@ -249,6 +249,18 @@ describe('ConventionsService.runScan', () => {
     expect(req.messages[1]?.content).toContain('- [rejected] Prefer early returns');
   });
 
+  it('stores a provider error without the key the provider echoed back', async () => {
+    ctx.llm.completeStructured = async () => {
+      throw new Error('401 Incorrect API key provided: sk-or-v1****************8443. See docs.');
+    };
+    const scan = await ctx.service.start(WS, REPO.id);
+    await ctx.service.runScan({ workspaceId: WS, repoId: REPO.id, scanId: scan.id });
+    expect(ctx.repo.scans[0]).toMatchObject({
+      status: 'failed',
+      error: '401 Incorrect API key provided: [redacted]. See docs.',
+    });
+  });
+
   it('fails the scan (no throw, no LLM call) when the repo has no samples', async () => {
     const { service, repo, llm } = build({ ranked: [] });
     const scan = await service.start(WS, REPO.id);

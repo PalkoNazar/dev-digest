@@ -1,5 +1,5 @@
 # Conventions Extractor — repo conventions → reviewed candidates → a skill
-Status: in-progress · Lesson: L02 (homework) · Packages: server, client
+Status: done (manual UI check pending) · Lesson: L02 (homework) · Packages: server, client
 
 ## Goal
 The user runs a **conventions scan** on a repo. Code picks sample files, a cheap model
@@ -62,7 +62,8 @@ Confidence = adherence × min(1, support_files / 5); capped at 0.69 when evidenc
 ### Contracts (`@devdigest/shared`, both copies)
 `ConventionCandidate` (extended), `ConventionScan`, `ConventionsList`, `ConventionUpdate`,
 `ConventionCategory`, `ConventionEvidence`; `SkillCreate.source` += `extracted`;
-`FEATURE_MODELS.conventions` default → cheap model.
+`FEATURE_MODELS.conventions` default → `openrouter` / `deepseek/deepseek-v4-flash` (as onboarding).
+A live scan of this repo: 7 proposed → 5 kept (2 low adherence), 80 s, $0.005.
 
 ### Routes
 | Method | Path | |
