@@ -133,6 +133,13 @@ describe('adherence', () => {
     expect(isSafePattern('--pre=sh')).toBe(false);
     expect(isSafePattern('.*')).toBe(false);
     expect(isSafePattern('(a+)+$')).toBe(false);
+    // repeated groups backtrack exponentially even without a nested quantifier
+    expect(isSafePattern('^(a|aa)+$')).toBe(false);
+    expect(isSafePattern('(?:\\w|\\d)*x')).toBe(false);
+    expect(isSafePattern('(ab){2,}')).toBe(false);
+    // an escaped paren or an optional group is fine
+    expect(isSafePattern('useQuery\\(\\)+')).toBe(true);
+    expect(isSafePattern('export (async )?function')).toBe(true);
     expect(isSafePattern('(?=x)y')).toBe(false);
     expect(isSafePattern('(a)\\1')).toBe(false);
     expect(isSafePattern('[')).toBe(false);
