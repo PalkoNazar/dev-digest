@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, extname } from 'node:path';
 import type {
   CodeIndex,
@@ -33,11 +34,15 @@ async function resolveRg(): Promise<string | null> {
     const mod = (await import(/* @vite-ignore */ '@vscode/ripgrep' as string)) as {
       rgPath?: string;
     };
-    rgPathCache = mod.rgPath ?? null;
+    // The binary is fetched by a postinstall script, which pnpm may skip
+    // (ERR_PNPM_IGNORED_BUILDS) — then rgPath points at a missing file.
+    const rgPath = mod.rgPath ?? null;
+    if (rgPath) await access(rgPath, constants.X_OK);
+    rgPathCache = rgPath;
   } catch {
     rgPathCache = null;
   }
-  return rgPathCache;
+  return rgPathCache ?? null;
 }
 
 export class RipgrepCodeIndex implements CodeIndex {
@@ -57,7 +62,17 @@ export class RipgrepCodeIndex implements CodeIndex {
   private grepWithRg(rg: string, root: string, pattern: string): Promise<CodeMatch[]> {
     return new Promise((resolve, reject) => {
       const matches: CodeMatch[] = [];
-      const proc = spawn(rg, ['--line-number', '--no-heading', '--color=never', pattern, root]);
+      // `-e` + `--`: the pattern may come from an LLM; a leading `-` (e.g. `--pre=cmd`)
+      // must never be parsed as an rg flag.
+      const proc = spawn(rg, [
+        '--line-number',
+        '--no-heading',
+        '--color=never',
+        '-e',
+        pattern,
+        '--',
+        root,
+      ]);
       let buf = '';
       proc.stdout.on('data', (d) => {
         buf += d.toString();

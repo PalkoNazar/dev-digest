@@ -631,6 +631,17 @@ export class RepoIntelService implements RepoIntel {
     return this.getTopFilesByRank(repoId, n);
   }
 
+  /** Top-N test files by rank (tests rank low — nothing imports them — so scan them all). */
+  async getTestSamples(repoId: string, n: number): Promise<string[]> {
+    if (!this.container.config.repoIntelEnabled) return [];
+    if (n <= 0) return [];
+    const rows = await this.repo.getRankedPaths(repoId, 100_000);
+    return rows
+      .map((r) => r.path)
+      .filter((p) => TEST_PATH_PATTERNS.some((t) => `/${p.toLowerCase()}`.includes(t)))
+      .slice(0, n);
+  }
+
   /**
    * Top-N file paths by rank DESC, dropping tests/configs/migrations and any
    * caller-supplied `exclude` substrings. Over-fetches by 10× before filtering
@@ -726,6 +737,9 @@ const JUNK_PATH_PATTERNS = [
   'eslint',
   'prettier',
 ] as const;
+
+/** Path kinds that mark a test file (subset of JUNK_PATH_PATTERNS). */
+const TEST_PATH_PATTERNS = ['.test.', '.spec.', '__tests__/', '/test/', '/tests/'] as const;
 
 function isJunkPath(path: string): boolean {
   const lower = path.toLowerCase();
