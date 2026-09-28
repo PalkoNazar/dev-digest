@@ -51,11 +51,18 @@ export class ConventionsService {
       await this.deps.repo.failScan(workspaceId, latest.id, 'Interrupted');
     }
     const scan = await this.deps.repo.createScan(workspaceId, repoId);
-    const job = await this.deps.jobs.enqueue(workspaceId, EXTRACT_JOB_KIND, {
-      workspaceId,
-      repoId,
-      scanId: scan.id,
-    } satisfies ExtractJobPayload);
+    let job: Awaited<ReturnType<ConventionsDeps['jobs']['enqueue']>>;
+    try {
+      job = await this.deps.jobs.enqueue(workspaceId, EXTRACT_JOB_KIND, {
+        workspaceId,
+        repoId,
+        scanId: scan.id,
+      } satisfies ExtractJobPayload);
+    } catch (err) {
+      // no job will ever finish this scan — don't leave it blocking the next one
+      await this.deps.repo.failScan(workspaceId, scan.id, errorMessage(err));
+      throw err;
+    }
     // runScan records its own failures; this only catches the runner giving up
     // (timeout) — the scan must not stay "running" forever.
     job.done.catch((err: unknown) =>

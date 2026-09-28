@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "convention_scans_one_running_uq" ON "convention_scans" USING btree ("workspace_id","repo_id") WHERE status = 'running';

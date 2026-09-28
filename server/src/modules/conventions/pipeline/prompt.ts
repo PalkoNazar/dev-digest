@@ -41,18 +41,22 @@ export function buildMessages(input: {
   facts: ToolingFact[];
   known: KnownRule[];
 }): ChatMessage[] {
+  // Labels are fixed: a path comes from the repo and could close the tag itself
+  // (a `"` or `</untrusted>` in a file name), so it goes inside the wrapped content.
   const configs = input.configs
-    .map((c) => wrapUntrusted(`config:${c.path}`, c.content.slice(0, CONFIG_MAX_CHARS)))
+    .map((c) => wrapUntrusted('config', `Path: ${c.path}\n${c.content.slice(0, CONFIG_MAX_CHARS)}`))
     .join('\n\n');
   const samples = input.samples
-    .map((s) => wrapUntrusted(`${s.kind}:${s.path}`, numberLines(s.content)))
+    .map((s) => wrapUntrusted(s.kind, `Path: ${s.path}\n${numberLines(s.content)}`))
     .join('\n\n');
   const user = [
     `Repository: ${input.repoName}`,
+    // Headings are ours; the lists under them are derived from repo files (rule names
+    // are arbitrary JSON keys) and model output, so they stay data.
     '## Already enforced by tooling — do NOT propose rules about these',
-    toolingSection(input.facts),
+    wrapUntrusted('tooling-facts', toolingSection(input.facts)),
     '## Rules the user already decided on — do NOT propose these (or rephrasings) again',
-    knownSection(input.known),
+    wrapUntrusted('decided-rules', knownSection(input.known)),
     '## Tooling configs',
     configs || 'None found.',
     '## Sample files (line-numbered; cite these numbers)',

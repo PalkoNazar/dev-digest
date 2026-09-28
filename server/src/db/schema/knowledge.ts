@@ -9,7 +9,9 @@ import {
   integer,
   vector,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { now } from './_shared';
 import { workspaces } from './core';
 import { repos } from './repos';
@@ -65,7 +67,13 @@ export const conventionScans = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
   },
-  (t) => ({ repoIdx: index('convention_scans_ws_repo_idx').on(t.workspaceId, t.repoId) }),
+  (t) => ({
+    repoIdx: index('convention_scans_ws_repo_idx').on(t.workspaceId, t.repoId),
+    // At most one running scan per repo: two concurrent POSTs must not start two paid jobs.
+    oneRunning: uniqueIndex('convention_scans_one_running_uq')
+      .on(t.workspaceId, t.repoId)
+      .where(sql`status = 'running'`),
+  }),
 );
 
 export interface ConventionEvidenceRow {

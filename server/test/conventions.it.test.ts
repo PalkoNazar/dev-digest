@@ -214,6 +214,19 @@ d('Conventions Extractor (Testcontainers pg)', () => {
     expect(third.candidates.filter((c) => c.status === 'pending')).toHaveLength(1);
   });
 
+  it('two concurrent starts: one scan runs, the other gets 409 (unique running index)', async () => {
+    const repo = new ConventionsRepository(pg.handle.db);
+    const results = await Promise.allSettled([
+      repo.createScan(workspaceId, repoId),
+      repo.createScan(workspaceId, repoId),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    const failed = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect(failed.reason).toMatchObject({ statusCode: 409 });
+    const ok = results.find((r) => r.status === 'fulfilled') as PromiseFulfilledResult<{ id: string }>;
+    await repo.failScan(workspaceId, ok.value.id, 'test cleanup');
+  });
+
   it('409 while a scan is running', async () => {
     const repo = new ConventionsRepository(pg.handle.db);
     const running = await repo.createScan(workspaceId, repoId);
