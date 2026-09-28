@@ -21,7 +21,8 @@ import type { Skill, SkillType } from "@devdigest/shared";
 import { useCreateSkill, useUpdateSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { SKILL_TYPES } from "@/lib/skill-types";
-import { approxTokens, isDirty, validateSkillDraft, type SkillDraft } from "../../helpers";
+import { approxTokens } from "@/lib/token-estimate";
+import { isDirty, validateSkillDraft, type SkillDraft } from "../../helpers";
 import { EMPTY_DRAFT } from "./constants";
 import { s } from "./styles";
 

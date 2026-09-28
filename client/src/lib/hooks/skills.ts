@@ -153,3 +153,17 @@ export function useSetAgentSkillLinks(agentId: string) {
     },
   });
 }
+
+/** Link one skill to an agent (appended; the agent's version is bumped server-side). */
+export function useLinkSkillToAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ agentId, skillId }: { agentId: string; skillId: string }) =>
+      api.post(`/agents/${agentId}/skills`, { skill_id: skillId }),
+    onSuccess: (_d, { agentId }) => {
+      qc.invalidateQueries({ queryKey: ["agent-skills", agentId] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["skills"] });
+    },
+  });
+}
