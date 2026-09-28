@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { CiFailOn, Provider, ReviewStrategy } from '@devdigest/shared';
+import type { CiFailOn, Provider, ReviewStrategy, Skill } from '@devdigest/shared';
 import { DEFAULT_AGENT_DESCRIPTION, INITIAL_AGENT_VERSION } from './constants.js';
 import { isConfigChange } from './helpers.js';
 
@@ -52,6 +52,9 @@ export interface LinkedSkillRow {
   /** Per-agent switch (agent_skills.enabled). */
   enabled: boolean;
 }
+
+/** A skill as it reaches an agent's prompt (mapped — no Drizzle row leaves the repo). */
+export type EffectiveSkill = Pick<Skill, 'id' | 'name' | 'description' | 'body' | 'version'>;
 
 /** One entry of an agent's ordered skill set, as the Skills tab saves it. */
 export interface SkillLinkInput {
@@ -213,9 +216,17 @@ export class AgentsRepository {
    * The skills that reach this agent's prompt, in order: linked, enabled for the
    * agent AND enabled globally.
    */
-  async effectiveSkills(agentId: string): Promise<(typeof t.skills.$inferSelect)[]> {
+  async effectiveSkills(agentId: string): Promise<EffectiveSkill[]> {
     const links = await this.linkedSkills(agentId);
-    return links.filter((l) => l.enabled && l.skill.enabled).map((l) => l.skill);
+    return links
+      .filter((l) => l.enabled && l.skill.enabled)
+      .map(({ skill: s }) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        body: s.body,
+        version: s.version,
+      }));
   }
 
   /** Ordered ids of the skills enabled for the agent (the version snapshot's `skills`). */

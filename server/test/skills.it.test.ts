@@ -93,6 +93,12 @@ d('L02 skills (Testcontainers pg)', () => {
     const dup = await app.inject({ method: 'POST', url: '/skills', payload: skillBody({ name: 'crud-skill' }) });
     expect(dup.statusCode).toBe(409);
 
+    // two concurrent creates of one name: the unique index turns the loser into 409, not 500
+    const race = await Promise.all(
+      [0, 1].map(() => app.inject({ method: 'POST', url: '/skills', payload: skillBody({ name: 'race-skill' }) })),
+    );
+    expect(race.map((r) => r.statusCode).sort()).toEqual([201, 409]);
+
     const bad = await app.inject({ method: 'POST', url: '/skills', payload: skillBody({ name: 'Not A Slug' }) });
     expect(bad.statusCode).toBe(422);
 
@@ -191,6 +197,18 @@ d('L02 skills (Testcontainers pg)', () => {
       payload: { links: [{ skill_id: a.id, enabled: false }, { skill_id: b.id, enabled: true }] },
     });
     expect((await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json().version).toBe(2);
+
+    // linking ONE skill (legacy skill_id body) versions the agent like the full set does
+    const c = (await app.inject({ method: 'POST', url: '/skills', payload: skillBody() })).json();
+    const one = await app.inject({
+      method: 'POST',
+      url: `/agents/${agent.id}/skills`,
+      payload: { skill_id: c.id, order: 0 },
+    });
+    expect(one.json().map((l: { skill_id: string }) => l.skill_id)).toEqual([c.id, a.id, b.id]);
+    expect((await app.inject({ method: 'GET', url: `/agents/${agent.id}` })).json().version).toBe(3);
+    const v3 = (await app.inject({ method: 'GET', url: `/agents/${agent.id}/versions/3` })).json();
+    expect(v3.config.skills).toEqual([c.id, b.id]);
 
     const foreign = await app.inject({
       method: 'POST',

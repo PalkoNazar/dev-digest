@@ -24,33 +24,29 @@ export function SkillCard({
   const t = useTranslations("skills");
   const color = SKILL_TYPE_COLOR[skill.type];
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-      style={s.card(!!active, skill.enabled)}
-    >
+    // The whole card is a mouse target; for keyboard / screen readers the name is
+    // the one "open" button and the switch is a separate sibling control.
+    <div onClick={onClick} style={s.card(!!active, skill.enabled)}>
       <div style={s.headerRow}>
         <div style={s.iconBox}>
           <Icon.Sparkles size={14} />
         </div>
-        <span className="mono" style={s.name}>
+        <button
+          type="button"
+          className="mono"
+          style={s.name}
+          aria-current={active ? "true" : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick?.();
+          }}
+        >
           {skill.name}
-        </span>
+        </button>
         {onToggle && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            title={t("card.toggle", { name: skill.name })}
-          >
+          <span onClick={(e) => e.stopPropagation()} title={t("card.toggle", { name: skill.name })}>
             <Toggle on={skill.enabled} onChange={onToggle} size={14} />
-          </div>
+          </span>
         )}
       </div>
       <div style={s.description}>{skill.description || t("card.noDescription")}</div>

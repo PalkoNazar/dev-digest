@@ -194,9 +194,16 @@ export class AgentsService {
     const agent = await this.repo.getById(workspaceId, agentId);
     if (!agent) return undefined;
     await this.assertSkillsInWorkspace(workspaceId, [skillId]);
+    // Rebuild the ordered set and save it through setSkillLinks, so linking one
+    // skill bumps + snapshots the agent version like the Skills tab does.
     const existing = await this.repo.linkedSkills(agentId);
-    const resolvedOrder = order ?? existing.length;
-    await this.repo.linkSkill(agentId, skillId, resolvedOrder);
+    const current = existing.find((l) => l.skill.id === skillId);
+    const rest = existing
+      .filter((l) => l.skill.id !== skillId)
+      .map((l) => ({ skillId: l.skill.id, enabled: l.enabled }));
+    const at = Math.max(0, Math.min(order ?? rest.length, rest.length));
+    rest.splice(at, 0, { skillId, enabled: current?.enabled ?? true });
+    await this.repo.setSkillLinks(agentId, rest);
     return this.skillLinks(agentId);
   }
 

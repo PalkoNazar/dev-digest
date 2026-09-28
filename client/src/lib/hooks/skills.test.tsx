@@ -86,7 +86,7 @@ describe("useSetAgentSkillLinks", () => {
     expect(qc.getQueryState(KEY)?.isInvalidated).toBe(true);
   });
 
-  it("keeps the server's answer and refreshes the agent views on success", async () => {
+  it("keeps the server's answer and refreshes the agent and skill views on success", async () => {
     const saved = [link("b", 0, false), link("a", 1)];
     post.mockResolvedValue(saved);
     const { qc, result } = setup();
@@ -97,5 +97,7 @@ describe("useSetAgentSkillLinks", () => {
     expect(qc.getQueryData(KEY)).toEqual(saved);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["agents"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["agent", "ag1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["skills"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["skill-stats"] });
   });
 });

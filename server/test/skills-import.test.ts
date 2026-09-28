@@ -208,6 +208,12 @@ describe('zip reader error branches', () => {
     expect(() => readZipEntry(buf, lying, 100)).toThrow(/could not be decompressed/);
   });
 
+  it('caps a stored entry by its real length, not the size it claims', () => {
+    const buf = makeZip({ 'SKILL.md': 'x'.repeat(5000) }, { store: true });
+    const lying = { ...entry(buf), size: 10 };
+    expect(() => readZipEntry(buf, lying, 100)).toThrow(/larger than 100 bytes/);
+  });
+
   it('refuses ZIP64 archives', () => {
     const buf = zip();
     const eocd = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
