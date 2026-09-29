@@ -43,7 +43,17 @@ Take per-PR review data for the list from the latest `kind='review'` row; only C
 Why: `agent_runs.head_sha` exists only since migration 0010 — a SHA-round match hides every pre-L01
 review's data. Evidence: `server/src/modules/pulls/routes.ts` (`latestReviewByPr` vs `roundCostByPr`).
 
+### 2026-09-29 — agents pick skills from `pr-self-review/references/routing.md`
+ALWAYS change which skill applies to which files in `.claude/skills/pr-self-review/references/routing.md`, not in agent prompts.
+Why: `planner` assigns skills per plan step from that table, `implementer` loads skills from it and `/pr-self-review`
+reviews with it — one table keeps plan, code and review on the same rules. Evidence: `.claude/agents/{planner,implementer}.md`.
+
 ## Tool & Library Notes
+
+### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
+NEVER restrict single commands via a specifier in agent `tools`/`disallowedTools`; use prompt rules, `permissions.deny` or a `PreToolUse` hook.
+Why: code.claude.com/docs/en/sub-agents says a specifier entry "still removes the whole tool" (its own example contradicts
+this). Also: `skills:` preload rejects skills with `disable-model-invocation: true` (e.g. `pr-self-review`).
 
 ### 2026-09-27 — pnpm isn't on PATH; `corepack pnpm` leaves a stray file
 Use `COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm <cmd>`, then delete `server/pnpm-workspace.yaml`
@@ -83,5 +93,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-27 — findings card deep link + stale tsx-watch debugging: 1 entry (stale watch after checkout/pull).
 2026-09-27 — pr-self-review skill (.claude/skills + .githooks): 1 entry in server/INSIGHTS.md (arch:check red on main) + 1 open question.
 2026-09-27 — L02 skills (server+client+docs, worktree feat/l02-skills): 2 entries (pnpm add churn, IGNORED_BUILDS); +1 in client/INSIGHTS.md.
+2026-09-29 — planner + implementer subagents (.claude/agents, specs/plans): 2 entries (routing.md as shared skill map, Bash specifier removes whole tool).
 
 ## Open Questions
