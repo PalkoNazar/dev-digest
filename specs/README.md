@@ -6,6 +6,9 @@ Cross-package features live here; single-package ones in `<package>/specs/`.
 Naming: `L01-cost-badge.md`, `L02-conventions-extractor.md`, … (lesson id + slug),
 or `YYYY-MM-DD-slug.md` for non-course work.
 
+Development Plans (how to build a spec, from the `planner` agent) live in
+`specs/plans/` — see `specs/plans/README.md`.
+
 ## Template
 
 ```markdown
