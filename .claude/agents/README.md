@@ -54,12 +54,12 @@ agent prompts. architecture-reviewer grades with the same
 
 | Agent | Allowed tools | Denied tools | Preloaded skills | Also in the prompt |
 |---|---|---|---|---|
-| researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | — (allowlist) | — | read-only Bash only; no skills, no sub-agents; never reads secrets |
-| planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | read-only Bash only; unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
+| researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | — (allowlist) | — | read-only Bash only (hook-enforced); no skills, no sub-agents; never reads secrets |
+| planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | read-only Bash only (hook-enforced); unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no commit/push/stash/PR; no hand-edited migrations; never weakens `groundFindings`/`INJECTION_GUARD`; no secrets; no `INSIGHTS.md` edits; never edits test-writer's tests; `maxTurns: 120` |
 | test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, react-testing-library | writes only test paths; never deletes/skips/weakens existing tests; no new deps; local pattern beats generic skill; no commit/push; `maxTurns: 80` |
-| architecture-reviewer | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture | read-only Bash + `pnpm arch:check`/`depcruise` only; never `arch:baseline`; evidence or drop; turn budget (Tier A first, write after ~40 calls; rest → "Not checked", `INCOMPLETE`); batched reads; `maxTurns: 60` |
-| plan-verifier | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | — | runs only the plan's own commands; no migrations, e2e, installs, snapshot updates; self-skipped test = cannot verify; `maxTurns: 60` |
+| architecture-reviewer | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture | read-only Bash (hook-enforced) + `pnpm arch:check`/`depcruise` only; never `arch:baseline`; evidence or drop; turn budget (Tier A first, write after ~40 calls; rest → "Not checked", `INCOMPLETE`); batched reads; `maxTurns: 60` |
+| plan-verifier | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | — | read-only Bash (hook-enforced); runs only the plan's own commands; no migrations, e2e, installs, snapshot updates; self-skipped test = cannot verify; `maxTurns: 60` |
 | doc-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch, NotebookEdit | mermaid-diagram | writes only docs paths; implemented-only; location from the docs map; `mmdc` render check; no commit/push; `maxTurns: 60` |
 
 Command-level bans (`git push`, `docker compose down -v`, …) and write scopes ("only
@@ -68,6 +68,14 @@ like `Bash(git push *)` removes the whole Bash tool from a subagent, and there i
 path-scoped Write. plan-verifier's reverse scan and `git status --short` after every
 writing-agent run catch scope breaks. No `permissionMode` is set — it is ignored while
 the main session runs in auto / acceptEdits mode.
+
+The four read-only agents (researcher, planner, architecture-reviewer, plan-verifier)
+carry a frontmatter `PreToolUse` hook on Bash:
+[`.claude/hooks/readonly-bash.mjs`](../hooks/readonly-bash.mjs). It exits 2 on
+redirects into files, `sed -i`, `rm`/`mv`/`cp`/…, state-changing git, installs,
+`db:*`/`arch:baseline` scripts, snapshot updates, `docker`, repo scripts, and on
+interpreters/`sh -c`/`xargs` that would get around it. It is a denylist, not a
+sandbox. Test it with `node .claude/hooks/readonly-bash.test.mjs`.
 
 ## Artifacts
 
@@ -101,7 +109,7 @@ branches) come from `CLAUDE.md` and the package `AGENTS.md` files, not from thes
 | The agent doing the work isn't the one grading it → review and insights left to others | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) |
 | Orchestrator–workers: the main session delegates and synthesizes | [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) |
 | Stopping conditions → `maxTurns`, `BLOCKED` / `PARTIAL`, plans split into runs | [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) |
-| No path-scoped Write → write scopes are prompt rules; `disallowedTools` applied before `tools`; read-only = Read, Grep, Glob (+ read-only Bash) | [Subagents](https://code.claude.com/docs/en/sub-agents) |
+| No path-scoped Write → write scopes are prompt rules; `disallowedTools` applied before `tools`; read-only = Read, Grep, Glob (+ read-only Bash, enforced by a frontmatter `PreToolUse` hook) | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | Combined agent descriptions stay well under ~15k tokens | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | Writer / reviewer separation; tests-first ("have one Claude write tests, then another write code to pass them") | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) |
 | plan-verifier's core loop ("review the diff against PLAN.md … Report gaps, not style preferences") | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) |

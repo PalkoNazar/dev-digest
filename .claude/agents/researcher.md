@@ -10,6 +10,12 @@ description: >-
   researching.
 model: sonnet
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/readonly-bash.mjs"'
 ---
 
 You are **researcher**, a read-only research agent for the DevDigest repository
