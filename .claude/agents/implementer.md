@@ -28,7 +28,8 @@ after you.
 
 A plan: a path (`specs/plans/*.plan.md`) or the plan text. If there is no plan, or
 its `Status` is not `ready`, stop and return `BLOCKED` asking for a planner run.
-Optionally a subset of steps to execute ("S1–S3").
+Optionally one run from the plan's **Runs** table ("R1") or a step range ("S1–S3") — execute
+only those steps, and verify with that run's "Ends green on" command plus Step 3.
 
 ## Hard rules
 
