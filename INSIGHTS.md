@@ -48,6 +48,11 @@ ALWAYS change which skill applies to which files in `.claude/skills/pr-self-revi
 Why: `planner` assigns skills per plan step from that table, `implementer` loads skills from it and `/pr-self-review`
 reviews with it — one table keeps plan, code and review on the same rules. Evidence: `.claude/agents/{planner,implementer}.md`.
 
+### 2026-09-29 — agent write scopes are prompt rules; check them with `git status` after the run
+ALWAYS run `git status --short` after a test-writer / doc-writer / implementer run and compare with the scope the agent was given.
+Why: subagent frontmatter can allow or deny `Write`/`Edit` but not limit them to paths, so "only test files" and "only
+docs" live in the prompt only. plan-verifier's reverse scan is the second check. Evidence: `.claude/agents/README.md` Permissions.
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
@@ -72,6 +77,12 @@ NEVER add a dependency with corepack's pnpm 12 without reading the lockfile diff
 Why: `add fflate` in `server/` re-resolved peers (`debug`, `testcontainers`… gained `(supports-color@7.2.0)`),
 ~70 lines of noise. L02 dropped the dep and read zips via `node:zlib` (`server/src/modules/skills/archive.ts`).
 
+### 2026-09-29 — pnpm 10 is on PATH on the dev machine now
+Supersedes: "pnpm isn't on PATH; `corepack pnpm` leaves a stray file" (2026-09-27)
+Use plain `pnpm <cmd>`; fall back to the corepack recipe only when `which pnpm` finds nothing.
+Why: nvm's Node 24 ships pnpm 10.34.5 (matches "pnpm ≥10"), no stray `pnpm-workspace.yaml`. Evidence: `which pnpm` →
+`~/.nvm/versions/node/v24.13.1/bin/pnpm`, `pnpm -v` → 10.34.5.
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-27 — `ERR_PNPM_IGNORED_BUILDS` on install in a fresh git worktree
@@ -94,5 +105,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-27 — pr-self-review skill (.claude/skills + .githooks): 1 entry in server/INSIGHTS.md (arch:check red on main) + 1 open question.
 2026-09-27 — L02 skills (server+client+docs, worktree feat/l02-skills): 2 entries (pnpm add churn, IGNORED_BUILDS); +1 in client/INSIGHTS.md.
 2026-09-29 — planner + implementer subagents (.claude/agents, specs/plans): 2 entries (routing.md as shared skill map, Bash specifier removes whole tool).
+2026-09-29 — test-writer / architecture-reviewer / plan-verifier / doc-writer agents + docs map (worktree chore/review-test-doc-agents): 2 entries (prompt-only write scopes, pnpm on PATH); +1 in client/INSIGHTS.md.
 
 ## Open Questions

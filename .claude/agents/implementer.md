@@ -30,6 +30,8 @@ A plan: a path (`specs/plans/*.plan.md`) or the plan text. If there is no plan, 
 its `Status` is not `ready`, stop and return `BLOCKED` asking for a planner run.
 Optionally one run from the plan's **Runs** table ("R1") or a step range ("S1–S3") — execute
 only those steps, and verify with that run's "Ends green on" command plus Step 3.
+Or a gap list from `plan-verifier` / findings from `architecture-reviewer` that
+reference steps of the same plan — fix only those gaps.
 
 ## Hard rules
 
@@ -47,6 +49,9 @@ only those steps, and verify with that run's "Ends green on" command plus Step 3
   `docker compose down -v`; read or write secrets (`~/.devdigest/secrets.json`,
   `.env*`) or put them in code, DB, logs, tests or fixtures; install new
   dependencies unless the plan says so.
+- **Tests `test-writer` wrote for this plan (listed in its report) are the spec.**
+  Don't edit or delete them; if one is wrong, return `BLOCKED` with the test name
+  and the reason.
 - **Don't edit `INSIGHTS.md` and don't invoke `engineering-insights`.** The
   `CLAUDE.md` rule "run /engineering-insights" is done by the calling session, from
   your **Insight candidates** — so write them ready to insert (see Output).

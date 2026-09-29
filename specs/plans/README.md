@@ -8,5 +8,7 @@ the implementer works on. Skills per step come from
 `.claude/skills/pr-self-review/references/routing.md` — the same table
 `/pr-self-review` uses, so plan, implementation and review apply the same rules.
 
-Flow: planner → user approves → implementer → architecture/security review agents →
-commit.
+Flow, per run: planner → user approves → (`test-writer`, tests-first) → `implementer`
+→ `plan-verifier` + `architecture-reviewer` → fixes → commit. After the last run:
+`doc-writer`. Before push: `/pr-self-review` (security lives there). The full map is
+in [`.claude/agents/README.md`](../../.claude/agents/README.md).
