@@ -116,6 +116,13 @@ Steps are small (one concern, usually 1–4 files), ordered by dependency, each
 independently verifiable. Every behaviour change has a test step or a line saying why
 no test is possible. Name the branch: `feat/<slug>` (or `fix/…`, `chore/…`).
 
+**Runs.** The implementer executes the plan one run at a time; after each run the
+calling session records insights and commits. Split into runs when the plan has more
+than ~5 steps or touches more than one package; otherwise one run. Each run is a
+contiguous range of steps that ends in a green state (its package typecheck and tests
+pass on their own) — typically contract + server, then client. Never end a run
+mid-contract (one vendor/shared copy changed, the other not).
+
 Output exactly this format (the calling session saves it to
 `specs/plans/YYYY-MM-DD-<slug>.plan.md`):
 
@@ -151,6 +158,13 @@ One paragraph: the user-visible outcome.
 - Done when: observable condition
 
 ### S2 — …
+
+## Runs
+| Run | Steps | Ends green on |
+|---|---|---|
+| R1 | S1–S3 | `cd server && pnpm typecheck && pnpm exec vitest run --exclude '**/*.it.test.ts'` |
+| R2 | S4–S6 | `cd client && pnpm typecheck && pnpm test` |
+(or one row: "R1 | all | <Verification>")
 
 ## Contract changes
 Order: shared (server copy) → shared (client copy) → server → client. Or "none".
