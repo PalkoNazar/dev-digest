@@ -1,7 +1,8 @@
 {
   "card": {
     "noDescription": "No description",
-    "skillCount": "{count, plural, one {# skill} other {# skills}}"
+    "skillCount": "{count, plural, one {# skill} other {# skills}}",
+    "delete": "Delete agent “{name}”"
   },
   "list": {
     "breadcrumbLab": "Skills Lab",
@@ -90,15 +91,12 @@
   "skills": {
     "title": "Skills",
     "enabledCount": "{enabled} of {total} enabled",
-    "hint": "Order matters — earlier skills appear earlier in the assembled prompt. Drag or use the arrows to reorder.",
+    "hint": "Every skill in the workspace. Tick one to add its rules to this agent’s prompt. Order matters — earlier skills appear earlier in the prompt; drag or use the arrows to reorder the enabled ones.",
     "filterPlaceholder": "Filter skills…",
-    "attach": "Attach skill",
-    "attachEmpty": "All skills are attached",
     "manage": "Manage skills",
-    "empty": "No skills attached. Attach one to add its rules to this agent’s prompt.",
     "noSkills": "No skills in this workspace yet.",
     "createFirst": "Create a skill",
-    "noMatch": "No attached skill matches “{query}”.",
+    "noMatch": "No skill matches “{query}”.",
     "enableFor": "Enable “{name}” for this agent",
     "moveUp": "Move “{name}” up",
     "moveDown": "Move “{name}” down",
@@ -106,9 +104,18 @@
     "dragHandle": "Drag to reorder “{name}”",
     "disabledGlobally": "disabled globally",
     "disabledGloballyTitle": "This skill is switched off on the Skills page, so no agent gets it.",
-    "loadError": "Could not load this agent’s skills."
+    "loadError": "Could not load this agent’s skills.",
+    "dragDisabled": "Enable the skill for this agent to reorder it"
   },
   "mount": {
     "body": "Mount point for {owner}. The Agent Editor shell + tab routing are wired by A2 — {owner} renders this tab."
+  },
+  "delete": {
+    "title": "Delete agent?",
+    "body": "Delete agent “{name}”? Its skill links go with it. This cannot be undone.",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel",
+    "deleted": "Deleted “{name}”."
   }
 }

@@ -103,8 +103,10 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
 ### UI entry points
 - Sidebar: Agents stays under WORKSPACE; new section **SKILLS LAB** → Skills (`/skills`).
 - `/skills`, `/skills/new`, `/skills/:id` — master-detail (mockup "Skills Lab › Skills"):
-  left, skill cards (name, enabled toggle, description, type + source badges, "N agents")
-  with search and "Add skill" ▾ → Create / Import; right, the selected skill: header
+  left, skill cards (name, enabled toggle, delete, description, type + source badges,
+  `vN`, "N agents") with search and "Add skill" ▾ → Create / Import — both in a modal
+  (`/skills/new` = the list with the create modal open); every delete (skill or agent)
+  asks in a confirm modal (confirm / cancel / ✕); right, the selected skill: header
   (name, type, `vN`, "needs vetting" for a disabled import) + tabs `?tab=`
   **Config** (name, directive description with hint, type, body editor with
   `name.md · unsaved · ≈N tokens` and write/preview, enabled, save/delete),
@@ -112,9 +114,13 @@ hijack the review. Hence: preview before save, imported skills saved disabled, a
   **Stats** (partial: used by, pull frequency = runs of attached agents whose trace
   `skills_used` has the skill, accept rate + findings (30d) + by category for findings of
   those runs — correlation, not causation; agents list with Open),
-  **Versions** (body history, current marked). Evals tab comes with a later lesson.
-- `/agents/:id?tab=skills`: ordered linked skills (checkbox = enabled for this agent,
-  drag or ↑/↓ to reorder, remove), "Attach skill" picker, "N of M enabled".
+  **Versions** (body history, current marked; each older version has **Diff** — line
+  diff against the current body — and **Restore**, which saves that body as a new
+  version). Evals tab comes with a later lesson.
+- `/agents/:id?tab=skills`: EVERY workspace skill with its type badge — the linked ones
+  first in prompt order, then the rest (checkbox = enabled for this agent; ticking an
+  unlinked one links it at the end), filter by name; only enabled skills can be
+  reordered (drag or ↑/↓, which step over disabled ones), remove, "N of M enabled".
 - Run trace drawer → Prompt assembly → Skills block shows `+N tok`.
 
 ## Acceptance criteria

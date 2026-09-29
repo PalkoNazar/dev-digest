@@ -31,8 +31,11 @@ export function SkillEditor({
   onSaved,
   onCancel,
   onDelete,
+  embedded,
 }: {
   skill?: Skill;
+  /** Inside a modal that already carries the title. */
+  embedded?: boolean;
   onSaved?: (skill: Skill) => void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -92,9 +95,9 @@ export function SkillEditor({
   return (
     <div style={s.wrap}>
       <div style={s.header}>
-        <h2 style={s.h2}>
-          {skill ? t("editor.configuration") : t("editor.titleNew")}
-        </h2>
+        {!embedded && (
+          <h2 style={s.h2}>{skill ? t("editor.configuration") : t("editor.titleNew")}</h2>
+        )}
         {skill && (
           <span className="mono" style={s.version}>
             {t("editor.version", { version: skill.version })}

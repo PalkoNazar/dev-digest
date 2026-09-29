@@ -1,26 +1,30 @@
-/* SkillsTab — the agent's attached skills (L02): attach / detach, enable or
-   disable per agent, reorder (drag or ↑/↓). Order = order of the blocks in the
-   prompt. Every change saves at once (optimistic) as the full ordered set. */
+/* SkillsTab — every workspace skill for this agent (L02): the attached ones first,
+   in prompt order, then the rest. A checkbox enables a skill for the agent
+   (attaching it at the end if needed); only enabled skills can be reordered (drag
+   or ↑/↓) — order = order of the blocks in the prompt. Every change saves at once
+   (optimistic) as the full ordered set. */
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import {
-  Badge,
-  Button,
-  Checkbox,
-  Dropdown,
-  ErrorState,
-  Icon,
-  IconBtn,
-  Skeleton,
-} from "@devdigest/ui";
-import type { Agent } from "@devdigest/shared";
+import { Badge, Checkbox, ErrorState, Icon, IconBtn, Skeleton } from "@devdigest/ui";
+import type { Agent, Skill } from "@devdigest/shared";
 import { useAgentSkillLinks, useSetAgentSkillLinks, useSkills } from "@/lib/hooks/skills";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
-import { countEffective, matchesFilter, moveItem, toRows, type SkillRow } from "./helpers";
+import {
+  countEffective,
+  enabledNeighbour,
+  matchesFilter,
+  moveItem,
+  toRows,
+  unattachedSkills,
+  type SkillRow,
+} from "./helpers";
 import { s } from "./styles";
+
+/** A list entry: an attached row (`index` into the ordered rows) or an unattached skill. */
+type Item = { skill: Skill; enabled: boolean; index: number | null };
 
 export function SkillsTab({ agent }: { agent: Agent }) {
   const t = useTranslations("agents");
@@ -53,33 +57,32 @@ export function SkillsTab({ agent }: { agent: Agent }) {
 
   const skills = skillsQ.data ?? [];
   const rows = toRows(linksQ.data ?? [], skills);
-  const attached = new Set(rows.map((r) => r.skill.id));
-  const available = skills.filter((sk) => !attached.has(sk.id));
 
   const save = (next: SkillRow[]) =>
     setLinks.mutate(next.map((r) => ({ skill_id: r.skill.id, enabled: r.enabled })));
-  const toggle = (i: number, enabled: boolean) =>
-    save(rows.map((r, j) => (j === i ? { ...r, enabled } : r)));
+  const toggle = (item: Item, enabled: boolean) =>
+    item.index === null
+      ? save([...rows, { skill: item.skill, enabled: true }])
+      : save(rows.map((r, j) => (j === item.index ? { ...r, enabled } : r)));
   const move = (from: number, to: number) => {
     if (to < 0 || to >= rows.length || from === to) return;
+    if (!rows[from]?.enabled || !rows[to]?.enabled) return;
     save(moveItem(rows, from, to));
   };
   const detach = (i: number) => save(rows.filter((_, j) => j !== i));
-  const attach = (id: string) => {
-    const skill = skills.find((sk) => sk.id === id);
-    if (skill) save([...rows, { skill, enabled: true }]);
-  };
 
-  const visible = rows
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) => matchesFilter(row.skill, filter));
+  const items: Item[] = [
+    ...rows.map((r, index) => ({ ...r, index })),
+    ...unattachedSkills(rows, skills).map((skill) => ({ skill, enabled: false, index: null })),
+  ];
+  const visible = items.filter((it) => matchesFilter(it.skill, filter));
 
   return (
     <div style={s.wrap}>
       <div style={s.header}>
         <h2 style={s.h2}>{t("skills.title")}</h2>
         <Badge color="var(--accent-text)" bg="var(--accent-bg)">
-          {t("skills.enabledCount", { enabled: countEffective(rows), total: rows.length })}
+          {t("skills.enabledCount", { enabled: countEffective(rows), total: skills.length })}
         </Badge>
         <div style={s.filter}>
           <Icon.Search size={13} style={s.muted} />
@@ -91,25 +94,6 @@ export function SkillsTab({ agent }: { agent: Agent }) {
             style={s.filterInput}
           />
         </div>
-        <Dropdown
-          width={260}
-          align="right"
-          trigger={
-            <Button kind="secondary" size="sm" icon="Plus" iconRight="ChevronDown">
-              {t("skills.attach")}
-            </Button>
-          }
-          items={
-            available.length > 0
-              ? available.map((sk) => ({
-                  label: sk.name,
-                  icon: "Sparkles" as const,
-                  hint: tSkills(`type.${sk.type}`),
-                  onClick: () => attach(sk.id),
-                }))
-              : [{ label: t("skills.attachEmpty"), muted: true }]
-          }
-        />
       </div>
       <p style={s.hint}>{t("skills.hint")}</p>
 
@@ -120,41 +104,49 @@ export function SkillsTab({ agent }: { agent: Agent }) {
             {t("skills.createFirst")}
           </Link>
         </div>
-      ) : rows.length === 0 ? (
-        <div style={s.empty}>{t("skills.empty")}</div>
       ) : visible.length === 0 ? (
         <div style={s.empty}>{t("skills.noMatch", { query: filter })}</div>
       ) : (
         <ul style={s.list}>
-          {visible.map(({ row, index }) => {
-            const color = SKILL_TYPE_COLOR[row.skill.type];
-            const name = row.skill.name;
+          {visible.map((item) => {
+            const { skill, enabled, index } = item;
+            const color = SKILL_TYPE_COLOR[skill.type];
+            const name = skill.name;
+            const movable = index !== null && enabled;
             return (
               <li
-                key={row.skill.id}
-                draggable
-                onDragStart={() => setDragFrom(index)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (dragFrom !== null) move(dragFrom, index);
-                  setDragFrom(null);
-                }}
+                key={skill.id}
+                draggable={movable}
+                onDragStart={movable ? () => setDragFrom(index) : undefined}
+                onDragOver={movable ? (e) => e.preventDefault() : undefined}
+                onDrop={
+                  movable
+                    ? () => {
+                        if (dragFrom !== null) move(dragFrom, index);
+                        setDragFrom(null);
+                      }
+                    : undefined
+                }
                 onDragEnd={() => setDragFrom(null)}
-                style={s.row(dragFrom === index, row.enabled && row.skill.enabled)}
+                style={s.row(dragFrom === index && index !== null, enabled && skill.enabled)}
               >
-                <span style={s.handle} title={t("skills.dragHandle", { name })} aria-hidden>
+                <span
+                  style={s.handle(movable)}
+                  title={movable ? t("skills.dragHandle", { name }) : t("skills.dragDisabled")}
+                  aria-hidden
+                >
                   <Icon.Menu size={14} />
                 </span>
                 <Checkbox
-                  checked={row.enabled}
-                  onChange={(v) => toggle(index, v)}
+                  checked={enabled}
+                  onChange={(v) => toggle(item, v)}
                   label={
-                    <span className="mono" style={s.name} title={row.skill.description}>
+                    <span className="mono" style={s.name} title={skill.description}>
                       {name}
                     </span>
                   }
                 />
-                {!row.skill.enabled && (
+                {!skill.enabled && (
                   <span title={t("skills.disabledGloballyTitle")}>
                     <Badge color="var(--warn)" bg="var(--warn-bg)">
                       {t("skills.disabledGlobally")}
@@ -163,26 +155,32 @@ export function SkillsTab({ agent }: { agent: Agent }) {
                 )}
                 <span style={s.rowRight}>
                   <Badge color={color.fg} bg={color.bg}>
-                    {tSkills(`type.${row.skill.type}`)}
+                    {tSkills(`type.${skill.type}`)}
                   </Badge>
-                  <IconBtn
-                    icon="ArrowUp"
-                    size={26}
-                    label={t("skills.moveUp", { name })}
-                    onClick={() => move(index, index - 1)}
-                  />
-                  <IconBtn
-                    icon="ArrowDown"
-                    size={26}
-                    label={t("skills.moveDown", { name })}
-                    onClick={() => move(index, index + 1)}
-                  />
-                  <IconBtn
-                    icon="X"
-                    size={26}
-                    label={t("skills.detach", { name })}
-                    onClick={() => detach(index)}
-                  />
+                  {movable && (
+                    <>
+                      <IconBtn
+                        icon="ArrowUp"
+                        size={26}
+                        label={t("skills.moveUp", { name })}
+                        onClick={() => move(index, enabledNeighbour(rows, index, -1))}
+                      />
+                      <IconBtn
+                        icon="ArrowDown"
+                        size={26}
+                        label={t("skills.moveDown", { name })}
+                        onClick={() => move(index, enabledNeighbour(rows, index, 1))}
+                      />
+                    </>
+                  )}
+                  {index !== null && (
+                    <IconBtn
+                      icon="X"
+                      size={26}
+                      label={t("skills.detach", { name })}
+                      onClick={() => detach(index)}
+                    />
+                  )}
                 </span>
               </li>
             );

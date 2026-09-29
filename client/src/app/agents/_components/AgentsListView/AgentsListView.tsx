@@ -1,5 +1,5 @@
 /* /agents — Agents list (A2, L03). AgentCards + create. Selecting an agent
-   navigates to the 5-tab editor at /agents/:id. */
+   navigates to the 2-tab editor (Config, Skills) at /agents/:id. */
 "use client";
 
 import React from "react";
@@ -8,7 +8,9 @@ import { useTranslations } from "next-intl";
 import { Button, Dropdown, EmptyState, ErrorState, Skeleton, Icon } from "@devdigest/ui";
 import { AppShell } from "../../../../components/app-shell";
 import { useAgents, useUpdateAgent } from "../../../../lib/hooks/agents";
+import type { Agent } from "@devdigest/shared";
 import { AgentCard } from "../AgentCard";
+import { AgentDeleteDialog } from "../AgentDeleteDialog";
 import { CreateAgentModal } from "./_components/CreateAgentModal";
 import { TEMPLATES } from "./constants";
 import { filterAgents } from "./helpers";
@@ -21,12 +23,14 @@ export function AgentsListView() {
   const update = useUpdateAgent();
   const [creating, setCreating] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [deleting, setDeleting] = React.useState<Agent | null>(null);
 
   const list = filterAgents(agents ?? [], search);
 
   return (
     <AppShell crumb={[{ label: t("list.breadcrumbLab") }, { label: t("list.breadcrumb") }]}>
       {creating && <CreateAgentModal onClose={() => setCreating(false)} />}
+      {deleting && <AgentDeleteDialog agent={deleting} onClose={() => setDeleting(null)} />}
       <div style={s.page}>
         <div style={s.header}>
           <div style={s.headerText}>
@@ -88,6 +92,7 @@ export function AgentsListView() {
                 ag={a}
                 onClick={() => router.push(`/agents/${a.id}?tab=config`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
+                onDelete={() => setDeleting(a)}
               />
             ))}
           </div>

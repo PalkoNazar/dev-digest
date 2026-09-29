@@ -1,10 +1,10 @@
-/* SkillCard — list card on /skills: name, global enabled toggle, description,
-   type + source badges and how many agents use the skill. */
+/* SkillCard — list card on /skills: name, global enabled toggle, delete,
+   description, type + source badges, current version and how many agents use it. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, Toggle } from "@devdigest/ui";
+import { Badge, Icon, IconBtn, Toggle } from "@devdigest/ui";
 import type { Skill } from "@devdigest/shared";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
 import { SOURCE_ICON } from "./constants";
@@ -15,11 +15,14 @@ export function SkillCard({
   active,
   onClick,
   onToggle,
+  onDelete,
 }: {
   skill: Skill;
   active?: boolean;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
+  /** Asks to delete; the parent owns the confirm dialog (outside this clickable card). */
+  onDelete?: () => void;
 }) {
   const t = useTranslations("skills");
   const color = SKILL_TYPE_COLOR[skill.type];
@@ -48,6 +51,11 @@ export function SkillCard({
             <Toggle on={skill.enabled} onChange={onToggle} size={14} />
           </span>
         )}
+        {onDelete && (
+          <span onClick={(e) => e.stopPropagation()} style={s.delete}>
+            <IconBtn icon="Trash" size={24} label={t("card.delete", { name: skill.name })} onClick={onDelete} />
+          </span>
+        )}
       </div>
       <div style={s.description}>{skill.description || t("card.noDescription")}</div>
       <div style={s.metaRow}>
@@ -57,6 +65,9 @@ export function SkillCard({
         <span style={s.source}>
           {React.createElement(Icon[SOURCE_ICON[skill.source]], { size: 12 })}
           {t(`source.${skill.source}`)}
+        </span>
+        <span className="mono" style={s.version}>
+          {t("editor.version", { version: skill.version })}
         </span>
       </div>
       {skill.agent_count != null && (

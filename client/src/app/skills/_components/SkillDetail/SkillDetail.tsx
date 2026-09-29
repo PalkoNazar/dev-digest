@@ -8,9 +8,9 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Badge, EmptyState, ErrorState, Icon, Markdown, Skeleton, Tabs } from "@devdigest/ui";
 import { ApiError } from "@/lib/api";
-import { useDeleteSkill, useSkill } from "@/lib/hooks/skills";
-import { useToast } from "@/lib/toast";
+import { useSkill } from "@/lib/hooks/skills";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
+import { SkillDeleteDialog } from "../SkillDeleteDialog";
 import { SkillEditor } from "../SkillEditor";
 import { SkillStatsTab } from "../SkillStatsTab";
 import { SkillVersions } from "../SkillVersions";
@@ -20,9 +20,8 @@ import { s } from "./styles";
 export function SkillDetail({ id, tab }: { id: string; tab: string }) {
   const t = useTranslations("skills");
   const router = useRouter();
-  const toast = useToast();
   const { data: skill, isLoading, isError, error, refetch } = useSkill(id);
-  const del = useDeleteSkill();
+  const [deleting, setDeleting] = React.useState(false);
   const active = DETAIL_TABS.some((d) => d.key === tab) ? tab : "config";
 
   if (isLoading) {
@@ -46,18 +45,15 @@ export function SkillDetail({ id, tab }: { id: string; tab: string }) {
   const needsVetting = skill.source !== "manual" && !skill.enabled;
   const tabs = DETAIL_TABS.map((d) => ({ key: d.key, label: t(d.labelKey), icon: d.icon }));
 
-  const remove = () => {
-    if (!window.confirm(t("preview.deleteConfirm", { name: skill.name }))) return;
-    del.mutate(skill.id, {
-      onSuccess: () => {
-        toast.success(t("preview.deleted", { name: skill.name }));
-        router.push("/skills");
-      },
-    });
-  };
-
   return (
     <>
+      {deleting && (
+        <SkillDeleteDialog
+          skill={skill}
+          onClose={() => setDeleting(false)}
+          onDeleted={() => router.push("/skills")}
+        />
+      )}
       <div style={s.header}>
         <Icon.Sparkles size={18} style={s.icon} />
         <h1 className="mono" style={s.h1}>
@@ -86,7 +82,7 @@ export function SkillDetail({ id, tab }: { id: string; tab: string }) {
         />
       </div>
       <div style={s.body}>
-        {active === "config" && <SkillEditor skill={skill} onDelete={remove} />}
+        {active === "config" && <SkillEditor skill={skill} onDelete={() => setDeleting(true)} />}
         {active === "preview" && (
           <div style={s.preview}>
             {skill.source !== "manual" && (

@@ -1,12 +1,11 @@
-/* AgentCard — model chip, skills count, enabled toggle. Stats are an A5 mount;
-   we render the provider/model + skill count here. */
+/* AgentCard — model chip, skills count, enabled toggle, delete. Stats are an A5
+   mount; we render the provider/model + skill count here. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Icon, Badge, Toggle } from "@devdigest/ui";
+import { Icon, IconBtn, Badge, Toggle } from "@devdigest/ui";
 import type { Agent } from "@devdigest/shared";
-import { useDeleteAgent } from "../../../../lib/hooks/agents";
 import { modelColor } from "./helpers";
 import { s } from "./styles";
 
@@ -16,15 +15,17 @@ export function AgentCard({
   skillCount,
   onClick,
   onToggle,
+  onDelete,
 }: {
   ag: Agent;
   active?: boolean;
   skillCount?: number;
   onClick?: () => void;
   onToggle?: (enabled: boolean) => void;
+  /** Asks to delete; the parent owns the confirm dialog (outside this clickable card). */
+  onDelete?: () => void;
 }) {
   const t = useTranslations("agents");
-  const del = useDeleteAgent();
   const color = modelColor(ag.model);
   const skills = skillCount ?? ag.skill_count;
   return (
@@ -39,25 +40,11 @@ export function AgentCard({
             <Toggle on={ag.enabled} onChange={onToggle} size={14} />
           </div>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm(`Delete agent "${ag.name}"? This cannot be undone.`)) del.mutate(ag.id);
-          }}
-          disabled={del.isPending}
-          title="Delete agent"
-          aria-label="Delete agent"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: del.isPending ? "not-allowed" : "pointer",
-            color: "var(--text-muted)",
-            display: "inline-flex",
-            padding: 4,
-          }}
-        >
-          <Icon.Trash size={14} style={del.isPending ? { animation: "ddspin 1s linear infinite" } : undefined} />
-        </button>
+        {onDelete && (
+          <div onClick={(e) => e.stopPropagation()} style={s.delete}>
+            <IconBtn icon="Trash" size={24} label={t("card.delete", { name: ag.name })} onClick={onDelete} />
+          </div>
+        )}
       </div>
       <div style={s.description}>{ag.description || t("card.noDescription")}</div>
       <div style={s.metaRow}>

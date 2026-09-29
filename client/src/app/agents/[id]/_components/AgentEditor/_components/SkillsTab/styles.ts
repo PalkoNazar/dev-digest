@@ -52,7 +52,12 @@ export const s = {
     background: effective ? "var(--bg-elevated)" : "var(--bg-surface)",
     opacity: dragging ? 0.6 : 1,
   }),
-  handle: { color: "var(--text-muted)", cursor: "grab", display: "inline-flex" } satisfies CSSProperties,
+  handle: (movable: boolean): CSSProperties => ({
+    color: "var(--text-muted)",
+    cursor: movable ? "grab" : "not-allowed",
+    opacity: movable ? 1 : 0.35,
+    display: "inline-flex",
+  }),
   name: { fontSize: 13, color: "var(--text-primary)" } satisfies CSSProperties,
   rowRight: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 } satisfies CSSProperties,
   manage: {

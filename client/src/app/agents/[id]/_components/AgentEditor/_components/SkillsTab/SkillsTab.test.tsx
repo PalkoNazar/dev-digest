@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import type { Agent, AgentSkillLink, Skill } from "@devdigest/shared";
 import agentsMessages from "../../../../../../../../messages/en/agents.json";
 import skillsMessages from "../../../../../../../../messages/en/skills.json";
-import { countEffective, moveItem, toRows } from "./helpers";
+import { countEffective, enabledNeighbour, moveItem, toRows, unattachedSkills } from "./helpers";
 
 const mutate = vi.fn();
 const skill = (id: string, name: string, over: Partial<Skill> = {}): Skill => ({
@@ -75,20 +75,30 @@ describe("SkillsTab helpers", () => {
     expect(moveItem(items, 7, 0)).toEqual(items);
     expect(items).toEqual(["a", "b", "c"]);
   });
+
+  it("enabledNeighbour skips rows disabled for the agent", () => {
+    const rows = toRows(LINKS, SKILLS); // branch-coverage ✓, corner-cases ✗, flaky-tests ✓
+    expect(enabledNeighbour(rows, 0, 1)).toBe(2);
+    expect(enabledNeighbour(rows, 2, -1)).toBe(0);
+    expect(enabledNeighbour(rows, 0, -1)).toBe(-1);
+    expect(unattachedSkills(rows, SKILLS).map((sk) => sk.name)).toEqual(["unattached"]);
+  });
 });
 
 describe("SkillsTab", () => {
-  it("lists attached skills in order with the effective count and global-off badge", () => {
+  it("lists every skill: attached ones in order, then the rest", () => {
     renderTab();
-    expect(screen.getByText("1 of 3 enabled")).toBeInTheDocument();
+    expect(screen.getByText("1 of 4 enabled")).toBeInTheDocument();
     const rows = screen.getAllByRole("listitem");
-    expect(rows.map((r) => within(r).getByText(/^(branch|corner|flaky)/).textContent)).toEqual([
+    expect(rows.map((r) => within(r).getByText(/^(branch|corner|flaky|unattached)/).textContent)).toEqual([
       "branch-coverage",
       "corner-cases",
       "flaky-tests",
+      "unattached",
     ]);
     expect(within(rows[2]!).getByText("disabled globally")).toBeInTheDocument();
-    expect(screen.queryByText("unattached")).not.toBeInTheDocument();
+    expect(within(rows[3]!).getByText("rubric")).toBeInTheDocument();
+    expect(within(rows[3]!).queryByLabelText("Detach “unattached”")).not.toBeInTheDocument();
   });
 
   it("enabling a skill for the agent saves the whole ordered set", () => {
@@ -101,18 +111,49 @@ describe("SkillsTab", () => {
     ]);
   });
 
-  it("reorders with the arrows and detaches", () => {
+  it("enabling an unattached skill attaches it at the end", () => {
+    renderTab();
+    fireEvent.click(screen.getAllByRole("checkbox")[3]!);
+    expect(mutate).toHaveBeenCalledWith([
+      { skill_id: "a", enabled: true },
+      { skill_id: "b", enabled: false },
+      { skill_id: "c", enabled: true },
+      { skill_id: "d", enabled: true },
+    ]);
+  });
+
+  it("only enabled skills can be dragged or moved", () => {
+    renderTab();
+    const rows = screen.getAllByRole("listitem");
+    expect(rows.map((r) => r.getAttribute("draggable"))).toEqual(["true", "false", "true", "false"]);
+    expect(screen.queryByLabelText("Move “corner-cases” up")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Move “unattached” up")).not.toBeInTheDocument();
+  });
+
+  it("the arrows step over disabled skills; detach removes the link", () => {
     renderTab();
     fireEvent.click(screen.getByLabelText("Move “branch-coverage” down"));
     expect(mutate).toHaveBeenLastCalledWith([
       { skill_id: "b", enabled: false },
-      { skill_id: "a", enabled: true },
       { skill_id: "c", enabled: true },
+      { skill_id: "a", enabled: true },
     ]);
     fireEvent.click(screen.getByLabelText("Detach “corner-cases”"));
     expect(mutate).toHaveBeenLastCalledWith([
       { skill_id: "a", enabled: true },
       { skill_id: "c", enabled: true },
+    ]);
+  });
+
+  it("drag and drop reorders enabled skills", () => {
+    renderTab();
+    const rows = screen.getAllByRole("listitem");
+    fireEvent.dragStart(rows[2]!);
+    fireEvent.drop(rows[0]!);
+    expect(mutate).toHaveBeenLastCalledWith([
+      { skill_id: "c", enabled: true },
+      { skill_id: "a", enabled: true },
+      { skill_id: "b", enabled: false },
     ]);
   });
 
@@ -122,18 +163,18 @@ describe("SkillsTab", () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it("filters the attached list", () => {
+  it("filters by name", () => {
     renderTab();
     fireEvent.change(screen.getByLabelText("Filter skills…"), { target: { value: "corner" } });
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("Filter skills…"), { target: { value: "nope" } });
-    expect(screen.getByText("No attached skill matches “nope”.")).toBeInTheDocument();
+    expect(screen.getByText("No skill matches “nope”.")).toBeInTheDocument();
   });
 
-  it("shows the empty state when nothing is attached", () => {
+  it("with nothing attached, every skill is listed unticked", () => {
     LINKS = [];
     renderTab();
-    expect(screen.getByText("0 of 0 enabled")).toBeInTheDocument();
-    expect(screen.getByText(/No skills attached/)).toBeInTheDocument();
+    expect(screen.getByText("0 of 4 enabled")).toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox").map((c) => c.getAttribute("aria-checked"))).toEqual(["false", "false", "false", "false"]);
   });
 });

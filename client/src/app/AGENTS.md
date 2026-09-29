@@ -20,5 +20,5 @@ App Router routes. Pages are thin; feature UI lives in colocated `_components/`.
 - `/onboarding` — add repo · `/repos/[repoId]/pulls` — PR list
 - `/repos/[repoId]/pulls/[number]` — review detail (overview · diff · findings, Live Log)
 - `/agents`, `/agents/[id]` — agent list + editor (Config · Skills tabs) · `/settings/[section]` — keys, models
-- `/skills`, `/skills/new`, `/skills/[id]` — skills master-detail (Config · Preview · Stats · Versions, L02)
+- `/skills`, `/skills/new`, `/skills/[id]` — skills master-detail (Config · Preview · Stats · Versions, L02); `/skills/new` = the list with the create modal open
 - `/repos/[repoId]/conventions` — Conventions Extractor: scan, accept/reject/edit candidates, create a skill (L02 homework)

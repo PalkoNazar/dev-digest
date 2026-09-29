@@ -20,7 +20,17 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## What Doesn't Work
 
+### 2026-09-28 — a client in a git worktree can't be checked live next to the main clone
+NEVER expect a second `next dev` (e.g. :3002 from a worktree) to talk to the running API — every fetch fails CORS.
+Why: the server allows only `config.webOrigin` (`server/src/app.ts:90`, :3000), which the main clone's `next dev` holds.
+Verify worktree UI with vitest, or stop the main client and run the worktree's on :3000.
+
 ## Codebase Patterns
+
+### 2026-09-28 — clickable cards: the card only asks, the parent owns the confirm modal
+ALWAYS render a `ConfirmDialog`/`Modal` from a card's PARENT (card gets `onDelete`), never inside the card.
+Why: `Modal` is `position: fixed` without a portal, so it's a DOM child of the card and every click in it
+bubbles to the card's `onClick` (navigates). Evidence: `SkillCard` + `SkillsWorkspace`, `AgentCard` + `AgentsListView`.
 
 ### 2026-09-27 — PR-list popovers must portal out of the table card
 Render hover cards from a PR row via `createPortal(…, document.body)` with `position: fixed` coords.
@@ -69,5 +79,6 @@ Why: `vitest.config.ts` sets `globals: true`, so `pnpm test` passes, but tsconfi
 2026-09-28 — L02 review follow-up: useSetAgentSkillLinks test + rollback fix: 2 entries (vitest beforeEach return, setQueryData undefined).
 
 - 2026-09-28 — moved Agents nav item to SKILLS LAB; added `src/vendor/ui/nav.test.ts` (invariants, not a snapshot).
+- 2026-09-28 — Skills Lab gaps (create/delete modals, card version, Diff/Restore, agent Skills tab lists all): 2 entries (worktree CORS, card-vs-parent modal).
 
 ## Open Questions

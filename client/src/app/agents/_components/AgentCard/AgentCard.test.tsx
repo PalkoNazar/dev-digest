@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent } from "@devdigest/shared";
@@ -45,5 +45,14 @@ describe("AgentCard (smoke)", () => {
   it("falls back to a translated placeholder when description is empty", () => {
     renderWithIntl(<AgentCard ag={{ ...AGENT, description: "" }} />);
     expect(screen.getByText("No description")).toBeInTheDocument();
+  });
+
+  it("Delete asks the parent (which owns the confirm modal) without opening the card", () => {
+    const onClick = vi.fn();
+    const onDelete = vi.fn();
+    renderWithIntl(<AgentCard ag={AGENT} onClick={onClick} onDelete={onDelete} />);
+    fireEvent.click(screen.getByLabelText("Delete agent “Security Reviewer”"));
+    expect(onDelete).toHaveBeenCalledOnce();
+    expect(onClick).not.toHaveBeenCalled();
   });
 });

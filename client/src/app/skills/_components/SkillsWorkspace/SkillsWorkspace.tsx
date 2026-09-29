@@ -1,6 +1,7 @@
 /* SkillsWorkspace — /skills, /skills/new, /skills/:id (L02). Master-detail like
    the agent editor: skill cards on the left (search, "Add Skill" → create /
-   import), the selected skill or the new-skill form on the right. */
+   import, both in a modal; delete with a confirm modal), the selected skill on
+   the right. /skills/new opens the list with the create modal. */
 "use client";
 
 import React from "react";
@@ -8,11 +9,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Dropdown, EmptyState, ErrorState, Icon, Skeleton } from "@devdigest/ui";
 import { AppShell } from "@/components/app-shell";
+import type { Skill } from "@devdigest/shared";
 import { useSkills, useUpdateSkill } from "@/lib/hooks/skills";
 import { SkillCard } from "../SkillCard";
 import { SkillDetail } from "../SkillDetail";
-import { SkillEditor } from "../SkillEditor";
+import { CreateSkillModal } from "../CreateSkillModal";
 import { ImportSkillModal } from "../ImportSkillModal";
+import { SkillDeleteDialog } from "../SkillDeleteDialog";
 import { filterSkills } from "./helpers";
 import { s } from "./styles";
 
@@ -24,6 +27,13 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
   const update = useUpdateSkill();
   const [query, setQuery] = React.useState("");
   const [importing, setImporting] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(!!creating);
+  const [deleting, setDeleting] = React.useState<Skill | null>(null);
+  React.useEffect(() => setCreateOpen(!!creating), [creating]);
+  const closeCreate = () => {
+    setCreateOpen(false);
+    if (creating) router.push("/skills");
+  };
 
   const list = filterSkills(skills ?? [], query);
   const selected = skills?.find((sk) => sk.id === id);
@@ -37,16 +47,7 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
   ];
 
   let detail: React.ReactNode;
-  if (creating) {
-    detail = (
-      <div style={s.newPane}>
-        <SkillEditor
-          onSaved={(sk) => router.replace(`/skills/${sk.id}`)}
-          onCancel={() => router.push("/skills")}
-        />
-      </div>
-    );
-  } else if (id) {
+  if (id) {
     detail = <SkillDetail id={id} tab={tab} />;
   } else {
     detail = (
@@ -58,6 +59,24 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
 
   return (
     <AppShell crumb={crumb}>
+      {createOpen && (
+        <CreateSkillModal
+          onClose={closeCreate}
+          onSaved={(sk) => {
+            setCreateOpen(false);
+            router.replace(`/skills/${sk.id}`);
+          }}
+        />
+      )}
+      {deleting && (
+        <SkillDeleteDialog
+          skill={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            if (deleting.id === id) router.push("/skills");
+          }}
+        />
+      )}
       {importing && (
         <ImportSkillModal
           onClose={() => setImporting(false)}
@@ -84,7 +103,7 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
                   {
                     label: t("page.menu.create"),
                     icon: "Edit",
-                    onClick: () => router.push("/skills/new"),
+                    onClick: () => setCreateOpen(true),
                   },
                   {
                     label: t("page.menu.import"),
@@ -119,7 +138,7 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
                 title={t("page.empty.title")}
                 body={t("page.empty.body")}
                 cta={t("page.empty.cta")}
-                onCta={() => router.push("/skills/new")}
+                onCta={() => setCreateOpen(true)}
               />
             )}
             {(skills ?? []).length > 0 && list.length === 0 && (
@@ -132,6 +151,7 @@ export function SkillsWorkspace({ id, creating }: { id?: string; creating?: bool
                 active={sk.id === id}
                 onClick={() => open(sk.id)}
                 onToggle={(enabled) => update.mutate({ id: sk.id, patch: { enabled } })}
+                onDelete={() => setDeleting(sk)}
               />
             ))}
           </div>

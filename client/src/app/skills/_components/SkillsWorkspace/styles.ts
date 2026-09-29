@@ -48,6 +48,5 @@ export const s = {
     display: "flex",
     flexDirection: "column",
   } satisfies CSSProperties,
-  newPane: { flex: 1, overflow: "auto", padding: 28 } satisfies CSSProperties,
   select: { flex: 1, display: "grid", placeItems: "center" } satisfies CSSProperties,
 } as const;

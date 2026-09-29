@@ -35,7 +35,8 @@
   "card": {
     "toggle": "Enable skill “{name}” for every agent it is attached to",
     "noDescription": "No description",
-    "agents": "{count, plural, =0 {no agents} one {# agent} other {# agents}}"
+    "agents": "{count, plural, =0 {no agents} one {# agent} other {# agents}}",
+    "delete": "Delete skill “{name}”"
   },
   "editor": {
     "crumbNew": "New skill",
@@ -68,7 +69,8 @@
     "configuration": "Configuration",
     "bodyLabel": "Skill body",
     "unsaved": "unsaved",
-    "tokens": "≈{count} tokens"
+    "tokens": "≈{count} tokens",
+    "subtitleNew": "Name, directive description, type and the markdown body the agents get."
   },
   "import": {
     "title": "Import a skill",
@@ -110,7 +112,12 @@
     "hint": "Every body change is kept as an immutable version. Agents always use the current one.",
     "current": "current",
     "loadError": "Could not load the version history.",
-    "empty": "No versions recorded."
+    "empty": "No versions recorded.",
+    "diff": "Diff",
+    "restore": "Restore",
+    "diffLegend": "Changes from v{from} to the current v{to} (− removed, + added)",
+    "diffSame": "Same body as the current version.",
+    "restored": "Restored the body of v{from} as v{version}."
   },
   "preview": {
     "description": "Description",
@@ -137,5 +144,11 @@
     "noFindings": "No findings in runs with this skill yet.",
     "footnote": "Last {days} days, from recorded runs. Findings are counted for runs whose prompt contained this skill — correlation, not proof the skill caused them.",
     "loadError": "Could not load the stats."
+  },
+  "delete": {
+    "title": "Delete skill?",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel"
   }
 }

@@ -19,8 +19,11 @@ export const s = {
     background: "var(--bg-elevated)",
     overflow: "hidden",
   } satisfies CSSProperties,
+  row: { display: "flex", alignItems: "center" } satisfies CSSProperties,
+  actions: { display: "flex", gap: 6, padding: "0 12px 0 4px" } satisfies CSSProperties,
   head: {
-    width: "100%",
+    flex: 1,
+    minWidth: 0,
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -47,4 +50,13 @@ export const s = {
     whiteSpace: "pre-wrap",
     background: "var(--bg-surface)",
   } satisfies CSSProperties,
+  diffWrap: { borderTop: "1px solid var(--border)", background: "var(--bg-surface)" } satisfies CSSProperties,
+  diffLegend: { padding: "8px 14px", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  diffSame: { padding: "0 14px 12px", fontSize: 13, color: "var(--text-muted)" } satisfies CSSProperties,
+  diff: { margin: 0, padding: "0 0 10px", fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap" } satisfies CSSProperties,
+  diffLine: (kind: "same" | "del" | "add"): CSSProperties => ({
+    padding: "0 14px",
+    color: kind === "same" ? "var(--text-secondary)" : kind === "add" ? "var(--ok)" : "var(--crit)",
+    background: kind === "add" ? "var(--ok-bg)" : kind === "del" ? "var(--crit-bg)" : undefined,
+  }),
 } as const;

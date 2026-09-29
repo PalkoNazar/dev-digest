@@ -55,6 +55,8 @@ export const s = {
     fontSize: 12,
     color: "var(--text-muted)",
   } satisfies CSSProperties,
+  delete: { display: "inline-flex" } satisfies CSSProperties,
+  version: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   footer: {
     paddingTop: 8,
     borderTop: "1px solid var(--border)",

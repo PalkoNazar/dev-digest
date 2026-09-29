@@ -7,7 +7,9 @@ import React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button, Dropdown, ErrorState, Skeleton, Icon, Badge } from "@devdigest/ui";
 import { AppShell } from "../../../components/app-shell";
+import type { Agent } from "@devdigest/shared";
 import { AgentCard } from "../_components/AgentCard";
+import { AgentDeleteDialog } from "../_components/AgentDeleteDialog";
 import { AgentEditor } from "./_components/AgentEditor";
 import { useAgents, useAgent, useUpdateAgent } from "../../../lib/hooks/agents";
 import { ApiError } from "../../../lib/api";
@@ -22,6 +24,7 @@ export default function AgentEditorPage() {
   const { data: agents } = useAgents();
   const { data: agent, isLoading, isError, error, refetch } = useAgent(id);
   const update = useUpdateAgent();
+  const [deleting, setDeleting] = React.useState<Agent | null>(null);
 
   const tab = TAB_KEYS.includes(search.get("tab") ?? "") ? search.get("tab")! : "config";
   const setTab = (t: string) => {
@@ -51,6 +54,15 @@ export default function AgentEditorPage() {
 
   return (
     <AppShell crumb={crumb}>
+      {deleting && (
+        <AgentDeleteDialog
+          agent={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            if (deleting.id === id) router.push("/agents");
+          }}
+        />
+      )}
       <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
         {/* left: agent list */}
         <div
@@ -86,6 +98,7 @@ export default function AgentEditorPage() {
                 active={a.id === id}
                 onClick={() => router.push(`/agents/${a.id}?tab=${tab}`)}
                 onToggle={(enabled) => update.mutate({ id: a.id, patch: { enabled } })}
+                onDelete={() => setDeleting(a)}
               />
             ))}
           </div>

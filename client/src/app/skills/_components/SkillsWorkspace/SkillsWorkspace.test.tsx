@@ -7,6 +7,7 @@ import { ToastProvider } from "@/lib/toast";
 import { filterSkills } from "./helpers";
 
 const push = vi.fn();
+const deleteMutate = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams("tab=versions"),
@@ -23,6 +24,7 @@ vi.mock("@/lib/hooks/skills", () => ({
   useSkills: () => ({ data: SKILLS, isLoading: false, isError: false }),
   useUpdateSkill: () => ({ mutate: vi.fn() }),
   useCreateSkill: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteSkill: () => ({ mutate: deleteMutate, isPending: false }),
 }));
 
 import { SkillsWorkspace } from "./SkillsWorkspace";
@@ -51,6 +53,7 @@ function renderWs(props: { id?: string; creating?: boolean } = {}) {
 
 beforeEach(() => {
   push.mockClear();
+  deleteMutate.mockReset();
   SKILLS = [skill("a", "branch-coverage"), skill("b", "no-then-chains", "convention")];
 });
 afterEach(cleanup);
@@ -64,11 +67,37 @@ describe("filterSkills", () => {
 });
 
 describe("SkillsWorkspace", () => {
-  it("empty workspace: the CTA goes to /skills/new", () => {
+  it("empty workspace: the CTA opens the create modal", () => {
     SKILLS = [];
     renderWs();
     fireEvent.click(screen.getByRole("button", { name: /Create skill/ }));
-    expect(push).toHaveBeenCalledWith("/skills/new");
+    expect(screen.getByRole("dialog")).toHaveTextContent("New skill");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("Add skill → Create opens the form in a modal: name, description, type, body", () => {
+    renderWs();
+    fireEvent.click(screen.getByRole("button", { name: /Add skill/ }));
+    fireEvent.click(screen.getByText("Create skill"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Name");
+    expect(dialog).toHaveTextContent("Description");
+    expect(dialog).toHaveTextContent("Type");
+    expect(dialog).toHaveTextContent("Skill body");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a card shows its version and agent count; its Delete asks in a modal", () => {
+    SKILLS = [{ ...skill("a", "branch-coverage"), version: 3, agent_count: 2 }];
+    renderWs();
+    expect(screen.getByText("v3")).toBeInTheDocument();
+    expect(screen.getByText("2 agents")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Delete skill “branch-coverage”"));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Delete skill?");
+    expect(push).not.toHaveBeenCalled(); // the click did not open the card
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(deleteMutate).toHaveBeenCalledWith("a", expect.anything());
   });
 
   it("no selection shows the prompt; a card opens its skill keeping the current tab", () => {
@@ -85,12 +114,14 @@ describe("SkillsWorkspace", () => {
     expect(screen.queryByText("no-then-chains")).not.toBeInTheDocument();
   });
 
-  it("renders the selected skill, or the new-skill form", () => {
+  it("renders the selected skill; /skills/new opens the create modal", () => {
     renderWs({ id: "a" });
     expect(screen.getByText("detail:a")).toBeInTheDocument();
     cleanup();
     renderWs({ creating: true });
-    expect(screen.getByText("New skill")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("New skill");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(push).toHaveBeenCalledWith("/skills");
   });
 
   it("Add skill → Import opens the import modal", () => {

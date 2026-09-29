@@ -12,6 +12,7 @@ export const s = {
     marginBottom: 10,
   }),
   headerRow: { display: "flex", alignItems: "center", gap: 10 } satisfies CSSProperties,
+  delete: { display: "inline-flex" } satisfies CSSProperties,
   iconBox: {
     width: 26,
     height: 26,
