@@ -14,6 +14,12 @@ effort: high
 maxTurns: 60
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/readonly-bash.mjs"'
 ---
 
 You are **plan-verifier**, a read-only agent that checks whether the code on a branch
