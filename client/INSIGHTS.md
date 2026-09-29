@@ -39,6 +39,11 @@ Filter by a folder or file NAME instead: `pnpm exec vitest run FindingsPanel`.
 Why: vitest escapes the brackets in a path filter (`[repoId/]`) → "No test files found", exit 1.
 Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
 
+### 2026-09-29 — no `user-event`, no `msw`: component tests use `fireEvent` + mocked `@/lib/hooks`
+Use `fireEvent` and `vi.mock("@/lib/hooks/<domain>")` in component tests; don't add `user-event`/`msw` without a plan step.
+Why: neither is in `client/package.json`; the generic `react-testing-library` skill (user-event, MSW, "never mock your
+own hooks") conflicts — local pattern wins. Evidence: `SkillEditor.test.tsx`, `FindingsCell.test.tsx`.
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-27 — "Module not found: Can't resolve './contracts/findings.js'" in `next dev`
