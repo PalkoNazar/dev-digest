@@ -218,8 +218,10 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   // SHARED citation-grounding gate (the only post-step; not duplicated per strategy).
   const ground = groundFindings(merged.findings, input.diff);
   const grounding = groundingSummary(ground);
+  // Logs carry severity + location only: titles are model text and may quote the
+  // diff or a secret (the Live Log is persisted and mirrored to pino).
   for (const d of ground.dropped) {
-    emit('info', `grounding dropped "${d.finding.title}": ${d.reason}`);
+    emit('info', `grounding dropped ${d.finding.severity} ${d.finding.file}:${d.finding.start_line}: ${d.reason}`);
   }
   emit('result', `Citation grounding: ${grounding}`);
 
@@ -233,7 +235,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     scope = { mode: input.scopeMode, filtered: res.filtered, signal: res.signal };
     if (input.scopeMode === 'enforce') {
       for (const f of res.filtered) {
-        emit('info', `scope filter dropped "${f.title}": out of PR scope`);
+        emit('info', `scope filter dropped ${f.severity} ${f.file}:${f.start_line}: out of PR scope`);
       }
       emit(
         'result',
