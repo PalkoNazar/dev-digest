@@ -29,6 +29,9 @@ Consumed as TypeScript SOURCE by the server (path alias); never emits JS.
   unfiltered model output stays in `raw`; `ReviewOutcome.scope` is null when off.
 
 ## Gotchas
+- OpenRouter answers `200` + keep-alive whitespace at once and the JSON only when
+  generation ends; the OpenAI SDK `timeout` stops at the headers. `completeStructured`
+  therefore aborts the whole call (body + attempts) after `req.timeoutMs` (default 10 min).
 - `@devdigest/shared` resolves to `../server/src/vendor/shared` — a contract change
   there can break this package (its CI watches that path too).
 - `zod` is pinned to this package's own `node_modules` via tsconfig `paths`;

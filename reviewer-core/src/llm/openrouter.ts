@@ -24,6 +24,16 @@ import { toJsonSchema, parseWithRepair } from './structured.js';
 
 const NOT_SUPPORTED = 'OpenRouterProvider only implements completeStructured';
 
+/**
+ * Default wall-clock budget for one completeStructured call (all attempts, body
+ * included). The SDK `timeout` only covers the wait for response HEADERS and is
+ * cleared once they arrive — and OpenRouter sends `200` + keep-alive whitespace
+ * within ~1 s, then the JSON when generation ends. Without this budget a model
+ * that "thinks" for minutes (or a stalled upstream) keeps a review running forever.
+ * Large one-pass reviews have legitimately taken ~6.5 min, so the default is generous.
+ */
+const DEFAULT_CALL_BUDGET_MS = 600_000;
+
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
   baseURL?: string;
@@ -67,28 +77,53 @@ export class OpenRouterProvider implements LLMProvider {
     // Per-attempt diagnostics for the final error: routed provider, finish reason and
     // which fields failed — never the model's text (the message reaches logs/UI).
     const failures: string[] = [];
+    const budgetMs = req.timeoutMs ?? DEFAULT_CALL_BUDGET_MS;
+    const deadline = Date.now() + budgetMs;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await this.client.chat.completions.create({
-        model: req.model,
-        messages,
-        temperature: req.temperature ?? 0,
-        ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
-        },
-        // OpenRouter session grouping — extra body field (spread is exempt from
-        // excess-property checks). Only sent when talking to OpenRouter.
-        ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
-        // Route only to endpoints that honour every parameter (json_schema included).
-        ...(this.id === 'openrouter' && req.requireParameters
-          ? { provider: { require_parameters: true } }
-          : {}),
-        // OpenRouter usage accounting — ask it to return the REAL generation
-        // cost (USD) in `usage.cost`, instead of estimating from a price book.
-        ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
-      });
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `OpenRouter call for ${req.schemaName} exceeded its ${budgetMs}ms budget` +
+            (failures.length ? ` — ${failures.join('; ')}` : ''),
+        );
+      }
+      // Aborts the request at any stage, including while the body is still being
+      // read (which the SDK timeout does not cover).
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), remaining);
+      let res: OpenAI.Chat.Completions.ChatCompletion;
+      try {
+        res = await this.client.chat.completions.create({
+          model: req.model,
+          messages,
+          temperature: req.temperature ?? 0,
+          ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
+          },
+          // OpenRouter session grouping — extra body field (spread is exempt from
+          // excess-property checks). Only sent when talking to OpenRouter.
+          ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
+          // Route only to endpoints that honour every parameter (json_schema included).
+          ...(this.id === 'openrouter' && req.requireParameters
+            ? { provider: { require_parameters: true } }
+            : {}),
+          // OpenRouter usage accounting — ask it to return the REAL generation
+          // cost (USD) in `usage.cost`, instead of estimating from a price book.
+          ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
+        }, { signal: controller.signal });
+      } catch (err) {
+        if (controller.signal.aborted) {
+          throw new Error(
+            `OpenRouter call for ${req.schemaName} timed out after ${budgetMs}ms (attempt ${attempt})`,
+          );
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       // OpenRouter can return HTTP 200 with no `choices` (an upstream provider
       // error / moderation / free-tier limit in the body) — surface it.
