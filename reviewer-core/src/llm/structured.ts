@@ -49,7 +49,13 @@ export function extractJson(text: string): string {
 
 export type ParseResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; repromptMessage: string };
+  | {
+      ok: false;
+      error: string;
+      repromptMessage: string;
+      /** Content-free failure summary (`not valid JSON` or `<path>: <zod code>`), safe to log. */
+      problems: string[];
+    };
 
 export function parseWithRepair<T>(schema: z.ZodType<T>, raw: string): ParseResult<T> {
   let parsedJson: unknown;
@@ -69,6 +75,7 @@ export function parseWithRepair<T>(schema: z.ZodType<T>, raw: string): ParseResu
       ok: false,
       error: msg,
       repromptMessage: `${msg}\nReturn ONLY a single valid JSON object matching the schema, no prose.`,
+      problems: ['not valid JSON'],
     };
   }
   const result = schema.safeParse(parsedJson);
@@ -80,5 +87,6 @@ export function parseWithRepair<T>(schema: z.ZodType<T>, raw: string): ParseResu
     ok: false,
     error: issues,
     repromptMessage: `Your JSON did not match the required schema. Fix these and return ONLY valid JSON:\n${issues}`,
+    problems: result.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.code}`),
   };
 }

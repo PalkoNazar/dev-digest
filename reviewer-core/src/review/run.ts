@@ -7,9 +7,10 @@ import type {
   UnifiedDiff,
 } from '@devdigest/shared';
 import { Review as ReviewSchema } from '@devdigest/shared';
-import { assemblePrompt } from '../prompt.js';
+import { assemblePrompt, estTokens } from '../prompt.js';
 import { groundFindings, groundingSummary } from '../grounding.js';
 import { reduceReviews, scoreFromFindings, sliceDiff } from './reduce.js';
+import { applyScopeFilter, type ScopeMode } from './scope.js';
 
 /**
  * reviewPullRequest — the review engine entry point.
@@ -71,6 +72,18 @@ export interface ReviewInput {
   /** PR author's description/body (untrusted; truncated + delimiter-wrapped in
       the prompt). Empty/undefined → section omitted. */
   prDescription?: string;
+  /**
+   * Derived PR intent block (untrusted; truncated + delimiter-wrapped in the
+   * prompt, followed by the trusted scope-tagging instruction).
+   * Empty/undefined → section omitted (identical prompt).
+   */
+  intent?: string;
+  /**
+   * Out-of-scope filter mode, applied after grounding and before scoring.
+   * `enforce` drops out-of-scope findings (keeping one WARNING+ signal and
+   * exempt security findings); `tag` only tags. Undefined → filter off.
+   */
+  scopeMode?: ScopeMode;
   /** Task framing line, e.g. "Review PR #482 …". */
   task?: string;
   /** Override the structured-output retry budget. */
@@ -110,6 +123,8 @@ export interface ReviewOutcome {
   costUsd: number | null;
   /** Joined raw model outputs (for the run trace). */
   raw: string;
+  /** Out-of-scope filter result; null when `scopeMode` was not set. */
+  scope: { mode: ScopeMode; filtered: Finding[]; signal: Finding | null } | null;
 }
 
 function selectMode(strategy: ReviewStrategy, diff: UnifiedDiff, threshold: number): ReviewMode {
@@ -135,6 +150,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     callers: input.callers,
     repoMap: input.repoMap,
     prDescription: input.prDescription,
+    intent: input.intent,
     task: input.task,
   };
 
@@ -171,6 +187,11 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     );
     const a = assemblePrompt({ ...promptParts, diff: chunk.diffText });
     if (mode === 'single-pass') assembly = a.assembly;
+    const callPrefix = mode === 'map-reduce' ? `${chunk.label} · ` : '';
+    emit(
+      'tool',
+      `${callPrefix}LLM call · review · ${input.llm.id}/${input.model} · ~${estTokens(a.messages)} tok est`,
+    );
     const res = await input.llm.completeStructured<Review>({
       model: input.model,
       schema: ReviewSchema,
@@ -184,6 +205,7 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     costUsd = costUsd == null || res.costUsd == null ? null : costUsd + res.costUsd;
     raws.push(res.raw);
     partials.push(res.data);
+    emit('info', `${callPrefix}review call done — ${res.tokensIn}→${res.tokensOut} tokens`);
     emit('result', `${chunk.label}: ${res.data.findings.length} candidate finding(s)`);
   }
 
@@ -201,11 +223,36 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
   }
   emit('result', `Citation grounding: ${grounding}`);
 
-  // Score is derived from the findings that SURVIVED grounding (not the model's
-  // self-reported number, and not the pre-grounding set) so the score, the
-  // findings list, and the deterministic event always agree.
+  // Out-of-scope filter — only AFTER grounding (unchanged) and only when the
+  // caller supplied a mode. Off → findings pass through untouched.
+  let findings = ground.kept;
+  let scope: ReviewOutcome['scope'] = null;
+  if (input.scopeMode) {
+    const res = applyScopeFilter(ground.kept, input.scopeMode);
+    findings = res.kept;
+    scope = { mode: input.scopeMode, filtered: res.filtered, signal: res.signal };
+    if (input.scopeMode === 'enforce') {
+      for (const f of res.filtered) {
+        emit('info', `scope filter dropped "${f.title}": out of PR scope`);
+      }
+      emit(
+        'result',
+        `Scope filter: ${res.filtered.length} out-of-scope finding(s) filtered, ${res.signal ? 1 : 0} kept as signal`,
+      );
+    } else {
+      const tagged = res.kept.filter((f) => f.scope === 'out').length;
+      emit(
+        'result',
+        `Scope: ${tagged} finding(s) tagged out-of-scope (low confidence — not filtered)`,
+      );
+    }
+  }
+
+  // Score is derived from the findings that SURVIVED grounding and the scope
+  // filter (not the model's self-reported number, and not the pre-filter set)
+  // so the score, the findings list, and the deterministic event always agree.
   return {
-    review: { ...merged, findings: ground.kept, score: scoreFromFindings(ground.kept) },
+    review: { ...merged, findings, score: scoreFromFindings(findings) },
     grounding,
     dropped: ground.dropped,
     mode,
@@ -215,5 +262,6 @@ export async function reviewPullRequest(input: ReviewInput): Promise<ReviewOutco
     tokensOut,
     costUsd,
     raw: raws.join('\n---\n'),
+    scope,
   };
 }

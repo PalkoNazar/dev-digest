@@ -16,6 +16,9 @@ import {
   Settings,
   Repo,
   PrDetail,
+  PrIntentRecord,
+  PrIntentResponse,
+  FEATURE_MODELS,
 } from '@devdigest/shared';
 
 /**
@@ -68,7 +71,7 @@ describe('AI contracts parse fixtures', () => {
 
   it('Intent / BlastRadius / Risks / PrHistory', () => {
     expect(() =>
-      Intent.parse({ intent: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
+      Intent.parse({ summary: 'x', in_scope: ['a'], out_of_scope: ['b'] }),
     ).not.toThrow();
     expect(() =>
       BlastRadius.parse({
@@ -215,5 +218,100 @@ describe('platform DTOs', () => {
         commits: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('intent layer contracts', () => {
+  const record = {
+    pr_id: 'pr1',
+    summary: 'Add session refresh to the login flow.',
+    in_scope: ['session refresh'],
+    out_of_scope: ['billing'],
+    head_sha: 'abc1234',
+    confidence: 'medium',
+    mode: 'llm',
+    missing_context: true,
+    context_gaps: ['Linked spec could not be read'],
+    sources_used: [
+      { kind: 'title', ref: 'title' },
+      { kind: 'linked_issue', ref: '#12', title: 'Refresh sessions', truncated: false },
+      { kind: 'spec_doc', ref: 'specs/x.md', truncated: true },
+    ],
+    unresolved_refs: [{ kind: 'doc', ref: 'specs/missing.md', reason: 'not_found' }],
+    prompt_components: [
+      { component: 'title', chars: 40, est_tokens: 10 },
+      { component: 'doc', ref: 'specs/x.md', chars: 6000, est_tokens: 1500, truncated: true },
+    ],
+    provider: 'openrouter',
+    model: 'deepseek/deepseek-v4-flash',
+    tokens_in: 2790,
+    tokens_out: 180,
+    cost_usd: 0.0004,
+    fallback_reason: null,
+    updated_at: '2026-09-29T10:00:00.000Z',
+  };
+
+  it('PrIntentRecord parses a derived record', () => {
+    const r = PrIntentRecord.parse(record);
+    expect(r.summary).toBe('Add session refresh to the login flow.');
+    expect(r.unresolved_refs[0]!.reason).toBe('not_found');
+  });
+
+  it('PrIntentRecord parses a fallback record with nulls', () => {
+    const r = PrIntentRecord.parse({
+      ...record,
+      head_sha: null,
+      confidence: 'low',
+      mode: 'fallback',
+      provider: null,
+      model: null,
+      tokens_in: null,
+      tokens_out: null,
+      cost_usd: null,
+      fallback_reason: 'no key',
+    });
+    expect(r.mode).toBe('fallback');
+  });
+
+  it('PrIntentResponse accepts a record or null', () => {
+    expect(PrIntentResponse.parse({ intent: record, stale: true }).stale).toBe(true);
+    expect(PrIntentResponse.parse({ intent: null, stale: false }).intent).toBeNull();
+  });
+
+  it('a Finding without scope still parses; scope in/out is accepted', () => {
+    const base = {
+      id: 'f1',
+      severity: 'WARNING',
+      category: 'bug',
+      title: 't',
+      file: 'a.ts',
+      start_line: 1,
+      end_line: 1,
+      rationale: 'r',
+      confidence: 0.5,
+    };
+    expect(Finding.parse(base).scope).toBeUndefined();
+    expect(Finding.parse({ ...base, scope: 'out' }).scope).toBe('out');
+    expect(() => Finding.parse({ ...base, scope: 'maybe' })).toThrow();
+  });
+
+  it('a RunTrace without prompt_assembly.intent still parses', () => {
+    const trace = RunTrace.parse({
+      config: { agent: 'a', version: 'v1', model: 'm', pr: 1, source: 'local' },
+      stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0' },
+      prompt_assembly: { system: 's', user: 'u' },
+      tool_calls: [],
+      raw_output: '{}',
+      memory_pulled: [],
+      specs_read: [],
+      log: [],
+    });
+    expect(trace.prompt_assembly.intent).toBeUndefined();
+  });
+
+  it('review_intent defaults to openrouter deepseek/deepseek-v4-flash', () => {
+    const def = FEATURE_MODELS.find((f) => f.id === 'review_intent');
+    expect(def?.defaultProvider).toBe('openrouter');
+    expect(def?.defaultModel).toBe('deepseek/deepseek-v4-flash');
   });
 });

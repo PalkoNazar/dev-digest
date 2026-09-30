@@ -6,6 +6,7 @@ import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, API_BASE } from "../api";
 import { notify } from "../toast";
+import { INTENT_QUERY_ROOT } from "./intent";
 import type {
   FindingActionKind,
   PrReviewComment,
@@ -166,6 +167,7 @@ export function useFindingAction() {
  * RunReviewDropdown / Live Log. Multiple runIds are subscribed in parallel.
  */
 export function useRunEvents(runIds: string[]) {
+  const qc = useQueryClient();
   const [events, setEvents] = React.useState<RunEvent[]>([]);
   const [running, setRunning] = React.useState(false);
   const key = runIds.join(",");
@@ -187,6 +189,10 @@ export function useRunEvents(runIds: string[]) {
           // mutation/query error), so the global error toast never sees them —
           // surface them here so the user gets a notification without a reload.
           if (parsed.kind === "error" && parsed.msg) notify.error(parsed.msg);
+          // The run derived (or re-used) the PR intent — refresh the intent card/line.
+          if ((parsed.data as { type?: unknown } | undefined)?.type === "intent_ready") {
+            qc.invalidateQueries({ queryKey: INTENT_QUERY_ROOT });
+          }
         } catch {
           /* ignore non-JSON keepalive frames (and dataless native error events) */
         }

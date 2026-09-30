@@ -15,5 +15,49 @@
     "blame": "blame",
     "noHistory": "No history available for this line.",
     "noCommits": "No commits found for this line."
+  },
+  "intentCard": {
+    "inScope": "In scope",
+    "outOfScope": "Out of scope",
+    "confidence": {
+      "low": "Low confidence",
+      "medium": "Medium confidence",
+      "high": "High confidence"
+    },
+    "fallback": "Fallback",
+    "contextMissing": "Context missing",
+    "contextMissingHint": "The intent was derived without some context — treat it as a best guess.",
+    "modelNotes": "Classifier notes",
+    "noDescription": "No PR description",
+    "sources": "Sources",
+    "sourceKind": {
+      "title": "title",
+      "body": "description",
+      "linked_issue": "linked issue",
+      "mentioned_issue": "mentioned issue",
+      "spec_doc": "spec doc",
+      "branch": "branch",
+      "file_hunks": "changed files"
+    },
+    "reason": {
+      "not_found": "not found",
+      "too_large": "too large",
+      "invalid_path": "invalid path",
+      "external_repo": "other repository",
+      "no_credentials": "no tracker credentials",
+      "no_github_token": "no GitHub token",
+      "fetch_failed": "fetch failed",
+      "limit_reached": "limit reached"
+    },
+    "derive": "Derive intent",
+    "recompute": "Recompute",
+    "deriving": "Deriving…",
+    "stale": "PR changed since derived",
+    "empty": "No intent derived yet",
+    "emptyHint": "Derive the PR's goal and scope from its title, description, linked issues and specs. A review run derives it too.",
+    "model": "Model",
+    "tokEst": "~{count} tok est",
+    "cost": "Cost",
+    "loadError": "Could not load the PR intent"
   }
 }

@@ -8,7 +8,13 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import * as t from '../src/db/schema.js';
-import { MockEmbedder, MockGitClient, MockLLMProvider } from '../src/adapters/mocks.js';
+import {
+  MockEmbedder,
+  MockGitClient,
+  MockGitHubClient,
+  MockLLMProvider,
+  MockSecretsProvider,
+} from '../src/adapters/mocks.js';
 import { SkillsRepository } from '../src/modules/skills/repository.js';
 import { AgentsRepository } from '../src/modules/agents/repository.js';
 
@@ -71,7 +77,14 @@ d('L02 skills (Testcontainers pg)', () => {
     return buildApp({
       config: config(),
       db: pg.handle.db,
-      overrides: { embedder: new MockEmbedder(), git: new MockGitClient({ diff: DIFF }), llm: { openai: llm } },
+      overrides: {
+        // No real keys or GitHub: keeps the pre-review intent step off the network.
+        secrets: new MockSecretsProvider(),
+        github: new MockGitHubClient(),
+        embedder: new MockEmbedder(),
+        git: new MockGitClient({ diff: DIFF }),
+        llm: { openai: llm },
+      },
     });
   }
 

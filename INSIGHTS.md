@@ -53,6 +53,11 @@ ALWAYS run `git status --short` after a test-writer / doc-writer / implementer r
 Why: subagent frontmatter can allow or deny `Write`/`Edit` but not limit them to paths, so "only test files" and "only
 docs" live in the prompt only. plan-verifier's reverse scan is the second check. Evidence: `.claude/agents/README.md` Permissions.
 
+### 2026-09-30 — read-only agents: Bash writes are blocked by a hook, write scopes still aren't
+Supersedes: "agent write scopes are prompt rules; check them with `git status` after the run" (2026-09-29) — for the read-only agents only.
+Do rely on `.claude/hooks/readonly-bash.mjs` (frontmatter `PreToolUse` on Bash) for researcher, planner, architecture-reviewer and plan-verifier; still run `git status --short` after writing agents.
+Why: it exits 2 on redirects, `sed -i`, rm/mv/cp, state-changing git, installs, db/baseline scripts and interpreters; it is a denylist, not a sandbox, and path scopes for writers remain prompt-only. Evidence: `node .claude/hooks/readonly-bash.test.mjs` (13 allowed, 26 blocked).
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
@@ -106,5 +111,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-27 — L02 skills (server+client+docs, worktree feat/l02-skills): 2 entries (pnpm add churn, IGNORED_BUILDS); +1 in client/INSIGHTS.md.
 2026-09-29 — planner + implementer subagents (.claude/agents, specs/plans): 2 entries (routing.md as shared skill map, Bash specifier removes whole tool).
 2026-09-29 — test-writer / architecture-reviewer / plan-verifier / doc-writer agents + docs map (worktree chore/review-test-doc-agents): 2 entries (prompt-only write scopes, pnpm on PATH); +1 in client/INSIGHTS.md.
+2026-09-30 — Intent Layer (server+reviewer-core+client, feat/intent-layer) + read-only agent hook: 1 entry (hook vs prompt-only scopes); +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 
 ## Open Questions

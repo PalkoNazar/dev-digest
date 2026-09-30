@@ -95,3 +95,99 @@ describe('OctokitGitHubClient.getPullRequest', () => {
     expect(gh.calls.filter((c) => c.includes('/files'))).toHaveLength(1);
   });
 });
+
+/** Fetch fake for the intent-layer reads: GraphQL + the contents API. */
+function fakeIntentGitHub(routes: {
+  graphql?: () => Response;
+  contents?: Record<string, () => Response>;
+}) {
+  const calls: { path: string; search: string; body?: string }[] = [];
+  const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    const url = new URL(raw);
+    calls.push({ path: url.pathname, search: url.search, body: init?.body as string | undefined });
+    if (url.pathname === '/graphql' && routes.graphql) return routes.graphql();
+    const prefix = '/repos/acme/shop/contents/';
+    if (url.pathname.startsWith(prefix)) {
+      const route = routes.contents?.[decodeURIComponent(url.pathname.slice(prefix.length))];
+      if (route) return route();
+    }
+    return new Response(JSON.stringify({ message: 'Not Found' }), {
+      status: 404,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+  return { fetch, calls };
+}
+
+function fileEntry(text: string, size = Buffer.byteLength(text)) {
+  return json({
+    type: 'file',
+    encoding: 'base64',
+    size,
+    name: 'x.md',
+    path: 'specs/x.md',
+    content: Buffer.from(text, 'utf8').toString('base64'),
+  });
+}
+
+describe('OctokitGitHubClient.linkedIssueNumbers', () => {
+  it('returns the closing-issue numbers from GraphQL', async () => {
+    const gh = fakeIntentGitHub({
+      graphql: () =>
+        json({
+          data: {
+            repository: {
+              pullRequest: { closingIssuesReferences: { nodes: [{ number: 12 }, { number: 40 }] } },
+            },
+          },
+        }),
+    });
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.linkedIssueNumbers(REPO, 7)).toEqual([12, 40]);
+    const sent = JSON.parse(gh.calls[0]!.body ?? '{}') as { variables?: Record<string, unknown> };
+    expect(sent.variables).toMatchObject({ owner: 'acme', name: 'shop', n: 7 });
+  });
+
+  it('returns [] when GraphQL errors', async () => {
+    const gh = fakeIntentGitHub({
+      graphql: () => json({ data: null, errors: [{ message: 'Resource not accessible by integration' }] }),
+    });
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.linkedIssueNumbers(REPO, 7)).toEqual([]);
+  });
+});
+
+describe('OctokitGitHubClient.getFileAtRef', () => {
+  it('base64-decodes a file at the given ref', async () => {
+    const gh = fakeIntentGitHub({ contents: { 'specs/x.md': () => fileEntry('# Spec\nDo the thing.') } });
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.getFileAtRef(REPO, 'abc123', 'specs/x.md')).toEqual({ status: 'found', text: '# Spec\nDo the thing.' });
+    expect(gh.calls[0]!.search).toContain('ref=abc123');
+  });
+
+  it('returns missing on 404', async () => {
+    const gh = fakeIntentGitHub({});
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.getFileAtRef(REPO, 'abc123', 'specs/missing.md')).toEqual({ status: 'missing' });
+  });
+
+  it('returns too_large for a file above 1 MB', async () => {
+    const gh = fakeIntentGitHub({ contents: { 'specs/x.md': () => fileEntry('x', 2_000_000) } });
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.getFileAtRef(REPO, 'abc123', 'specs/x.md')).toEqual({ status: 'too_large' });
+  });
+
+  it('returns missing for a directory listing', async () => {
+    const gh = fakeIntentGitHub({ contents: { specs: () => json([{ type: 'file', name: 'x.md' }]) } });
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.getFileAtRef(REPO, 'abc123', 'specs')).toEqual({ status: 'missing' });
+  });
+
+  it('refuses a path with a .. segment without calling GitHub', async () => {
+    const gh = fakeIntentGitHub({});
+    const client = new OctokitGitHubClient('token', { fetch: gh.fetch });
+    expect(await client.getFileAtRef(REPO, 'abc123', '../../issues/1')).toEqual({ status: 'missing' });
+    expect(gh.calls).toHaveLength(0);
+  });
+});

@@ -95,4 +95,24 @@ describe('unified diff parser', () => {
     expect(config.additions).toBe(1);
     expect(config.hunks[0]!.newLineNumbers).toContain(11); // the added stripeKey line
   });
+
+  it('captures the hunk section header after the second @@', () => {
+    const withHeader = `diff --git a/src/auth/session.ts b/src/auth/session.ts
+--- a/src/auth/session.ts
++++ b/src/auth/session.ts
+@@ -10,2 +10,3 @@ export function login(user: User) {
+   const s = open();
++  refresh(s);
+   return s;`;
+    const hunk = parseUnifiedDiff(withHeader).files[0]!.hunks[0]!;
+    expect(hunk.header).toBe('export function login(user: User) {');
+    expect(hunk.newLineNumbers).toEqual([10, 11, 12]);
+  });
+
+  it('leaves header undefined when nothing follows the second @@', () => {
+    const diff = parseUnifiedDiff(DIFF);
+    expect(diff.files[0]!.hunks[0]!.header).toBeUndefined();
+    expect(diff.files[1]!.hunks[0]!.header).toBeUndefined();
+    expect(diff.files[1]!.hunks[0]!.newLineNumbers).toEqual([44, 45, 46, 47, 48]);
+  });
 });

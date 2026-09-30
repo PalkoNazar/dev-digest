@@ -2,12 +2,16 @@ import type { Container } from '../../platform/container.js';
 import type { Provider, Review, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
+import { redactSecrets } from '../../platform/errors.js';
 import * as schema from '../../db/schema.js';
 import type { AgentRow } from '../../db/rows.js';
 import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './repository.js';
 import { REVIEW_STRATEGY } from './constants.js';
 import { renderSkillBlock, taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { renderIntentForPrompt, scopeModeFor, summarizeDiff } from './intent/helpers.js';
+import type { IntentDeriver } from './intent/ports.js';
+import type { IntentDerivation } from './intent/types.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -35,6 +39,8 @@ export type RunOutcome = {
   findings: FindingRow[];
   grounding: string;
   raw: Review;
+  /** Out-of-scope filter counts; null when the filter was off (no intent). */
+  scope: { mode: string; filtered: number; signal: boolean } | null;
 };
 
 /**
@@ -48,6 +54,8 @@ export class ReviewRunExecutor {
     private container: Container,
     private repo: ReviewRepository,
     private agents: Container['agentsRepo'],
+    /** Intent layer; absent → reviews run without an intent (identical prompt, no filter). */
+    private intent?: IntentDeriver,
   ) {}
 
   /**
@@ -108,6 +116,9 @@ export class ReviewRunExecutor {
     }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
+    // Intent layer — derived once for every queued run; best-effort (never fails a run).
+    const intentCtx = await this.deriveIntent(workspaceId, pull, diff, runLog, logger);
+
     for (const { agent, runId } of jobs) {
       const agentStart = Date.now();
       logger?.info(
@@ -115,13 +126,29 @@ export class ReviewRunExecutor {
         `review: agent "${agent.name}" started (${agent.provider}/${agent.model})`,
       );
       try {
-        const outcome = await this.runOneAgent(workspaceId, pull, repo, diff, agent, runId, runLog);
+        const outcome = await this.runOneAgent(
+          workspaceId,
+          pull,
+          repo,
+          diff,
+          agent,
+          runId,
+          runLog,
+          intentCtx,
+        );
         logger?.info(
           {
             runId,
             agent: agent.name,
             findings: outcome.findings.length,
             grounding: outcome.grounding,
+            ...(outcome.scope
+              ? {
+                  scopeMode: outcome.scope.mode,
+                  scopeFiltered: outcome.scope.filtered,
+                  scopeSignal: outcome.scope.signal,
+                }
+              : {}),
             durationMs: Date.now() - agentStart,
           },
           `review: agent "${agent.name}" done — ${outcome.findings.length} finding(s)`,
@@ -147,6 +174,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     runId: string,
     parentLog: RunLogger,
+    intentCtx: IntentDerivation | null,
   ): Promise<RunOutcome> {
     const start = Date.now();
     // Narrow the fanned-out pre-work logger to THIS run; the shared diff/intent
@@ -190,6 +218,11 @@ export class ReviewRunExecutor {
       // L02 — the agent's enabled skills, in order, as the prompt's skills block.
       const skills = await this.loadSkills(agent, runLog);
 
+      // Intent layer — the derived intent as an untrusted block + the scope
+      // filter mode (enforce only for a medium/high classifier intent).
+      const intentBlock = intentCtx ? renderIntentForPrompt(intentCtx.record) : undefined;
+      const scopeMode = scopeModeFor(intentCtx?.record);
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -212,6 +245,9 @@ export class ReviewRunExecutor {
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
+        // Omitted without an intent → prompt identical, filter off.
+        ...(intentBlock ? { intent: intentBlock } : {}),
+        ...(scopeMode ? { scopeMode } : {}),
         task,
         sessionId: `${repo.owner}/${repo.name}#${pull.number}:${agent.name}`,
         onEvent: (e) => runLog.event(e.kind, e.msg, e.data),
@@ -280,12 +316,25 @@ export class ReviewRunExecutor {
           grounding,
         },
         prompt_assembly: { ...outcome.assembly, skills_tokens: skills.tokens },
-        tool_calls: outcome.chunks.map((c) => ({
-          tool: 'review_file',
-          args: c.label,
-          meta: outcome.mode,
-          ms: Math.round(durationMs / Math.max(outcome.chunks.length, 1)),
-        })),
+        tool_calls: [
+          // The intent classifier is its own LLM call (or a cache hit / fallback).
+          ...(intentCtx
+            ? [
+                {
+                  tool: 'intent_classifier',
+                  args: `${intentCtx.record.provider ?? 'none'}/${intentCtx.record.model ?? 'none'}`,
+                  meta: intentCtx.source,
+                  ms: intentCtx.ms,
+                },
+              ]
+            : []),
+          ...outcome.chunks.map((c) => ({
+            tool: 'review_file',
+            args: c.label,
+            meta: outcome.mode,
+            ms: Math.round(durationMs / Math.max(outcome.chunks.length, 1)),
+          })),
+        ],
         raw_output: outcome.raw,
         memory_pulled: [],
         specs_read: [],
@@ -298,7 +347,19 @@ export class ReviewRunExecutor {
       await this.repo.saveRunTrace(runId, trace);
       this.container.runBus.complete(runId);
 
-      return { review, findings: findingRows, grounding, raw: outcome.review };
+      return {
+        review,
+        findings: findingRows,
+        grounding,
+        raw: outcome.review,
+        scope: outcome.scope
+          ? {
+              mode: outcome.scope.mode,
+              filtered: outcome.scope.filtered.length,
+              signal: outcome.scope.signal !== null,
+            }
+          : null,
+      };
     } catch (err) {
       // Failure/cancel: persist status + the error text + the log-so-far so the
       // run (and WHY it failed) is visible on the UI after a reload.
@@ -323,6 +384,57 @@ export class ReviewRunExecutor {
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
+    }
+  }
+
+  /**
+   * Intent layer — derive (or reuse) the PR's intent once for all queued runs.
+   * The classifier sees files + hunk headers only (`summarizeDiff`), never the
+   * diff body. Never throws: on error the runs continue without an intent.
+   * The pino line carries counts/sizes/model only — no PR, issue or doc text.
+   */
+  private async deriveIntent(
+    workspaceId: string,
+    pull: PullRow,
+    diff: UnifiedDiff,
+    runLog: RunLogger,
+    logger?: Logger,
+  ): Promise<IntentDerivation | null> {
+    if (!this.intent) return null;
+    const t0 = Date.now();
+    runLog.tool('Deriving PR intent…');
+    try {
+      const d = await this.intent.derive(workspaceId, pull.id, {
+        files: summarizeDiff(diff),
+        filesHeadSha: pull.headSha,
+        onEvent: (kind, msg, data) => runLog.event(kind, msg, data),
+      });
+      runLog.tool(`Deriving PR intent done (${Date.now() - t0}ms)`);
+      const r = d.record;
+      logger?.info(
+        {
+          prId: pull.id,
+          mode: r.mode,
+          source: d.source,
+          confidence: r.confidence,
+          missingContext: r.missing_context,
+          provider: r.provider,
+          model: r.model,
+          estTokens: d.estTokens,
+          tokensIn: r.tokens_in,
+          tokensOut: r.tokens_out,
+          costUsd: r.cost_usd,
+          ms: d.ms,
+          sources: r.sources_used.length,
+          unresolved: r.unresolved_refs.length,
+        },
+        'review: intent derived',
+      );
+      return d;
+    } catch (err) {
+      const msg = redactSecrets(err instanceof Error ? err.message : String(err));
+      runLog.info(`Intent unavailable (${msg}) — reviewing without intent`);
+      return null;
     }
   }
 

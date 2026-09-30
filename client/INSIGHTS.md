@@ -32,6 +32,10 @@ Evidence: `src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.ts
 NEVER follow `react-best-practices` → "Code Organization" (`features/`, `utils/`) in the client; use skill `frontend-ui-architecture`.
 Why: the client's features are route folders with `_components/`; shared pure logic is `lib/<responsibility>.ts`, no `utils.ts`. Evidence: `.claude/skills/react-best-practices/SKILL.md:167`.
 
+### 2026-09-30 — mutation hooks don't need their own error toast
+NEVER add `notify.error` in a `useMutation` `onError` in `lib/hooks/*`; the global `MutationCache.onError` already toasts every mutation failure.
+Why: a local call shows two toasts. Queries toast only on status 0 or ≥ 500, so 4xx empty states stay silent. Evidence: `client/src/lib/providers.tsx:35-43`; `lib/hooks/intent.ts` `useDeriveIntent`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`

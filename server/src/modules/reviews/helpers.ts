@@ -46,6 +46,7 @@ export function findingRowToDto(row: FindingRow): ReviewDtoFinding {
     kind: (row.kind as Finding['kind']) ?? 'finding',
     trifecta_components: (row.trifectaComponents as Finding['trifecta_components']) ?? null,
     evidence: null,
+    scope: row.scope ?? null,
     review_id: row.reviewId,
     accepted_at: row.acceptedAt?.toISOString() ?? null,
     dismissed_at: row.dismissedAt?.toISOString() ?? null,

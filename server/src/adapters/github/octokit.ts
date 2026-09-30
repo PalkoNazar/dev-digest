@@ -1,6 +1,7 @@
 import { Octokit } from 'octokit';
 import type {
   GitHubClient,
+  FileAtRef,
   RepoRef,
   PrMeta,
   PrDetail,
@@ -15,6 +16,35 @@ import type {
 import { withRetry, withTimeout } from '../../platform/resilience.js';
 
 const TIMEOUT = 30_000;
+/** `getFileAtRef` refuses files above this size (contents API returns no body past 1 MB). */
+const MAX_FILE_BYTES = 1_000_000;
+/** How many closing-issue references `linkedIssueNumbers` asks GraphQL for. */
+const MAX_LINKED_ISSUES = 5;
+
+const LINKED_ISSUES_QUERY = `query($owner: String!, $name: String!, $n: Int!, $first: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $n) {
+      closingIssuesReferences(first: $first) { nodes { number } }
+    }
+  }
+}`;
+
+interface LinkedIssuesResponse {
+  repository?: {
+    pullRequest?: { closingIssuesReferences?: { nodes?: ({ number?: number } | null)[] } | null } | null;
+  } | null;
+}
+
+/** Repo-relative path with no absolute prefix or `..` segment (keeps the API URL in /contents). */
+function isSafeRelativePath(path: string): boolean {
+  if (!path || path.startsWith('/') || path.startsWith('\\')) return false;
+  return !path.split(/[\\/]/).some((seg) => seg === '..');
+}
+
+function httpStatus(err: unknown): number | undefined {
+  const status = (err as { status?: unknown })?.status;
+  return typeof status === 'number' ? status : undefined;
+}
 
 function mapStatus(state: string, merged: boolean | undefined): PrStatus {
   if (merged) return 'merged';
@@ -368,6 +398,52 @@ export class OctokitGitHubClient implements GitHubClient {
       body: res.data.body,
       state: res.data.state,
     };
+  }
+
+  /** Issues this PR closes (GraphQL `closingIssuesReferences`). Best-effort: `[]` on any error. */
+  async linkedIssueNumbers(repo: RepoRef, n: number): Promise<number[]> {
+    try {
+      const res = await withRetry(() =>
+        withTimeout(
+          this.octokit.graphql<LinkedIssuesResponse>(LINKED_ISSUES_QUERY, {
+            owner: repo.owner,
+            name: repo.name,
+            n,
+            first: MAX_LINKED_ISSUES,
+          }),
+          TIMEOUT,
+        ),
+      );
+      const nodes = res.repository?.pullRequest?.closingIssuesReferences?.nodes ?? [];
+      return nodes
+        .map((node) => node?.number)
+        .filter((num): num is number => typeof num === 'number');
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * File text at `ref` via the contents API. Null on 404, a directory, a
+   * non-file entry, an unsafe path, or a file larger than 1 MB. Other errors throw.
+   */
+  async getFileAtRef(repo: RepoRef, ref: string, path: string): Promise<FileAtRef> {
+    if (!isSafeRelativePath(path)) return { status: 'missing' };
+    try {
+      const res = await withRetry(() =>
+        withTimeout(
+          this.octokit.rest.repos.getContent({ owner: repo.owner, repo: repo.name, path, ref }),
+          TIMEOUT,
+        ),
+      );
+      const data = res.data;
+      if (Array.isArray(data) || data.type !== 'file') return { status: 'missing' };
+      if (data.size > MAX_FILE_BYTES || data.encoding !== 'base64') return { status: 'too_large' };
+      return { status: 'found', text: Buffer.from(data.content, 'base64').toString('utf8') };
+    } catch (err) {
+      if (httpStatus(err) === 404) return { status: 'missing' };
+      throw err;
+    }
   }
 
   async currentLogin(): Promise<string> {

@@ -5,7 +5,17 @@ import type { RunEvent } from '@devdigest/shared';
 import { getContext } from '../_shared/context.js';
 import { IdParams } from '../_shared/schemas.js';
 import { NotFoundError } from '../../platform/errors.js';
+import { renderPrompt } from '../../platform/prompts.js';
 import { ReviewService } from './service.js';
+import { loadDiff } from './diff-loader.js';
+import { IntentService } from './intent/service.js';
+import { summarizeDiff } from './intent/helpers.js';
+import {
+  GAPS_MAX_ITEMS,
+  INTENT_SYSTEM_PROMPT_TEMPLATE,
+  SCOPE_MAX_ITEMS,
+  SUMMARY_MAX_WORDS,
+} from './intent/constants.js';
 
 /**
  * reviews module.
@@ -14,12 +24,37 @@ import { ReviewService } from './service.js';
  *   GET    /runs/:id/trace                             → the single-document RunTrace
  *   GET    /pulls/:id/reviews                          → persisted reviews + findings for a PR
  *   POST   /findings/:id/(accept|dismiss)              → finding actions
+ *   GET    /pulls/:id/intent                           → stored intent + stale flag (no LLM call)
+ *   POST   /pulls/:id/intent                           → re-derive the intent now (recompute)
  */
 const FINDING_ACTIONS = ['accept', 'dismiss'] as const;
 export default async function reviewsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
-  const service = new ReviewService(container);
+  // Intent layer: a cheap classifier (the `review_intent` feature model) derives
+  // the PR's intent before each review; also served by GET/POST /pulls/:id/intent.
+  const intent = new IntentService({
+    repo: container.reviewRepo,
+    github: () => container.github(),
+    git: { showFile: (repo, ref, path) => container.git.showFile(repo, ref, path) },
+    llm: (provider) => container.llm(provider),
+    systemPrompt: () =>
+      renderPrompt(INTENT_SYSTEM_PROMPT_TEMPLATE, {
+        summary_words: String(SUMMARY_MAX_WORDS),
+        max_items: String(SCOPE_MAX_ITEMS),
+        max_gaps: String(GAPS_MAX_ITEMS),
+      }),
+    // Files + hunk headers of the current diff (git base...head, else pr_files patches).
+    loadDiffSummary: async (workspaceId, prId) => {
+      const pull = await container.reviewRepo.getPull(workspaceId, prId);
+      if (!pull) return { files: [], headSha: null };
+      const repo = await container.reviewRepo.getRepoInWorkspace(workspaceId, pull.repoId);
+      if (!repo) return { files: [], headSha: pull.headSha };
+      const diff = await loadDiff(container, container.reviewRepo, workspaceId, pull, repo);
+      return { files: summarizeDiff(diff), headSha: pull.headSha };
+    },
+  });
+  const service = new ReviewService(container, { intent });
 
   // ---- Run a review (manual trigger) -------------------------------
   // Tight per-route limit: each call can fan out to expensive LLM runs.
@@ -124,6 +159,22 @@ export default async function reviewsRoutes(appBase: FastifyInstance) {
     if (!trace) throw new NotFoundError('Run trace not found');
     return trace;
   });
+
+  // ---- Intent (derived PR intent + scope) --------------------------------
+  app.get('/pulls/:id/intent', { schema: { params: IdParams } }, async (req) => {
+    const { workspaceId } = await getContext(container, req);
+    return intent.get(workspaceId, req.params.id);
+  });
+
+  // Synchronous re-derive (one bounded classifier call) — same limit as /review.
+  app.post(
+    '/pulls/:id/intent',
+    { schema: { params: IdParams }, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req) => {
+      const { workspaceId } = await getContext(container, req);
+      return intent.recompute(workspaceId, req.params.id);
+    },
+  );
 
   // ---- Reads --------------------------------------------------------------
   app.get('/pulls/:id/reviews', { schema: { params: IdParams } }, async (req) => {

@@ -7,11 +7,69 @@ import { z } from 'zod';
 
 // ---- Intent ----
 export const Intent = z.object({
-  intent: z.string(),
+  summary: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
 });
 export type Intent = z.infer<typeof Intent>;
+
+/** Evidence-based confidence of a derived intent (not the model's self-report). */
+export const IntentConfidence = z.enum(['low', 'medium', 'high']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+/** `llm` = classifier output; `fallback` = derived from title/branch/paths only. */
+export const IntentMode = z.enum(['llm', 'fallback']);
+export type IntentMode = z.infer<typeof IntentMode>;
+
+export const IntentSourceKind = z.enum([
+  'title',
+  'body',
+  'linked_issue',
+  'mentioned_issue',
+  'spec_doc',
+  'branch',
+  'file_hunks',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+/** A source that was actually fed to the intent classifier. */
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  title: z.string().nullish(),
+  truncated: z.boolean().nullish(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+export const UnresolvedRefReason = z.enum([
+  'not_found',
+  'too_large',
+  'invalid_path',
+  'external_repo',
+  'no_credentials',
+  'no_github_token',
+  'fetch_failed',
+  'limit_reached',
+]);
+export type UnresolvedRefReason = z.infer<typeof UnresolvedRefReason>;
+
+/** A referenced issue/doc/tracker link that could not be read (never invented). */
+export const UnresolvedRef = z.object({
+  kind: z.enum(['issue', 'doc', 'external']),
+  ref: z.string(),
+  reason: UnresolvedRefReason,
+});
+export type UnresolvedRef = z.infer<typeof UnresolvedRef>;
+
+/** Size of one classifier prompt component (sizes only — never the text). */
+export const IntentPromptComponent = z.object({
+  component: z.enum(['title', 'body', 'issue', 'doc', 'branch', 'files']),
+  ref: z.string().nullish(),
+  chars: z.number().int(),
+  est_tokens: z.number().int(),
+  truncated: z.boolean().nullish(),
+});
+export type IntentPromptComponent = z.infer<typeof IntentPromptComponent>;
 
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({
