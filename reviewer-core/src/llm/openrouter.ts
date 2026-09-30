@@ -64,6 +64,9 @@ export class OpenRouterProvider implements LLMProvider {
     let tokensOut = 0;
     let costFromApi: number | null = null;
     let lastRaw = '';
+    // Per-attempt diagnostics for the final error: routed provider, finish reason and
+    // which fields failed — never the model's text (the message reaches logs/UI).
+    const failures: string[] = [];
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const res = await this.client.chat.completions.create({
@@ -78,6 +81,10 @@ export class OpenRouterProvider implements LLMProvider {
         // OpenRouter session grouping — extra body field (spread is exempt from
         // excess-property checks). Only sent when talking to OpenRouter.
         ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
+        // Route only to endpoints that honour every parameter (json_schema included).
+        ...(this.id === 'openrouter' && req.requireParameters
+          ? { provider: { require_parameters: true } }
+          : {}),
         // OpenRouter usage accounting — ask it to return the REAL generation
         // cost (USD) in `usage.cost`, instead of estimating from a price book.
         ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
@@ -109,10 +116,17 @@ export class OpenRouterProvider implements LLMProvider {
           attempts: attempt,
         };
       }
+      const routed = (res as unknown as { provider?: string }).provider ?? 'unknown';
+      failures.push(
+        `attempt ${attempt}: provider=${routed} finish=${choice.finish_reason ?? 'unknown'} ` +
+          `out=${res.usage?.completion_tokens ?? '?'} (${parsed.problems.slice(0, 4).join(', ')})`,
+      );
       messages.push({ role: 'assistant', content: lastRaw });
       messages.push({ role: 'user', content: parsed.repromptMessage });
     }
-    throw new Error(`OpenRouter structured output failed schema validation for ${req.schemaName}`);
+    throw new Error(
+      `OpenRouter structured output failed schema validation for ${req.schemaName} — ${failures.join('; ')}`,
+    );
   }
 
   /**

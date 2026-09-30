@@ -41,7 +41,15 @@ NEVER treat a `withTimeout` rejection as "the operation stopped"; the wrapped pr
 Why: it is a bare `Promise.race` (`src/platform/resilience.ts:20`), so a JobRunner retry (`src/platform/jobs.ts:65`)
 can run concurrently with the timed-out attempt (e.g. two clones into one dir). Needs an AbortSignal to really stop.
 
+### 2026-09-30 — review it-tests hit REAL GitHub/OpenRouter when the dev machine has keys
+NEVER rely on "no override ⇒ ConfigError" in `buildApp` it-tests; pass `secrets: new MockSecretsProvider()` and `github: new MockGitHubClient()` for anything that runs a review.
+Why: `loadConfig` points secrets at the real `~/.devdigest/secrets.json` (`src/platform/config.ts:82`), so the pre-review intent step made paid calls and `reviews.it.test.ts` flaked on `waitForPrRuns`' 10 s wait. Evidence: `pnpm exec vitest run .it.test` exit 1 → exit 0 three times after the overrides (reviews file 40 s → 3.3 s).
+
 ## Codebase Patterns
+
+### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
+Do emit your own start/done lines and `redactSecrets` the error when the step's failure can carry a provider error.
+Why: `step()` logs `err.message` unredacted as an `error` event, mirrored to pino and the persisted trace log. Evidence: `src/platform/run-logger.ts` `step`; `run-executor.ts` `deriveIntent` does it by hand.
 
 ## Tool & Library Notes
 
@@ -56,6 +64,10 @@ Why: reviewer-core has no `drizzle-orm` in its own `node_modules`, so the edge i
 ### 2026-09-28 — `@vscode/ripgrep` has no binary under pnpm 12 → `codeIndex.grep` runs in Node
 Expect `RipgrepCodeIndex.grep` to use the pure-Node fallback in dev: slow over a whole clone, and patterns run as JS `RegExp`.
 Why: the rg binary comes from a postinstall that pnpm skips (IGNORED_BUILDS); before 2026-09-28 `rgPath` pointed at the missing file and every grep rejected with ENOENT. Check: `ls server/node_modules/@vscode/ripgrep/bin`.
+
+### 2026-09-30 — `pnpm db:migrate` prints NOTICE objects that look like errors
+Do ignore the `{ severity: 'NOTICE', code: '42P06' | '42P07' | '42710', … }` blocks; trust the exit code and the final "migrations applied" line.
+Why: Postgres "already exists, skipping" notices for the drizzle schema, vector extension and migrations table print like a stack trace. Evidence: `cd server && pnpm db:migrate | grep -E "severity|message"` → 3× NOTICE, exit 0.
 
 ## Recurring Errors & Fixes
 

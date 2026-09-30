@@ -5,6 +5,7 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { IntentLine } from "./_components/IntentLine";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -140,6 +141,8 @@ export function FindingsTab({
           />
         </div>
       )}
+
+      {prId && <IntentLine prId={prId} />}
 
       <SectionLabel
         icon="AlertOctagon"

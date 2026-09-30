@@ -129,6 +129,32 @@ export class SimpleGitClient implements GitClient {
   async readFile(repo: RepoRef, path: string): Promise<string> {
     return readFile(join(this.clonePathFor(repo), path), 'utf8');
   }
+
+  /**
+   * `git show <ref>:<path>` — the file as committed at `ref`, not the working
+   * tree. Null when the clone/ref/path is missing or the inputs are unsafe
+   * (absolute path, `..` segment, ref that could be read as a git option).
+   */
+  async showFile(repo: RepoRef, ref: string, path: string): Promise<string | null> {
+    if (!isSafeRef(ref) || !isSafeRelativePath(path)) return null;
+    if (!(await this.exists(join(this.clonePathFor(repo), '.git')))) return null;
+    try {
+      return await this.git(repo).show([`${ref}:${path}`]);
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** A commit sha or branch-like ref; never starts with `-` (git option injection). */
+function isSafeRef(ref: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(ref) && !ref.includes('..');
+}
+
+/** Repo-relative path with no absolute prefix, drive letter or `..` segment. */
+function isSafeRelativePath(path: string): boolean {
+  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:/.test(path)) return false;
+  return !path.split(/[\\/]/).some((seg) => seg === '..');
 }
 
 function parseBlamePorcelain(raw: string): BlameLine[] {

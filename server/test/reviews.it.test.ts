@@ -4,7 +4,13 @@ import { waitForPrRuns } from './helpers/runs.js';
 import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
-import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mocks.js';
+import {
+  MockLLMProvider,
+  MockEmbedder,
+  MockGitClient,
+  MockGitHubClient,
+  MockSecretsProvider,
+} from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
@@ -115,6 +121,10 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       config: config(),
       db: pg.handle.db,
       overrides: {
+        // No real keys or GitHub: the pre-review intent step would otherwise call
+        // the developer's GitHub/OpenRouter (slow, paid) — here it falls back.
+        secrets: new MockSecretsProvider(),
+        github: new MockGitHubClient(),
         embedder: new MockEmbedder(),
         git: new MockGitClient({ diff: DIFF }),
         llm: {

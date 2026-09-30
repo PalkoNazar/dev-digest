@@ -48,6 +48,8 @@ export const PromptAssembly = z.object({
   repo_map: z.string().nullish(),
   /** PR author's description/body (truncated); null when absent. */
   pr_description: z.string().nullish(),
+  /** Derived PR intent block given to the reviewer; null when absent. */
+  intent: z.string().nullish(),
   /** Tokens the skills block added to the prompt; null when absent. */
   skills_tokens: z.number().int().nullish(),
   user: z.string(),
