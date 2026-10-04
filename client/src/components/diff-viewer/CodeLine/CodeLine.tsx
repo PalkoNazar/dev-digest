@@ -1,9 +1,13 @@
 /* CodeLine — one rendered diff line: gutter number, +/- sign, text, plus the
-   hover "+" affordance, any anchored comment threads, and an inline composer. */
+   hover "+" affordance, review findings anchored here (severity stripe + label,
+   then the finding cards), any anchored comment threads, and an inline composer. */
 "use client";
 
 import React from "react";
+import { SEV } from "@devdigest/ui";
+import type { FindingRecord } from "@devdigest/shared";
 import { commentTargetFor, type CommentThread, type DiffCommentApi, cs } from "../comments";
+import { fs, topSeverity, type DiffFindingApi } from "../findings";
 import { type Line } from "../helpers";
 import { s, lineRowFor, lineSignFor } from "../styles";
 import { CommentThreadView } from "../CommentThreadView";
@@ -14,11 +18,16 @@ export function CodeLine({
   path,
   threads,
   commenting,
+  findings = [],
+  findingApi,
 }: {
   ln: Line;
   path: string;
   threads: CommentThread[];
   commenting?: DiffCommentApi;
+  /** Findings anchored to this line (shown only when `findingApi.show`). */
+  findings?: FindingRecord[];
+  findingApi?: DiffFindingApi;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -34,6 +43,9 @@ export function CodeLine({
   const sign = ln.kind === "add" ? "+" : ln.kind === "del" ? "−" : "";
   const target = commenting?.canComment ? commentTargetFor(ln) : null;
   const showAdd = hover && !!target && !composing;
+  const showFindings = !!findingApi?.show && findings.length > 0;
+  const top = showFindings ? topSeverity(findings) : null;
+  const sev = top ? SEV[top] : null;
 
   return (
     <div
@@ -41,7 +53,7 @@ export function CodeLine({
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <div style={lineRowFor(ln.kind)}>
+      <div style={sev ? { ...lineRowFor(ln.kind), ...fs.stripe(sev.c) } : lineRowFor(ln.kind)}>
         <span className="mono tnum" style={{ ...s.lineNo, position: "relative" }}>
           {showAdd && target && (
             <button
@@ -62,7 +74,18 @@ export function CodeLine({
         <span className="mono" style={s.lineText}>
           {ln.text || " "}
         </span>
+        {sev && top && findingApi && (
+          <span style={fs.label(sev.c, sev.bg)}>{findingApi.severityLabel(top)}</span>
+        )}
       </div>
+
+      {showFindings && findingApi && (
+        <div style={cs.thread}>
+          {findings.map((f) => (
+            <React.Fragment key={f.id}>{findingApi.renderFinding(f)}</React.Fragment>
+          ))}
+        </div>
+      )}
 
       {commenting &&
         commenting.showComments &&

@@ -3,7 +3,9 @@
 Cross-page app components (not the design system — that is `src/vendor/ui`).
 
 - `app-shell/` — nav, breadcrumbs, `g`-then-key shortcuts
-- `diff-viewer/` — GitHub-like diff + inline comment threads (the heaviest UI piece)
+- `diff-viewer/` — GitHub-like diff + inline comment threads (the heaviest UI piece);
+  optional `DiffFindingApi` shows review findings (file dot, line stripe + label, cards
+  via `renderFinding`, labels via `severityLabel`) — it never imports app components
 - `run-cost-badge/` — `RunCostBadge` (compact `$0.014` / full `9,119 tok · $0.0013`) +
   `formatUsd` (unknown → `—`, never `$0.00`); used by PR list, run timeline, trace drawer
 - `mermaid-diagram/` — lazy client-only mermaid; validates with `mermaid.parse`
