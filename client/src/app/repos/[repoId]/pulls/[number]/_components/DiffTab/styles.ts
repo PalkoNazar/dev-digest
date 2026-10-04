@@ -2,7 +2,14 @@ import type { CSSProperties } from "react";
 
 export const s = {
   right: { display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" } satisfies CSSProperties,
-  orderGroup: { display: "inline-flex", gap: 2 } satisfies CSSProperties,
+  orderGroup: {
+    display: "inline-flex",
+    gap: 2,
+    padding: 2,
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "var(--bg-surface)",
+  } satisfies CSSProperties,
   stat: { fontSize: 12, marginLeft: 8, textTransform: "none", letterSpacing: 0 } satisfies CSSProperties,
   addText: { color: "var(--code-add-text)" } satisfies CSSProperties,
   delText: { color: "var(--code-del-text)" } satisfies CSSProperties,

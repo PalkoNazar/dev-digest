@@ -108,7 +108,7 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
               {(["smart", "original"] as const).map((o) => (
                 <Button
                   key={o}
-                  kind="ghost"
+                  kind="tertiary"
                   size="sm"
                   active={order === o}
                   aria-pressed={order === o}

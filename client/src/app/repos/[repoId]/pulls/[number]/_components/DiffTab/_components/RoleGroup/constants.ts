@@ -4,8 +4,8 @@ import type { SmartDiffRole } from "@devdigest/shared";
 export const ROLE_META: Record<SmartDiffRole, { labelKey: string; hintKey: string; color: string }> = {
   core: { labelKey: "smartDiff.coreLabel", hintKey: "smartDiff.coreHint", color: "var(--accent)" },
   tests: { labelKey: "smartDiff.testsLabel", hintKey: "smartDiff.testsHint", color: "var(--ok)" },
-  wiring: { labelKey: "smartDiff.wiringLabel", hintKey: "smartDiff.wiringHint", color: "var(--info)" },
-  docs: { labelKey: "smartDiff.docsLabel", hintKey: "smartDiff.docsHint", color: "var(--sugg)" },
+  wiring: { labelKey: "smartDiff.wiringLabel", hintKey: "smartDiff.wiringHint", color: "var(--warn)" },
+  docs: { labelKey: "smartDiff.docsLabel", hintKey: "smartDiff.docsHint", color: "var(--text-secondary)" },
   boilerplate: {
     labelKey: "smartDiff.boilerplateLabel",
     hintKey: "smartDiff.boilerplateHint",
