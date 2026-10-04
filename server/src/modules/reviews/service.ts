@@ -1,5 +1,5 @@
 import type { Container } from '../../platform/container.js';
-import type { FindingActionKind, RunEventKind, RunTrace } from '@devdigest/shared';
+import type { FindingActionKind, RunEventKind, RunTrace, SmartDiff } from '@devdigest/shared';
 import { AppError, NotFoundError } from '../../platform/errors.js';
 import type { AgentRow } from '../../db/rows.js';
 import { ReviewRepository } from './repository.js';
@@ -8,6 +8,7 @@ import { ReviewRunExecutor, type Logger } from './run-executor.js';
 import { actOnFinding as actOnFindingImpl } from './findings.js';
 import { reviewToDto } from './helpers.js';
 import type { ReviewServiceDeps } from './ports.js';
+import { buildSmartDiff, latestReviewsPerAgent } from './smart-diff/build.js';
 
 // Re-export DTO types + converters for backward-compatible imports from
 // './service.js' (these previously lived here; logic now in ./helpers.ts).
@@ -175,6 +176,29 @@ export class ReviewService {
     }
     return rows.map(({ review, findings }) =>
       reviewToDto(review, findings, review.agentId ? names.get(review.agentId) : null),
+    );
+  }
+
+  /**
+   * Smart Diff: the PR's files grouped by role + the start lines of the
+   * non-dismissed findings of each agent's latest review. No LLM, no GitHub.
+   */
+  async smartDiffForPull(workspaceId: string, prId: string): Promise<SmartDiff> {
+    const pull = await this.repo.getPull(workspaceId, prId);
+    if (!pull) throw new NotFoundError('Pull request not found');
+    const [files, rows] = await Promise.all([
+      this.repo.getPrFiles(prId),
+      this.repo.reviewsForPull(prId),
+    ]);
+    const latestIds = new Set(latestReviewsPerAgent(rows.map((r) => r.review)).map((r) => r.id));
+    const findings = rows
+      .filter((r) => latestIds.has(r.review.id))
+      .flatMap((r) => r.findings)
+      .filter((f) => f.dismissedAt == null)
+      .map((f) => ({ file: f.file, start_line: f.startLine }));
+    return buildSmartDiff(
+      files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions })),
+      findings,
     );
   }
 
