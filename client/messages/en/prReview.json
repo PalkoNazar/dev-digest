@@ -58,8 +58,29 @@
   },
   "smartDiff": {
     "coreLabel": "Core",
+    "testsLabel": "Tests",
     "wiringLabel": "Wiring",
+    "docsLabel": "Docs",
     "boilerplateLabel": "Boilerplate",
+    "coreHint": "The change itself — read first",
+    "testsHint": "Tests and fixtures that cover it",
+    "wiringHint": "Exports, config, env and CI",
+    "docsHint": "Docs and READMEs",
+    "boilerplateHint": "Lock files, snapshots, generated code",
+    "filesWithFindings": "{count, plural, one {# file} other {# files}} with findings",
+    "smartOrder": "Smart order",
+    "originalOrder": "Original order",
+    "reviewerOrdered": "Files changed · reviewer-ordered",
+    "filesChanged": "Files changed · {count} files",
+    "noReviewYet": "Review not run yet — run a review to see findings in the diff.",
+    "showAnnotations": "Show comments & findings ({count})",
+    "hideAnnotations": "Hide comments & findings ({count})",
+    "orderLabel": "File order",
+    "severity": {
+      "CRITICAL": "blocker",
+      "WARNING": "warning",
+      "SUGGESTION": "suggestion"
+    },
     "largeTitle": "This PR is large ({lines} changed lines)",
     "largeBody": "Consider splitting it into smaller, focused PRs for easier review:",
     "findings": {
@@ -67,7 +88,7 @@
       "empty": "No findings in the latest review.",
       "error": "Couldn’t load findings."
     },
-    "filesCount": "{count} files",
+    "filesCount": "{count, plural, one {# file} other {# files}}",
     "findingLines": "{count} finding-lines",
     "groupedByRole": "Smart Diff · grouped by role"
   },
