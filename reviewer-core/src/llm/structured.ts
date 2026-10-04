@@ -18,7 +18,37 @@ export interface JsonSchema {
 
 export function toJsonSchema<T>(schema: z.ZodType<T>, name: string): JsonSchema {
   const rf = zodResponseFormat(schema as z.ZodTypeAny, name);
-  return { schema: rf.json_schema.schema as Record<string, unknown>, name };
+  return { schema: inlineDefinitions(rf.json_schema.schema as Record<string, unknown>), name };
+}
+
+/**
+ * Replace `{ $ref: '#/definitions/X' }` with a copy of `definitions.X` and drop
+ * `definitions`. The converter emits refs for reused sub-schemas; Gemini (Google
+ * via OpenRouter) rejects them ("reference to undefined schema"), OpenAI and
+ * Anthropic accept the inlined form too. Our contracts are not recursive; a
+ * self-referencing definition is left as a ref rather than expanded forever.
+ */
+export function inlineDefinitions(root: Record<string, unknown>): Record<string, unknown> {
+  const defs = (root.definitions ?? {}) as Record<string, unknown>;
+  if (Object.keys(defs).length === 0) return root;
+  const PREFIX = '#/definitions/';
+  const walk = (node: unknown, seen: ReadonlySet<string>): unknown => {
+    if (Array.isArray(node)) return node.map((n) => walk(n, seen));
+    if (!node || typeof node !== 'object') return node;
+    const obj = node as Record<string, unknown>;
+    const ref = obj.$ref;
+    if (typeof ref === 'string' && ref.startsWith(PREFIX)) {
+      const key = ref.slice(PREFIX.length);
+      if (key in defs && !seen.has(key)) return walk(defs[key], new Set([...seen, key]));
+      return obj;
+    }
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k !== 'definitions') out[k] = walk(v, seen);
+    }
+    return out;
+  };
+  return walk(root, new Set()) as Record<string, unknown>;
 }
 
 /** Best-effort extraction of a JSON object/array from a model's text output. */
