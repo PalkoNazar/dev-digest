@@ -43,6 +43,15 @@ const DEFAULT_CALL_BUDGET_MS = 600_000;
  */
 const DEFAULT_MAX_TOKENS = 24_000;
 
+/**
+ * Share of the call budget a reasoning attempt may use while a retry is still
+ * possible. Token caps don't bound TIME: some deepseek-v4-flash endpoints run at
+ * ~29 tok/s (103k tokens in 59 min), so 24k tokens can take ~14 min. When the
+ * share runs out, the next attempt asks for the answer without reasoning in the
+ * time that is left (a 35k-token review prompt answers in ~1–2 min that way).
+ */
+const REASONING_ATTEMPT_SHARE = 0.6;
+
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
   baseURL?: string;
@@ -103,8 +112,14 @@ export class OpenRouterProvider implements LLMProvider {
       }
       // Aborts the request at any stage, including while the body is still being
       // read (which the SDK timeout does not cover).
+      // While reasoning is on and a retry is left, this attempt gets only a share of
+      // the budget, so the no-reasoning retry still has time to answer.
+      const slice =
+        this.id === 'openrouter' && !reasoningOff && attempt <= maxRetries
+          ? Math.min(remaining, Math.round(budgetMs * REASONING_ATTEMPT_SHARE))
+          : remaining;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), remaining);
+      const timer = setTimeout(() => controller.abort(), slice);
       let res: OpenAI.Chat.Completions.ChatCompletion;
       try {
         res = await this.client.chat.completions.create({
@@ -120,15 +135,24 @@ export class OpenRouterProvider implements LLMProvider {
           // OpenRouter session grouping — extra body field (spread is exempt from
           // excess-property checks). Only sent when talking to OpenRouter.
           ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
-          // Route only to endpoints that honour every parameter (json_schema included).
-          ...(this.id === 'openrouter' && req.requireParameters
-            ? { provider: { require_parameters: true } }
+          // Prefer the fastest endpoints (same model, same price class): slow ones turn a
+          // long reasoning pass into a timeout. `require_parameters` routes only to
+          // endpoints that honour every parameter (json_schema included).
+          ...(this.id === 'openrouter'
+            ? { provider: { sort: 'throughput', ...(req.requireParameters ? { require_parameters: true } : {}) } }
             : {}),
           // OpenRouter usage accounting — ask it to return the REAL generation
           // cost (USD) in `usage.cost`, instead of estimating from a price book.
           ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
         }, { signal: controller.signal });
       } catch (err) {
+        if (controller.signal.aborted && slice < remaining) {
+          reasoningOff = true;
+          failures.push(
+            `attempt ${attempt}: no answer within ${slice}ms while reasoning — retrying without reasoning`,
+          );
+          continue;
+        }
         if (controller.signal.aborted) {
           throw new Error(
             `OpenRouter call for ${req.schemaName} timed out after ${budgetMs}ms (attempt ${attempt})`,

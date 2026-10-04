@@ -35,6 +35,8 @@ Consumed as TypeScript SOURCE by the server (path alias); never emits JS.
 - Reasoning models (deepseek-v4-flash) can think for 40k–135k hidden tokens; only
   `max_tokens` bounds that (`reasoning.max_tokens`/`effort` don't). OpenRouter calls default
   to `max_tokens` 24k; a cap hit with an empty answer retries once with `reasoning: {enabled:false}`.
+  Tokens don't bound time (some endpoints run ~29 tok/s), so a reasoning attempt gets 60% of the
+  budget when a retry is left, then retries without reasoning; calls route `provider.sort: throughput`.
 - `@devdigest/shared` resolves to `../server/src/vendor/shared` — a contract change
   there can break this package (its CI watches that path too).
 - `zod` is pinned to this package's own `node_modules` via tsconfig `paths`;

@@ -125,3 +125,52 @@ describe('OpenRouterProvider reasoning cap', () => {
     expect((bodies[1]!.messages as unknown[]).length).toBeGreaterThan((bodies[0]!.messages as unknown[]).length);
   });
 });
+
+/** Token caps don't bound time on slow endpoints: a reasoning attempt gets a share of the budget. */
+describe('OpenRouterProvider reasoning time slice', () => {
+  let server: Server | undefined;
+  afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
+
+  it('cuts a slow reasoning attempt and answers without reasoning within the budget', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const baseURL = await new Promise<string>((resolve) => {
+      server = createServer((req, res) => {
+        let raw = '';
+        req.on('data', (c) => (raw += c));
+        req.on('end', () => {
+          bodies.push(JSON.parse(raw) as Record<string, unknown>);
+          res.writeHead(200, { 'content-type': 'application/json' });
+          if (bodies.length === 1) {
+            // first attempt: keep-alive whitespace, never the body (a slow reasoning pass)
+            const tick = setInterval(() => res.write(' '), 50);
+            res.on('close', () => clearInterval(tick));
+            return;
+          }
+          res.end(
+            JSON.stringify({
+              id: 'x', object: 'chat.completion', created: 0, model: 'm',
+              choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: '{"ok":true}' } }],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            }),
+          );
+        });
+      });
+      server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server!.address() as AddressInfo).port}/v1`));
+    });
+    const t0 = Date.now();
+    const out = await new OpenRouterProvider('test-key', { baseURL, maxRetries: 0 }).completeStructured({
+      model: 'm',
+      schema: z.object({ ok: z.boolean() }),
+      schemaName: 'Probe',
+      messages: [{ role: 'user', content: 'x' }],
+      maxRetries: 2,
+      timeoutMs: 1_000,
+    });
+    expect(out.data).toEqual({ ok: true });
+    expect(out.attempts).toBe(2);
+    expect(Date.now() - t0).toBeLessThan(1_000);
+    expect(bodies[0]!.reasoning).toBeUndefined();
+    expect(bodies[0]!.provider).toEqual({ sort: 'throughput' });
+    expect(bodies[1]!.reasoning).toEqual({ enabled: false });
+  });
+});
