@@ -13,53 +13,47 @@ export const ROLE_ORDER: readonly SmartDiffRole[] = ['core', 'tests', 'wiring', 
 
 export interface ClassifyRule {
   role: Exclude<SmartDiffRole, 'core'>;
-  patterns: readonly RegExp[];
+  /** picomatch globs on the repo-relative path (`dot: true`, so `.env*` and `.github/**` match). */
+  globs: readonly string[];
 }
 
-// Patterns run on a repo-relative path. `(?:^|\/)` = "at the start or after a
-// slash" (`**/`); `[^/]*` stays inside the last segment (basename checks).
-// Anchored, no nested quantifiers (ReDoS-safe).
+// Globs as written in the spec. `**/x` also matches `x` at the repo root;
+// `dist/**`, `e2e/**`, `docs/**`, `.github/**`, `.claude/**` are root prefixes.
 export const CLASSIFY_RULES: readonly ClassifyRule[] = [
   {
     role: 'boilerplate',
-    patterns: [
-      /(?:^|\/)[^/]*\.lock$/, // *.lock (yarn.lock, Cargo.lock, …)
-      /(?:^|\/)(?:pnpm-lock\.yaml|package-lock\.json)$/,
-      /^(?:dist|build)\//, // root dist/**, build/**
-      /(?:^|\/)__snapshots__\//,
-      /\.snap$/,
-      /(?:^|\/)[^/]*\.generated\.[^/]+$/,
-      /\.min\.js$/,
+    globs: [
+      '**/*.lock',
+      '**/pnpm-lock.yaml',
+      '**/package-lock.json',
+      'dist/**',
+      'build/**',
+      '**/__snapshots__/**',
+      '**/*.snap',
+      '**/*.generated.*',
+      '**/*.min.js',
     ],
   },
   {
     role: 'tests',
-    patterns: [
-      /\.test\.tsx?$/, // *.test.ts(x), *.it.test.ts
-      /\.spec\.ts$/,
-      /(?:^|\/)(?:test|tests|__tests__)\//,
-      /^e2e\//,
-    ],
+    globs: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/test/**', '**/tests/**', '**/__tests__/**', 'e2e/**'],
   },
   {
     role: 'wiring',
-    patterns: [
-      /(?:^|\/)index\.(?:ts|js)$/,
-      /(?:^|\/)[^/]*\.config\.[^/]+$/,
-      /(?:^|\/)tsconfig[^/]*\.json$/,
-      /(?:^|\/)\.eslintrc[^/]*$/,
-      /(?:^|\/)\.env[^/]*$/,
-      /(?:^|\/)docker-compose[^/]*\.yml$/,
-      /^\.(?:github|claude)\//,
+    globs: [
+      '**/index.ts',
+      '**/index.js',
+      '**/*.config.*',
+      '**/tsconfig*.json',
+      '**/.eslintrc*',
+      '**/.env*',
+      '**/docker-compose*.yml',
+      '.github/**',
+      '.claude/**',
     ],
   },
   {
     role: 'docs',
-    patterns: [
-      /\.md$/,
-      /^docs\//,
-      /(?:^|\/)(?:README|CHANGELOG)[^/]*$/,
-      /(?:^|\/)LICENSE$/,
-    ],
+    globs: ['**/*.md', 'docs/**', '**/README*', '**/CHANGELOG*', '**/LICENSE'],
   },
 ];
