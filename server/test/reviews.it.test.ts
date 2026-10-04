@@ -13,7 +13,7 @@ import {
 } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
-import type { Review } from '@devdigest/shared';
+import { SmartDiff, type Review } from '@devdigest/shared';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -440,6 +440,95 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     ).json();
     // seed has 2 enabled agents; we may have created more above in this PR's ws.
     expect(body.runs.length).toBeGreaterThanOrEqual(2);
+    await app.close();
+  });
+
+  it('smart-diff: groups pr_files by role + latest-review finding lines, no LLM call', async () => {
+    const llm = new MockLLMProvider('openai', { structured: REVIEW_FIXTURE });
+    const app = await buildApp({
+      config: config(),
+      db: pg.handle.db,
+      overrides: {
+        secrets: new MockSecretsProvider(),
+        github: new MockGitHubClient(),
+        embedder: new MockEmbedder(),
+        git: new MockGitClient({ diff: DIFF }),
+        llm: { openai: llm },
+      },
+    });
+    const db = pg.handle.db;
+    const { pr } = await setupRepoAndPr(db, workspaceId);
+    await db.insert(t.prFiles).values([
+      { prId: pr.id, path: 'pnpm-lock.yaml', additions: 40, deletions: 10 },
+      { prId: pr.id, path: 'README.md', additions: 3, deletions: 1 },
+      { prId: pr.id, path: 'src/config.test.ts', additions: 5, deletions: 0 },
+    ]);
+    const url = `/pulls/${pr.id}/smart-diff`;
+    const fileOf = (d: SmartDiff, path: string) =>
+      d.groups.flatMap((g) => g.files).find((f) => f.path === path);
+
+    // (a) before any review
+    const before = await app.inject({ method: 'GET', url });
+    expect(before.statusCode).toBe(200);
+    const d0 = SmartDiff.parse(before.json());
+    expect(d0.groups.map((g) => g.role)).toEqual(['core', 'tests', 'docs', 'boilerplate']);
+    expect(d0.groups.flatMap((g) => g.files).every((f) => f.finding_lines.length === 0)).toBe(true);
+    expect(d0.split_suggestion.total_lines).toBe(1 + 50 + 4 + 5);
+
+    // (b) older + newer review of one seeded agent, a newer summary, a dismissed finding
+    const [agent] = await db.select().from(t.agents).where(eq(t.agents.workspaceId, workspaceId));
+    const review = (createdAt: string, kind: 'review' | 'summary' = 'review') => ({
+      workspaceId,
+      prId: pr.id,
+      agentId: agent!.id,
+      kind,
+      createdAt: new Date(createdAt),
+    });
+    const [older, newer, summary] = await db
+      .insert(t.reviews)
+      .values([
+        review('2026-01-01T00:00:00Z'),
+        review('2026-01-02T00:00:00Z'),
+        review('2026-01-03T00:00:00Z', 'summary'),
+      ])
+      .returning();
+    const finding = (reviewId: string, startLine: number, dismissed = false) => ({
+      reviewId,
+      file: 'src/config.ts',
+      startLine,
+      endLine: startLine,
+      severity: 'WARNING',
+      category: 'bug',
+      title: 't',
+      rationale: 'r',
+      confidence: 0.9,
+      dismissedAt: dismissed ? new Date() : null,
+    });
+    await db.insert(t.findings).values([
+      finding(older!.id, 5), // older review → ignored
+      finding(newer!.id, 12),
+      finding(newer!.id, 11),
+      finding(newer!.id, 30, true), // dismissed → excluded
+      finding(summary!.id, 40), // summary → ignored
+    ]);
+    const d1 = SmartDiff.parse((await app.inject({ method: 'GET', url })).json());
+    expect(fileOf(d1, 'src/config.ts')?.finding_lines).toEqual([11, 12]);
+    expect(fileOf(d1, 'README.md')?.finding_lines).toEqual([]);
+
+    // (c) unknown PR → 404
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/pulls/00000000-0000-4000-8000-000000000000/smart-diff',
+    });
+    expect(missing.statusCode).toBe(404);
+
+    // (d) a PR of another workspace → 404
+    const [otherWs] = await db.insert(t.workspaces).values({ name: 'other-ws' }).returning();
+    const { pr: foreign } = await setupRepoAndPr(db, otherWs!.id);
+    const cross = await app.inject({ method: 'GET', url: `/pulls/${foreign.id}/smart-diff` });
+    expect(cross.statusCode).toBe(404);
+
+    expect(llm.calls).toHaveLength(0);
     await app.close();
   });
 });

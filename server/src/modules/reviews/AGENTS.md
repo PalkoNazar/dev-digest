@@ -27,6 +27,11 @@ the engine) → `reviewPullRequest()` from reviewer-core.
 - The out-of-scope filter runs in reviewer-core after grounding (`scopeMode` from
   `scopeModeFor`: `enforce` for a medium/high llm intent, else `tag`), so
   `outcome.review.findings`, `score` and `blockers` are already post-filter.
+- Smart Diff (`smart-diff/`, spec `specs/2026-10-04-smart-diff.md`): `classifyFile` is
+  pure — `CLASSIFY_RULES` match in the order boilerplate → tests → wiring → docs (core =
+  fallback), which differs on purpose from the display order `ROLE_ORDER`.
+  `GET /pulls/:id/smart-diff` = `pr_files` + the latest `kind='review'` review per agent
+  (null agent = own bucket), dismissed findings excluded; no LLM, no GitHub call.
 
 ## Related
 - Engine: `/reviewer-core/AGENTS.md` · prompt conventions: `/docs/agent-prompts/README.md`
