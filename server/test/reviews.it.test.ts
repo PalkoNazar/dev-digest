@@ -457,6 +457,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
       },
     });
     const db = pg.handle.db;
+    // setupRepoAndPr already persists `src/config.ts` (+1) — the core file the findings below target.
     const { pr } = await setupRepoAndPr(db, workspaceId);
     await db.insert(t.prFiles).values([
       { prId: pr.id, path: 'pnpm-lock.yaml', additions: 40, deletions: 10 },
