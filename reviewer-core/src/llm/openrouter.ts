@@ -34,6 +34,15 @@ const NOT_SUPPORTED = 'OpenRouterProvider only implements completeStructured';
  */
 const DEFAULT_CALL_BUDGET_MS = 600_000;
 
+/**
+ * Default cap on completion tokens per OpenRouter call when the request sets none.
+ * Reasoning tokens count toward it, and it is the only HARD bound: reasoning models
+ * (deepseek-v4-flash) sometimes reason for 40k–135k hidden tokens (20–60 min) for a
+ * ~700-char answer, and `reasoning.max_tokens` / `effort: low` only lower the effort
+ * (measured 2026-10-04). ~24k tokens ≈ 4–6 min at the observed 65–100 tok/s.
+ */
+const DEFAULT_MAX_TOKENS = 24_000;
+
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
   baseURL?: string;
@@ -79,6 +88,10 @@ export class OpenRouterProvider implements LLMProvider {
     const failures: string[] = [];
     const budgetMs = req.timeoutMs ?? DEFAULT_CALL_BUDGET_MS;
     const deadline = Date.now() + budgetMs;
+    const maxTokens = req.maxTokens ?? (this.id === 'openrouter' ? DEFAULT_MAX_TOKENS : undefined);
+    // Set once a reasoning model spent the whole cap thinking: the next attempt
+    // asks for the answer without reasoning instead of thinking again.
+    let reasoningOff = false;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const remaining = deadline - Date.now();
@@ -98,7 +111,8 @@ export class OpenRouterProvider implements LLMProvider {
           model: req.model,
           messages,
           temperature: req.temperature ?? 0,
-          ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
+          ...(maxTokens ? { max_tokens: maxTokens } : {}),
+          ...(reasoningOff ? { reasoning: { enabled: false } } : {}),
           response_format: {
             type: 'json_schema',
             json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
@@ -138,6 +152,19 @@ export class OpenRouterProvider implements LLMProvider {
       // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
       const apiCost = (res.usage as { cost?: number } | null | undefined)?.cost;
       if (typeof apiCost === 'number') costFromApi = (costFromApi ?? 0) + apiCost;
+      const routed = (res as unknown as { provider?: string }).provider ?? 'unknown';
+
+      // The cap ran out while the model was still reasoning: no answer at all. Retry
+      // the same messages with reasoning disabled (no repair reprompt — nothing to repair).
+      const reasoningTokens = res.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+      if (choice.finish_reason === 'length' && !lastRaw.trim() && reasoningTokens > 0 && !reasoningOff) {
+        reasoningOff = true;
+        failures.push(
+          `attempt ${attempt}: provider=${routed} reasoning used the whole ${maxTokens}-token cap ` +
+            `(${reasoningTokens} reasoning tokens) — retrying without reasoning`,
+        );
+        continue;
+      }
 
       const parsed = parseWithRepair(req.schema, lastRaw);
       if (parsed.ok) {
@@ -151,7 +178,6 @@ export class OpenRouterProvider implements LLMProvider {
           attempts: attempt,
         };
       }
-      const routed = (res as unknown as { provider?: string }).provider ?? 'unknown';
       failures.push(
         `attempt ${attempt}: provider=${routed} finish=${choice.finish_reason ?? 'unknown'} ` +
           `out=${res.usage?.completion_tokens ?? '?'} (${parsed.problems.slice(0, 4).join(', ')})`,
