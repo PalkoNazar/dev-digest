@@ -69,6 +69,10 @@ Why: the rg binary comes from a postinstall that pnpm skips (IGNORED_BUILDS); be
 Do ignore the `{ severity: 'NOTICE', code: '42P06' | '42P07' | '42710', … }` blocks; trust the exit code and the final "migrations applied" line.
 Why: Postgres "already exists, skipping" notices for the drizzle schema, vector extension and migrations table print like a stack trace. Evidence: `cd server && pnpm db:migrate | grep -E "severity|message"` → 3× NOTICE, exit 0.
 
+### 2026-10-05 — `tsx watch` does not restart on `reviewer-core` edits
+ALWAYS restart the dev server (`./scripts/dev.sh` or `pnpm dev` in server) after changing `../reviewer-core/src`.
+Why: the engine is imported as source via a path alias outside `server/`, and the watcher didn't pick it up — a review at 23:53 still ran the pre-fix OpenRouter provider (server process started 23:08, fix committed 23:52). Evidence: `ps -o lstart -p <server pid>` vs `git log -1 --format=%ci`.
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-28 — `drizzle-kit generate` hangs on "created or renamed from another column?"
