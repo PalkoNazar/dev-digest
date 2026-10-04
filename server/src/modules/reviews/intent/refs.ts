@@ -140,10 +140,14 @@ class RefCollector {
     const path = rawPath.replace(/^(?:\.\/)+/, '');
     if (!this.once(`doc:${path}`)) return;
     const ref = safeRef(path);
-    if (!isSafeDocPath(path) || !isPlanDocLocation(path)) {
+    if (!isSafeDocPath(path)) {
       this.unresolved.push({ kind: 'doc', ref, reason: 'invalid_path' });
       return;
     }
+    // A safe doc outside the repo root / plan folders (`client/INSIGHTS.md`,
+    // `e2e/README.md`) is a file mention, not a linked plan: skip it silently —
+    // reporting it would flag "context missing" for context nobody linked.
+    if (!isPlanDocLocation(path)) return;
     if (this.docs.length >= MAX_DOCS) {
       this.unresolved.push({ kind: 'doc', ref, reason: 'limit_reached' });
       return;
@@ -162,7 +166,8 @@ class RefCollector {
  * - Issues: `#12`, `owner/repo#12`, `github.com/o/r/issues|pull/12` (same repo only;
  *   another repo → `external_repo`; the PR's own number is skipped).
  * - Docs: relative `*.md|mdx|markdown|txt|rst|adoc` paths and same-repo blob URLs
- *   (other repo → `external_repo`; unsafe path → `invalid_path`).
+ *   (other repo → `external_repo`; unsafe path → `invalid_path`; a safe path outside
+ *   the repo root and `DOC_DIRS` is ignored).
  * - Trackers: Linear / Jira / Notion URLs and Jira keys in branch or title →
  *   `no_credentials` (never fetched).
  * HTML comments are ignored. Over the caps → `limit_reached`.
