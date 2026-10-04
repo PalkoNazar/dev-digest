@@ -36,6 +36,10 @@ Why: the client's features are route folders with `_components/`; shared pure lo
 NEVER add `notify.error` in a `useMutation` `onError` in `lib/hooks/*`; the global `MutationCache.onError` already toasts every mutation failure.
 Why: a local call shows two toasts. Queries toast only on status 0 or ≥ 500, so 4xx empty states stay silent. Evidence: `client/src/lib/providers.tsx:35-43`; `lib/hooks/intent.ts` `useDeriveIntent`.
 
+### 2026-10-04 — Smart Diff indicators come from `usePrReviews`, not from `finding_lines`
+Do derive diff dots/counters/inline findings from `usePrReviews` + `lib/smart-diff.ts` (`latestReviewsPerAgent`, `countsAsFinding`); use `useSmartDiff` only for grouping.
+Why: `["reviews", prId]` is invalidated after a run and after Accept/Dismiss, `["smart-diff", prId]` is not — reading `finding_lines` would show stale counts. The latest-per-agent rule is deliberately mirrored in `server/src/modules/reviews/smart-diff/build.ts`; change both. Evidence: `_components/DiffTab/DiffTab.tsx`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
@@ -76,6 +80,7 @@ Why: `vitest.config.ts` sets `globals: true`, so `pnpm test` passes, but tsconfi
 2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
 2026-09-27 — L02 Skills UI (skills page, editor, import modal, agent Skills tab, trace): 1 entry (shared runtime imports in webpack); +2 in root INSIGHTS.md.
 2026-09-28 — L02 review follow-up: useSetAgentSkillLinks test + rollback fix: 2 entries (vitest beforeEach return, setQueryData undefined).
+2026-10-04 — Smart Diff Files changed (role groups, inline findings): 1 entry (indicators from usePrReviews).
 
 - 2026-09-28 — moved Agents nav item to SKILLS LAB; added `src/vendor/ui/nav.test.ts` (invariants, not a snapshot).
 
