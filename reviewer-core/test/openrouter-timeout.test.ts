@@ -45,3 +45,83 @@ describe('OpenRouterProvider call budget', () => {
     expect(Date.now() - t0).toBeLessThan(5_000);
   });
 });
+
+/**
+ * Reasoning models can spend the whole completion cap thinking (deepseek-v4-flash:
+ * 40k–135k hidden tokens for a ~700-char answer). The provider caps every call and,
+ * when the cap ran out with no answer, retries once with reasoning disabled.
+ */
+describe('OpenRouterProvider reasoning cap', () => {
+  let server: Server | undefined;
+  afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
+
+  type Reply = { content: string; finish: string; reasoning: number };
+  function scripted(replies: Reply[]): Promise<{ baseURL: string; bodies: Record<string, unknown>[] }> {
+    const bodies: Record<string, unknown>[] = [];
+    return new Promise((resolve) => {
+      server = createServer((req, res) => {
+        let raw = '';
+        req.on('data', (c) => (raw += c));
+        req.on('end', () => {
+          bodies.push(JSON.parse(raw) as Record<string, unknown>);
+          const r = replies[Math.min(bodies.length - 1, replies.length - 1)]!;
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              id: 'x',
+              object: 'chat.completion',
+              created: 0,
+              model: 'm',
+              provider: 'P',
+              choices: [{ index: 0, finish_reason: r.finish, message: { role: 'assistant', content: r.content } }],
+              usage: {
+                prompt_tokens: 10,
+                completion_tokens: r.reasoning + r.content.length,
+                total_tokens: 0,
+                completion_tokens_details: { reasoning_tokens: r.reasoning },
+              },
+            }),
+          );
+        });
+      });
+      server.listen(0, '127.0.0.1', () => {
+        resolve({ baseURL: `http://127.0.0.1:${(server!.address() as AddressInfo).port}/v1`, bodies });
+      });
+    });
+  }
+
+  const call = (baseURL: string) =>
+    new OpenRouterProvider('test-key', { baseURL, maxRetries: 0 }).completeStructured({
+      model: 'm',
+      schema: z.object({ ok: z.boolean() }),
+      schemaName: 'Probe',
+      messages: [{ role: 'user', content: 'x' }],
+      maxRetries: 2,
+    });
+
+  it('caps max_tokens and retries without reasoning when the cap ran out mid-reasoning', async () => {
+    const { baseURL, bodies } = await scripted([
+      { content: '', finish: 'length', reasoning: 24_000 },
+      { content: '{"ok":true}', finish: 'stop', reasoning: 0 },
+    ]);
+    const out = await call(baseURL);
+    expect(out.data).toEqual({ ok: true });
+    expect(out.attempts).toBe(2);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]!.max_tokens).toBe(24_000);
+    expect(bodies[0]!.reasoning).toBeUndefined();
+    expect(bodies[1]!.reasoning).toEqual({ enabled: false });
+    // same messages — no repair reprompt for an empty answer
+    expect(bodies[1]!.messages).toEqual(bodies[0]!.messages);
+  });
+
+  it('keeps reasoning on for a truncated answer from a non-reasoning model', async () => {
+    const { baseURL, bodies } = await scripted([
+      { content: '{"ok":', finish: 'length', reasoning: 0 },
+      { content: '{"ok":true}', finish: 'stop', reasoning: 0 },
+    ]);
+    await call(baseURL);
+    expect(bodies[1]!.reasoning).toBeUndefined();
+    expect((bodies[1]!.messages as unknown[]).length).toBeGreaterThan((bodies[0]!.messages as unknown[]).length);
+  });
+});

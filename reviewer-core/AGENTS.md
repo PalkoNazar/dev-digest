@@ -32,6 +32,9 @@ Consumed as TypeScript SOURCE by the server (path alias); never emits JS.
 - OpenRouter answers `200` + keep-alive whitespace at once and the JSON only when
   generation ends; the OpenAI SDK `timeout` stops at the headers. `completeStructured`
   therefore aborts the whole call (body + attempts) after `req.timeoutMs` (default 10 min).
+- Reasoning models (deepseek-v4-flash) can think for 40k–135k hidden tokens; only
+  `max_tokens` bounds that (`reasoning.max_tokens`/`effort` don't). OpenRouter calls default
+  to `max_tokens` 24k; a cap hit with an empty answer retries once with `reasoning: {enabled:false}`.
 - `@devdigest/shared` resolves to `../server/src/vendor/shared` — a contract change
   there can break this package (its CI watches that path too).
 - `zod` is pinned to this package's own `node_modules` via tsconfig `paths`;
