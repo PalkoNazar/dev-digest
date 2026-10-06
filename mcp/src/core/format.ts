@@ -4,7 +4,9 @@ import {
   CONVENTIONS_TRUNCATED_HINT,
   DEFAULT_LIMIT,
   DEFAULT_MIN_SEVERITY,
+  FINDINGS_BUDGET_HINT,
   FINDINGS_TRUNCATED_HINT,
+  REVIEW_RESULT_BUDGET_CHARS,
   SEVERITY_RANK,
 } from './constants.js';
 import type { ConventionView, FindingView, ReviewView } from './views.js';
@@ -102,27 +104,40 @@ export function filterFindings(
     );
 }
 
-/** Filter → sort → cut at `limit` → format. */
-export function selectFindings(
-  findings: readonly FindingView[],
-  options: FindingOptions = {},
-): Truncated<FormattedFinding> {
-  const kept = filterFindings(findings, options.minSeverity);
-  const cut = truncate(kept, options.limit ?? DEFAULT_LIMIT, FINDINGS_TRUNCATED_HINT);
-  const items = cut.items.map((f) => formatFinding(f, options.detail));
-  return cut.more === undefined ? { items } : { ...cut, items };
-}
-
+/**
+ * One review as a tool result: filter → sort → cut at `limit` → cut at the size budget of its
+ * minified JSON (`REVIEW_RESULT_BUDGET_CHARS[detail]`). `more` counts every finding left out.
+ */
 export function reviewView(review: ReviewView, options: FindingOptions = {}): ReviewResult {
-  const { items, more, hint } = selectFindings(review.findings, options);
-  return {
+  const detail = options.detail ?? 'concise';
+  const base: ReviewResult = {
     run_id: review.run_id,
     agent: review.agent_name ?? review.agent_id ?? 'unknown',
     verdict: review.verdict,
     score: review.score,
-    findings: items,
-    ...(more !== undefined ? { more, hint } : {}),
+    findings: [],
   };
+  const kept = filterFindings(review.findings, options.minSeverity);
+  const candidates = kept.slice(0, options.limit ?? DEFAULT_LIMIT);
+
+  // Running size of `{...base, findings: [...], more, hint}`: reserve the longest more/hint
+  // suffix up front, then add each finding plus its comma separator.
+  const reserved = JSON.stringify({ more: kept.length, hint: FINDINGS_BUDGET_HINT }).length;
+  let size = JSON.stringify(base).length + reserved;
+  const findings: FormattedFinding[] = [];
+  for (const finding of candidates) {
+    const item = formatFinding(finding, detail);
+    const itemSize = JSON.stringify(item).length + (findings.length > 0 ? 1 : 0);
+    if (findings.length > 0 && size + itemSize > REVIEW_RESULT_BUDGET_CHARS[detail]) break;
+    findings.push(item);
+    size += itemSize;
+  }
+
+  const more = kept.length - findings.length;
+  if (more === 0) return { ...base, findings };
+  const hint =
+    findings.length < candidates.length ? FINDINGS_BUDGET_HINT : FINDINGS_TRUNCATED_HINT;
+  return { ...base, findings, more, hint };
 }
 
 export function conventionView(convention: ConventionView): ConventionResult {

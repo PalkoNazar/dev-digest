@@ -230,4 +230,15 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ DEVDIGEST_API_URL: 'not a url' })).toThrow(/DEVDIGEST_API_URL/);
     expect(() => loadConfig({ DEVDIGEST_API_URL: 'file:///etc/passwd' })).toThrow(/http/);
   });
+
+  it('rejects a query or fragment (they would swallow the appended route path)', () => {
+    for (const url of [
+      'http://localhost:3001?x=1',
+      'http://localhost:3001/#frag',
+      'http://localhost:3001?',
+      'http://localhost:3001#',
+    ]) {
+      expect(() => loadConfig({ DEVDIGEST_API_URL: url }), url).toThrow(/query or fragment/);
+    }
+  });
 });

@@ -11,9 +11,16 @@ const ApiUrl = z
   .string()
   .url()
   // zod 3 still runs a refine after `.url()` failed, so guard the `new URL` call.
-  .refine((value) => URL.canParse(value) && /^https?:$/.test(new URL(value).protocol), {
-    message: 'must be an http(s) URL',
-  });
+  // The adapter appends route paths to this string, so a query or fragment (even a bare `?`/`#`)
+  // would swallow them.
+  .refine(
+    (value) => {
+      if (!URL.canParse(value)) return false;
+      const url = new URL(value);
+      return /^https?:$/.test(url.protocol) && !/[?#]/.test(url.href);
+    },
+    { message: 'must be an http(s) URL without a query or fragment' },
+  );
 
 /** Reads the config from an env map. Only `DEVDIGEST_API_URL`; no secrets. Throws on a bad URL. */
 export function loadConfig(env: Record<string, string | undefined>): McpConfig {

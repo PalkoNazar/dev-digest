@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CONCISE_TITLE_MAX, DEFAULT_LIMIT, FINDINGS_TRUNCATED_HINT } from '../src/core/constants.js';
+import {
+  CONCISE_TITLE_MAX,
+  DEFAULT_LIMIT,
+  FINDINGS_BUDGET_HINT,
+  FINDINGS_TRUNCATED_HINT,
+  REVIEW_RESULT_BUDGET_CHARS,
+} from '../src/core/constants.js';
 import {
   conventionView,
   filterFindings,
   formatFinding,
   reviewView,
   selectConventions,
-  selectFindings,
   truncate,
 } from '../src/core/format.js';
 import { conventionDto, findingDto, reviewDto } from './helpers/fixtures.js';
@@ -59,14 +64,14 @@ describe('truncate', () => {
   });
 });
 
-describe('selectFindings / reviewView', () => {
+describe('reviewView', () => {
   const many = Array.from({ length: 25 }, (_, i) =>
     findingDto({ id: `f${i}`, start_line: i + 1, end_line: i + 2 }),
   );
 
   it('defaults to 20 findings and adds more + hint', () => {
-    const out = selectFindings(many);
-    expect(out.items).toHaveLength(DEFAULT_LIMIT);
+    const out = reviewView(reviewDto({ findings: many }));
+    expect(out.findings).toHaveLength(DEFAULT_LIMIT);
     expect(out.more).toBe(5);
     expect(out.hint).toBe(FINDINGS_TRUNCATED_HINT);
   });
@@ -121,23 +126,87 @@ describe('selectFindings / reviewView', () => {
     expect(JSON.stringify(view).length).toBeLessThanOrEqual(4_000);
   });
 
-  it('worst-case titles are clipped in concise mode so 20 findings still fit 4,000 chars', () => {
-    const findings = Array.from({ length: 20 }, (_, i) =>
-      findingDto({
-        id: `f${i}`,
-        severity: 'CRITICAL',
-        file: 'server/src/modules/reviews/run-executor.ts',
-        start_line: 1000 + i,
-        end_line: 1200 + i,
-        title: `${'Very long LLM finding title that keeps going '.repeat(6)}#${i}`,
-      }),
+  it('clips long concise titles; full keeps them', () => {
+    const title = `${'Very long LLM finding title that keeps going '.repeat(6)}#1`;
+    const review = reviewDto({ findings: [findingDto({ title })] });
+    const [concise] = reviewView(review).findings;
+    expect(concise?.title).toHaveLength(CONCISE_TITLE_MAX);
+    expect(concise?.title.endsWith('…')).toBe(true);
+    expect(reviewView(review, { detail: 'full' }).findings[0]?.title).toBe(title);
+  });
+});
+
+describe('reviewView size budget', () => {
+  const DEEP =
+    'client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx';
+  const MIXED = [
+    'server/src/modules/reviews/run-executor.ts',
+    DEEP,
+    'reviewer-core/src/grounding.ts',
+    'server/src/modules/conventions/service.ts',
+  ];
+  const LONG_TITLE = `${'Very long LLM finding title that keeps going '.repeat(6)}`;
+  const QUOTED_TITLE = '"'.repeat(150);
+  const RUN_ID = '0b9c6c0e-3c1f-4f35-9a7c-5b2b8f1e2d4a';
+
+  function review(n: number, files: readonly string[], title: string, extra = {}) {
+    return reviewDto({
+      run_id: RUN_ID,
+      findings: Array.from({ length: n }, (_, i) =>
+        findingDto({
+          id: `f${i}`,
+          severity: 'CRITICAL',
+          file: files[i % files.length] ?? 'x.ts',
+          start_line: 1000 + i,
+          end_line: 1200 + i,
+          title: `${title}#${i}`,
+          ...extra,
+        }),
+      ),
+    });
+  }
+
+  const cases = [
+    ['mixed paths, long titles', MIXED, LONG_TITLE],
+    ['deep paths, long titles', [DEEP], LONG_TITLE],
+    ['mixed paths, quoted titles (JSON escaping)', MIXED, QUOTED_TITLE],
+    ['deep paths, quoted titles', [DEEP], QUOTED_TITLE],
+  ] as const;
+
+  for (const [name, files, title] of cases) {
+    it(`concise stays within the budget and counts the rest in more: ${name}`, () => {
+      const view = reviewView(review(30, files, title));
+      expect(JSON.stringify(view).length).toBeLessThanOrEqual(REVIEW_RESULT_BUDGET_CHARS.concise);
+      expect(view.findings.length).toBeGreaterThan(0);
+      expect(view.findings.length + (view.more ?? 0)).toBe(30);
+    });
+  }
+
+  it('says the size cap (not limit) cut the list when the budget bites first', () => {
+    const view = reviewView(review(20, [DEEP], QUOTED_TITLE));
+    expect(view.findings.length).toBeLessThan(20);
+    expect(view.more).toBe(20 - view.findings.length);
+    expect(view.hint).toBe(FINDINGS_BUDGET_HINT);
+  });
+
+  it('typical data: 20 concise findings fit with no budget cut', () => {
+    const view = reviewView(
+      review(20, MIXED, 'Unvalidated body reaches the SQL builder without workspace scope '),
     );
-    const review = reviewDto({ findings, run_id: '0b9c6c0e-3c1f-4f35-9a7c-5b2b8f1e2d4a' });
-    const concise = reviewView(review);
-    expect(concise.findings.every((f) => f.title.length <= CONCISE_TITLE_MAX && f.title.endsWith('…'))).toBe(true);
-    expect(JSON.stringify(concise).length).toBeLessThanOrEqual(4_000);
-    const full = reviewView(review, { detail: 'full' });
-    expect(full.findings[0]?.title).toBe(findings[0]?.title);
+    expect(view.findings).toHaveLength(20);
+    expect(view.more).toBeUndefined();
+  });
+
+  it('full detail uses its own budget and always keeps at least one finding', () => {
+    const big = { rationale: 'r'.repeat(20_000), suggestion: 's'.repeat(500) };
+    const huge = reviewView(review(3, MIXED, 'T', big), { detail: 'full' });
+    expect(huge.findings).toHaveLength(1);
+    expect(huge.more).toBe(2);
+    const view = reviewView(review(30, [DEEP], LONG_TITLE, { rationale: 'r'.repeat(1_500) }), {
+      detail: 'full',
+    });
+    expect(JSON.stringify(view).length).toBeLessThanOrEqual(REVIEW_RESULT_BUDGET_CHARS.full);
+    expect(view.findings.length + (view.more ?? 0)).toBe(30);
   });
 });
 

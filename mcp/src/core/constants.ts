@@ -23,6 +23,16 @@ export const SEVERITY_RANK: Record<Severity, number> = {
 /** Hint added when a findings list is cut at `limit`. */
 export const FINDINGS_TRUNCATED_HINT = 'raise limit or filter by min_severity';
 
+/** Hint added when a review's findings are cut by the size budget (raising `limit` won't help). */
+export const FINDINGS_BUDGET_HINT =
+  'size cap reached: filter by min_severity or agent, or lower limit with detail="full"';
+
+/**
+ * Max minified-JSON chars of ONE review in a tool result (incl. run/verdict metadata and
+ * `more`/`hint`). Findings that don't fit are counted in `more`; at least one is always kept.
+ */
+export const REVIEW_RESULT_BUDGET_CHARS = { concise: 4_000, full: 16_000 } as const;
+
 /** Hint added when a conventions list is cut at `limit`. */
 export const CONVENTIONS_TRUNCATED_HINT = 'raise limit';
 
