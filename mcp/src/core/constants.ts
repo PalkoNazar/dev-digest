@@ -1,0 +1,42 @@
+import type { Severity } from '@devdigest/shared';
+
+/** Server `instructions`: always in the client's context, so ≤ 400 chars (surface test). */
+export const SERVER_INSTRUCTIONS =
+  'DevDigest: local AI pull-request reviewer. Tools list reviewer agents, run a review on an ' +
+  'imported PR and return its findings, read past findings, and read a repo\'s accepted coding ' +
+  'conventions. Address PRs as repo "owner/name" + pr number. Needs the DevDigest API running ' +
+  '(./scripts/dev.sh).';
+
+/** Default max items per list (findings per review, conventions). */
+export const DEFAULT_LIMIT = 20;
+
+/** Lowest severity included by default. */
+export const DEFAULT_MIN_SEVERITY: Severity = 'WARNING';
+
+/** Lower = more severe; used to filter by `min_severity` and to sort. */
+export const SEVERITY_RANK: Record<Severity, number> = {
+  CRITICAL: 0,
+  WARNING: 1,
+  SUGGESTION: 2,
+};
+
+/** Hint added when a findings list is cut at `limit`. */
+export const FINDINGS_TRUNCATED_HINT = 'raise limit or filter by min_severity';
+
+/** Hint added when a conventions list is cut at `limit`. */
+export const CONVENTIONS_TRUNCATED_HINT = 'raise limit';
+
+/** How often `run_agent_on_pr` polls the run status. */
+export const RUN_POLL_INTERVAL_MS = 3_000;
+
+/** How often a progress notification is sent while waiting for a run. */
+export const RUN_PROGRESS_EVERY_MS = 10_000;
+
+/** Give up waiting (the run keeps going on the server) after this long. */
+export const RUN_WAIT_TIMEOUT_MS = 15 * 60_000;
+
+/** Most repo names listed in a "repo not found" error. */
+export const MAX_KNOWN_REPOS_IN_ERROR = 10;
+
+/** Concise findings cut `title` to this many chars (`detail: "full"` keeps it whole). */
+export const CONCISE_TITLE_MAX = 80;
