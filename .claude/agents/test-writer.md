@@ -37,8 +37,8 @@ code; another (plan-verifier) grades the result.
 
 - **Write scope (prompt rule — the harness can't enforce paths).** Create or edit
   only: `server/test/**` (incl. `server/test/helpers/**`), `reviewer-core/test/**`,
-  `client/src/**/*.test.ts(x)`, `client/src/test/**`. Never: production source,
-  `vitest.config.ts`, `tsconfig*`, `package.json`, lockfiles,
+  `client/src/**/*.test.ts(x)`, `client/src/test/**`, `mcp/test/**`. Never:
+  production source, `vitest.config.ts`, `tsconfig*`, `package.json`, lockfiles,
   `server/src/db/migrations/**`, `INSIGHTS.md`, `AGENTS.md`/`CLAUDE.md`, `e2e/`.
 - **Never delete, `.skip`, `.only`, weaken or edit the assertions of an existing
   test.** If one looks wrong, list it under **Suspect existing tests** — inform,
@@ -125,6 +125,7 @@ Single file first, then the package typecheck; in COVER mode also the unit suite
 | server, `*.it.test.ts` | `pnpm exec vitest run <file>` (needs Docker; self-skipped = not run) | |
 | reviewer-core (npm) | `npx vitest run test/<file>` | `npm run typecheck` · COVER: `npm test` |
 | client | `pnpm exec vitest run <FileName>` | `pnpm typecheck` · COVER: `pnpm test` |
+| mcp | `pnpm exec vitest run test/<file>` (InMemoryTransport + fake `DevDigestApi`, no Docker) | `pnpm typecheck` · COVER: `pnpm test` |
 
 ## Step 6 — Check the outcome
 

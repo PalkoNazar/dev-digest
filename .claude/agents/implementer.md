@@ -105,6 +105,7 @@ Run from the package directory, and record command, exit code and the last lines
 | client | `pnpm typecheck` · `pnpm test` |
 | reviewer-core (npm) | `npm run typecheck` · `npm test` — server typecheck too, it imports reviewer-core |
 | e2e (npm) | `npm run typecheck` (browser flows only if the plan asks: `./scripts/e2e.sh`) |
+| mcp | `pnpm typecheck` · `pnpm test` |
 
 Plus any extra command in the plan's **Verification**. A failure → fix the root
 cause and re-run. Never skip, `.only`, `.skip`, loosen assertions, add `@ts-ignore`/

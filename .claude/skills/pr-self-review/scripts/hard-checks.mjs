@@ -183,6 +183,10 @@ if (args['no-commands'] === true) {
     plan.push(['reviewer-core', ['npm', 'test'], ['reviewer-core']]);
   }
   if (touched.has('e2e')) plan.push(['e2e', ['npm', 'run', 'typecheck'], ['e2e']]);
+  if (touched.has('mcp')) {
+    plan.push(['mcp', ['pnpm', 'typecheck'], ['mcp']]);
+    plan.push(['mcp', ['pnpm', 'test'], ['mcp']]);
+  }
 
   for (const [pkg, cmd, needs] of plan) {
     const label = cmd.join(' ');
