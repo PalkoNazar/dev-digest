@@ -23,6 +23,7 @@ every group that owns one of them.
 | `server/src/db/**/*.ts`, `server/src/**/*repository*.ts` | `drizzle-orm-patterns` | backend | — |
 | `server/src/db/schema.ts`, `server/src/db/schema/**/*.ts` | `postgresql-table-design` | backend | — |
 | `server/src/vendor/shared/**/*.ts`, `client/src/vendor/shared/**/*.ts` | `zod` | shared | — |
+| `mcp/src/**/*.ts` | `typescript-expert`, `zod` | shared | — |
 | `**/*.ts`, `**/*.tsx` | `zod` | shared | `z\.(object\|enum\|union\|discriminatedUnion)\(\|\.safeParse\(` |
 | `**/*.ts`, `**/*.tsx`, `**/*.mjs`, `**/*.js`, `**/*.sh` | `security` | shared | — |
 | `**/*.ts`, `**/*.tsx` | `typescript-expert` | shared | `\binfer\b\|extends .+ \? \|keyof \|as unknown as` |

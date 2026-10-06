@@ -21,6 +21,7 @@ can't see in the code.
 | `server/**` (incl. `modules/repo-intel`) | `server/INSIGHTS.md` |
 | `reviewer-core/**` | `reviewer-core/INSIGHTS.md` |
 | `e2e/**` | `e2e/INSIGHTS.md` |
+| `mcp/**` | `mcp/INSIGHTS.md` |
 | 2+ packages, `scripts/`, `docs/`, `specs/`, `.github/` | `INSIGHTS.md` (root) |
 
 ## Sections (fixed — never add or rename)
