@@ -58,6 +58,10 @@ Supersedes: "agent write scopes are prompt rules; check them with `git status` a
 Do rely on `.claude/hooks/readonly-bash.mjs` (frontmatter `PreToolUse` on Bash) for researcher, planner, architecture-reviewer and plan-verifier; still run `git status --short` after writing agents.
 Why: it exits 2 on redirects, `sed -i`, rm/mv/cp, state-changing git, installs, db/baseline scripts and interpreters; it is a denylist, not a sandbox, and path scopes for writers remain prompt-only. Evidence: `node .claude/hooks/readonly-bash.test.mjs` (13 allowed, 26 blocked).
 
+### 2026-10-07 — plan-verifier can't run `node --test`; plans must say `Status: ready`
+Do run a run's `node …` green-check (pr-self-review self-tests) in the calling session; set a plan's header to `Status: ready`, not `approved`.
+Why: `readonly-bash.mjs` blocks every interpreter call, so plan-verifier reports such checks as "cannot verify"; planner/implementer/plan-verifier key on the literal `ready` (`.claude/agents/planner.md:146`). Evidence: R0 of `specs/plans/2026-10-07-l04-mcp-server.plan.md`.
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
@@ -113,5 +117,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-29 — test-writer / architecture-reviewer / plan-verifier / doc-writer agents + docs map (worktree chore/review-test-doc-agents): 2 entries (prompt-only write scopes, pnpm on PATH); +1 in client/INSIGHTS.md.
 2026-09-30 — Intent Layer (server+reviewer-core+client, feat/intent-layer) + read-only agent hook: 1 entry (hook vs prompt-only scopes); +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 2026-10-07 — L04 devdigest-mcp research + spec (feat/l04-mcp-server): 0 entries (MCP token findings live in specs/L04-mcp-server.md).
+2026-10-07 — L04 R0: pr-self-review/agents learn the mcp package (feat/l04-mcp-server): 1 entry (verifier can't run node; plan Status ready).
 
 ## Open Questions
