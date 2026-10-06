@@ -112,5 +112,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-29 — planner + implementer subagents (.claude/agents, specs/plans): 2 entries (routing.md as shared skill map, Bash specifier removes whole tool).
 2026-09-29 — test-writer / architecture-reviewer / plan-verifier / doc-writer agents + docs map (worktree chore/review-test-doc-agents): 2 entries (prompt-only write scopes, pnpm on PATH); +1 in client/INSIGHTS.md.
 2026-09-30 — Intent Layer (server+reviewer-core+client, feat/intent-layer) + read-only agent hook: 1 entry (hook vs prompt-only scopes); +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
+2026-10-07 — L04 devdigest-mcp research + spec (feat/l04-mcp-server): 0 entries (MCP token findings live in specs/L04-mcp-server.md).
 
 ## Open Questions
