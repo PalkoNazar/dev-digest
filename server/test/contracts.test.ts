@@ -204,7 +204,7 @@ describe('platform DTOs', () => {
         workspace_id: 'w1',
         owner: 'acme',
         name: 'payments-api',
-        full_name: 'acme/payments-api',
+        slug: 'acme/payments-api',
         default_branch: 'main',
         clone_path: null,
         last_polled_at: null,
