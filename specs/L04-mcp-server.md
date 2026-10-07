@@ -1,5 +1,5 @@
 # devdigest-mcp — DevDigest as MCP tools for coding agents
-Status: draft · Lesson: L04 · Packages: mcp (new), server (read-only use of its API)
+Status: implemented · Lesson: L04 · Packages: mcp (new), server (read-only use of its API)
 
 ## Goal
 A coding agent (Claude Code, Cursor, …) can use DevDigest without the UI: see which
@@ -61,14 +61,14 @@ SDK: `@modelcontextprotocol/sdk` 1.x (`latest` = 1.32.1; v2 is beta) — `McpSer
 ### Package `mcp/`
 ```
 mcp/
-  package.json            # pnpm, "type": "module", bin: devdigest-mcp
+  package.json            # pnpm, "type": "module", `start` = tsx src/index.ts (no bin, no build)
   tsconfig.json           # path alias @devdigest/shared → ../server/src/vendor/shared
-  src/index.ts            # composition root: config → ApiClient → buildServer → stdio
-  src/server.ts           # buildServer(deps): McpServer with instructions + 5 tools
-  src/tools/*.ts          # one file per tool: schema, description, handler(deps, args)
-  src/api/client.ts       # port `DevDigestApi` + HTTP adapter (fetch), parses with shared Zod
-  src/format.ts           # pure: compact text renderers + truncation
-  test/*.test.ts          # vitest, InMemoryTransport + fake DevDigestApi
+  src/index.ts            # composition root: config → HTTP adapter → buildServer → stdio
+  src/config.ts           # DEVDIGEST_API_URL
+  src/core/               # port `DevDigestApi`, use cases per tool, resolve, wait-for-run, format
+  src/api/http.ts         # HTTP adapter (fetch), parses with shared Zod
+  src/mcp/                # server.ts (buildServer), tools/*.ts (one per tool), results.ts
+  test/*.test.ts          # vitest, InMemoryTransport + fake DevDigestApi, stdio process test
 ```
 - Not a workspace member; own lockfile (repo rule). Contracts imported as source from the
   **server** copy of `@devdigest/shared` (it is the API's own contract).
@@ -92,7 +92,7 @@ Resolution: `GET /repos` → match `full_name` → `GET /repos/:id/pulls` → ma
 | Tool | Input | Calls | Result (compact JSON in one text block) |
 |---|---|---|---|
 | `list_agents` | — | `GET /agents` | `{agents: [{id, name, model, enabled}]}` — no prompts |
-| `run_agent_on_pr` | `repo`, `pr`, `agent` | `POST /pulls/:id/review {agentId}` (synchronous; waits for the run) | `{run_id, agent, verdict, score, findings: [...]}` |
+| `run_agent_on_pr` | `repo`, `pr`, `agent` | `POST /pulls/:id/review {agentId}` → poll `GET /pulls/:id/runs` until the run ends → `GET /pulls/:id/reviews` | `{run_id, agent, verdict, score, findings: [...]}` |
 | `get_findings` | `repo`, `pr`, `agent?`, `run_id?`, `min_severity?` (default `WARNING`), `detail?` (`concise`), `limit?` (20) | `GET /pulls/:id/reviews` | latest review per agent (or the one for `run_id`): `{reviews: [{run_id, agent, verdict, score, findings: [...]}]}` |
 | `get_conventions` | `repo`, `status?` (default `accepted`), `limit?` | `GET /repos/:id/conventions` | `{conventions: [{category, rule, file}]}` |
 | `get_blast_radius` | `repo`, `pr` | — | stub, see below |
@@ -106,9 +106,11 @@ Resolution: `GET /repos` → match `full_name` → `GET /repos/:id/pulls` → ma
   into instructions; the server does not touch `INJECTION_GUARD` or grounding.
 
 ### `run_agent_on_pr` duration
-The API call is synchronous and can take minutes. When the client sends a
-`progressToken`, the tool emits a progress notification every 10 s while waiting (keeps
-idle timeouts from firing; Claude Code's stdio idle timeout is 30 min). The API's own rate
+The POST only starts the run; the tool then polls the run status every 3 s, up to 15 min
+(on timeout the run keeps going and the error points at `get_findings`), and finally reads
+the finished review. When the client sends a `progressToken`, the tool emits a progress
+notification every 10 s while waiting (keeps idle timeouts from firing; Claude Code's stdio
+idle timeout is 30 min). The API's own rate
 limit (10/min) surfaces as an actionable error.
 
 ### `get_blast_radius` stub

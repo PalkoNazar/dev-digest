@@ -15,11 +15,13 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.7 (strict, `noUncheckedIndexedAccess`) 
 - Hermetic browser e2e: `./scripts/e2e.sh` (own Postgres :5433, never touches dev DB)
 - Per package, run inside it: `pnpm typecheck` · `pnpm test`
   (reviewer-core and e2e use **npm** — they have `package-lock.json`)
+- MCP server for Claude Code: `.mcp.json` runs `pnpm --silent --dir mcp start` (API must be up)
 
 ## Map
 - `server/` — Fastify API :3001, DB, jobs, repo-intel → `server/AGENTS.md`
 - `client/` — Next.js studio :3000 → `client/AGENTS.md`
 - `reviewer-core/` — pure review engine (diff → prompt → LLM → grounded findings)
+- `mcp/` — devdigest-mcp: stdio MCP server, thin tools over the REST API → `mcp/AGENTS.md`
 - `e2e/` — deterministic agent-browser flows on seeded data (no LLM)
 - `docs/` — cross-package docs (reviewer prompts live in `docs/agent-prompts/`)
 - `specs/` — cross-package feature specs · `INSIGHTS.md` — learned gotchas
