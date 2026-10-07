@@ -34,8 +34,15 @@ export function registerGetFindings(server: McpServer, deps: ServerDeps): void {
           .optional()
           .describe('Max findings per review (default 20)'),
       },
-      // Open world: resolving the PR hits GET /repos/:id/pulls, which may sync from GitHub.
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      // Not read-only: resolving the PR hits GET /repos/:id/pulls, which upserts PRs synced from
+      // GitHub into the local DB (no side-effect-free route; server changes are out of scope).
+      // The upsert is idempotent and non-destructive.
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
     },
     async (args) => {
       try {

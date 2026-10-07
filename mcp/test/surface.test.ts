@@ -63,10 +63,19 @@ describe('tool surface', () => {
     }
   });
 
-  it('read tools are readOnlyHint: true', () => {
-    for (const name of READ_TOOLS) {
+  it('pure read tools are readOnlyHint: true', () => {
+    for (const name of READ_TOOLS.filter((n) => n !== 'get_findings')) {
       expect(tool(name).annotations, name).toMatchObject({ readOnlyHint: true });
     }
+  });
+
+  it('get_findings is not read-only (PR resolution syncs the local DB) but idempotent', () => {
+    expect(tool('get_findings').annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
   });
 
   it('run_agent_on_pr is a non-destructive, non-idempotent, open-world write', () => {

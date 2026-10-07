@@ -99,6 +99,19 @@ describe('runAgentOnPr', () => {
     );
   });
 
+  it.each(['listRuns', 'listReviews'] as const)(
+    'API error from %s after the start keeps the run id and forbids a new start',
+    async (method) => {
+      const fake = api()
+        .scriptRun({ statuses: ['done'] })
+        .failWith(method, new ApiHttpError(500, 'internal', 'boom'));
+      const message = await toolError(runAgentOnPr({ api: fake }, ARGS, fakeClock()));
+      expect(message).toMatch(/run "[^"]+" was started/);
+      expect(message).toMatch(/do NOT call run_agent_on_pr again/);
+      expect(message).toMatch(/get_findings\(repo="acme\/shop", pr=42, run_id="/);
+    },
+  );
+
   it('429 on start → rate-limit message (not a ToolError)', async () => {
     const fake = api().failWith('startReview', new ApiHttpError(429, 'rate_limited', 'Too many'));
     const err = await runAgentOnPr({ api: fake }, ARGS, fakeClock()).catch((e: unknown) => e);
