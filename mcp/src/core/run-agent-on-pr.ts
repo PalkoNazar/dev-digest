@@ -28,14 +28,29 @@ export async function runAgentOnPr(
   const started = await api.startReview(pull.id, agent.id);
   const runId = started.run_id;
 
-  const outcome = await waitForRun(api, pull.id, runId, wait);
+  const findingsHint = `get_findings(repo="${repo.full_name}", pr=${pull.number}, run_id="${runId}")`;
+  // The run is started and paid for: any later failure must keep its id and must not tell the
+  // caller to start another run.
+  const afterStart = (err: unknown): ToolError =>
+    new ToolError(
+      `Review run "${runId}" was started, but waiting for it failed (` +
+        `${err instanceof Error ? err.message : String(err)}) — do NOT call run_agent_on_pr ` +
+        `again; call ${findingsHint} later`,
+    );
+
+  const outcome = await waitForRun(api, pull.id, runId, wait).catch((err: unknown) => {
+    throw afterStart(err);
+  });
   switch (outcome.status) {
     case 'done': {
-      const review = (await api.listReviews(pull.id)).find((r) => r.run_id === runId);
+      const reviews = await api.listReviews(pull.id).catch((err: unknown) => {
+        throw afterStart(err);
+      });
+      const review = reviews.find((r) => r.run_id === runId);
       if (!review) {
         throw new ToolError(
           `Review run "${runId}" finished but its review is missing — ` +
-            `call get_findings(repo="${repo.full_name}", pr=${pull.number}, run_id="${runId}")`,
+            `call ${findingsHint}`,
         );
       }
       return { ...reviewView(review), run_id: runId, agent: agent.name };
@@ -52,8 +67,7 @@ export async function runAgentOnPr(
     case 'timeout':
     case 'aborted':
       throw new ToolError(
-        `Review run "${runId}" is still running — call get_findings(repo="${repo.full_name}", ` +
-          `pr=${pull.number}, run_id="${runId}") later`,
+        `Review run "${runId}" is still running — call ${findingsHint} later`,
       );
   }
 }
