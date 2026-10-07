@@ -74,6 +74,8 @@ install_if_needed() {
   fi
 }
 install_if_needed server
+# mcp/ is started by Claude Code (.mcp.json), never by this script — install only.
+install_if_needed mcp
 [ "$DB_ONLY" -eq 0 ] && [ "$RUN_CLIENT" -eq 1 ] && install_if_needed client
 # reviewer-core's RAW source is imported by the API at runtime (tsconfig alias);
 # without its deps the API crashes at boot with ERR_MODULE_NOT_FOUND. It uses npm.
