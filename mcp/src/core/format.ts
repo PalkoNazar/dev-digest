@@ -167,6 +167,8 @@ export interface BlastSymbolResult {
   callers: string[];
   endpoints: string[];
   crons: string[];
+  /** Set when this symbol's own lists were cut to fit the budget (an oversized first symbol). */
+  truncated?: true;
 }
 
 export interface BlastResult {
@@ -192,6 +194,24 @@ function blastSymbol(impact: BlastView['downstream'][number]): BlastSymbolResult
 }
 
 /**
+ * Cut one symbol's callers, then endpoints, then crons from the end until its JSON fits in
+ * `room` chars (never below empty lists). Marks it `truncated`.
+ */
+function fitSymbol(item: BlastSymbolResult, room: number): BlastSymbolResult {
+  const out: BlastSymbolResult = {
+    ...item,
+    callers: [...item.callers],
+    endpoints: [...item.endpoints],
+    crons: [...item.crons],
+    truncated: true,
+  };
+  for (const list of [out.callers, out.endpoints, out.crons]) {
+    while (list.length > 0 && JSON.stringify(out).length > room) list.pop();
+  }
+  return out;
+}
+
+/**
  * A blast map as a tool result: summary + stats, a degraded reason with a resync hint, then the
  * downstream symbols in server order, cut at `BLAST_RESULT_BUDGET_CHARS` of minified JSON.
  * `more` counts the symbols left out; at least one is always kept.
@@ -214,14 +234,20 @@ export function blastView(blast: BlastView): BlastResult {
   let size = JSON.stringify(base).length + reserved;
   const symbols: BlastSymbolResult[] = [];
   for (const impact of blast.downstream) {
-    const item = blastSymbol(impact);
-    const itemSize = JSON.stringify(item).length + (symbols.length > 0 ? 1 : 0);
-    if (symbols.length > 0 && size + itemSize > BLAST_RESULT_BUDGET_CHARS) break;
+    let item = blastSymbol(impact);
+    let itemSize = JSON.stringify(item).length + (symbols.length > 0 ? 1 : 0);
+    if (size + itemSize > BLAST_RESULT_BUDGET_CHARS) {
+      if (symbols.length > 0) break;
+      // The first symbol alone is over budget: keep it, cut its own lists instead.
+      item = fitSymbol(item, BLAST_RESULT_BUDGET_CHARS - size);
+      itemSize = JSON.stringify(item).length;
+    }
     symbols.push(item);
     size += itemSize;
   }
 
   const more = blast.downstream.length - symbols.length;
-  if (more === 0) return { ...base, symbols };
-  return { ...base, symbols, more, hint: overflowHint };
+  const cut = symbols.some((sym) => sym.truncated);
+  if (more === 0 && !cut) return { ...base, symbols };
+  return { ...base, symbols, ...(more > 0 ? { more } : {}), hint: overflowHint };
 }

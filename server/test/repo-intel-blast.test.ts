@@ -168,6 +168,15 @@ describe('RepoIntel.getBlastRadius — degraded reasons', () => {
     expect(r.indexedSha).toBe('sha-1');
     expect(calls).not.toContain('basics');
   });
+
+  it('full index that left files out (too large / over the cap) → data + repo_too_large', async () => {
+    const index = { ...richIndex('full'), state: state('full', { filesLeftOut: 3 }) };
+    const { svc } = build({ index });
+    const r = await svc.getBlastRadius('r1', ['lib.ts']);
+    expect(r.degraded).toBe(true);
+    expect(r.reason).toBe('repo_too_large');
+    expect(r.callers.length).toBeGreaterThan(0);
+  });
 });
 
 describe('RepoIntel.getBlastRadius — persistent read', () => {

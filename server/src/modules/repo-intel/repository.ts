@@ -212,6 +212,8 @@ export class RepoIntelRepository {
       const stats = (row.stats ?? {}) as Record<string, unknown>;
       const durationMs = typeof stats.durationMs === 'number' ? stats.durationMs : 0;
       const reason = typeof stats.reason === 'string' ? stats.reason : undefined;
+      const count = (v: unknown) => (typeof v === 'number' && v > 0 ? v : 0);
+      const filesLeftOut = count(stats.skippedTooLarge) + count(stats.bounded);
       // A persisted row is the "real" index state. We only mark it `degraded`
       // when the indexer itself stamped status='degraded'|'failed' (e.g. the
       // graph fell over). 'partial' is still a working index — no degraded flag.
@@ -226,6 +228,7 @@ export class RepoIntelRepository {
         lastIndexedSha: row.lastIndexedSha,
         indexerVersion: row.indexerVersion,
         updatedAt: row.updatedAt,
+        filesLeftOut,
         degraded: isDegraded ? true : undefined,
         degradedReason: isDegraded
           ? ((stats.degradedReason as DegradedReason | undefined) ?? 'index_failed')
