@@ -40,6 +40,10 @@ Why: a local call shows two toasts. Queries toast only on status 0 or ≥ 500, s
 Do derive diff dots/counters/inline findings from `usePrReviews` + `lib/smart-diff.ts` (`latestReviewsPerAgent`, `countsAsFinding`); use `useSmartDiff` only for grouping.
 Why: `["reviews", prId]` is invalidated after a run and after Accept/Dismiss, `["smart-diff", prId]` is not — reading `finding_lines` would show stale counts. The latest-per-agent rule is deliberately mirrored in `server/src/modules/reviews/smart-diff/build.ts`; change both. Evidence: `_components/DiffTab/DiffTab.tsx`.
 
+### 2026-10-10 — counts go inside an ICU plural; keep the number bold with `t.rich`
+ALWAYS write counted labels as `{count, plural, one {<b>#</b> x} other {<b>#</b> xs}}` and call `t.rich(key, { count, b: (c) => <strong>{c}</strong> })`; NEVER render `{n} {t("label")}`.
+Why: a number outside the message can't be pluralised ("1 endpoints"). Evidence: `client/messages/en/blast.json` `stat.*`, `BlastRadiusCard.tsx` stats row; convention in `messages/en/runs.json`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`

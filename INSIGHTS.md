@@ -118,5 +118,6 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-09-30 — Intent Layer (server+reviewer-core+client, feat/intent-layer) + read-only agent hook: 1 entry (hook vs prompt-only scopes); +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 2026-10-07 — L04 devdigest-mcp research + spec (feat/l04-mcp-server): 0 entries (MCP token findings live in specs/L04-mcp-server.md).
 2026-10-07 — L04 R0: pr-self-review/agents learn the mcp package (feat/l04-mcp-server): 1 entry (verifier can't run node; plan Status ready).
+2026-10-10 — L04 Blast Radius (server+client+mcp, feat/l04-blast-radius): 0 entries here; +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md, +1 in mcp/INSIGHTS.md.
 
 ## Open Questions
