@@ -28,6 +28,7 @@
   },
   "resync": "Resync",
   "resyncing": "Resyncing…",
+  "resyncTimeout": "No new index after 2 minutes — the resync may have failed. Check the repo on Project context, then try again.",
   "expand": "Expand {symbol}",
   "collapse": "Collapse {symbol}",
   "noChangedSymbols": "No symbols are declared in the changed files.",

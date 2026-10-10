@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within, act } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { BlastRadius } from "@devdigest/shared";
 import messages from "../../../../../../../../../../messages/en/blast.json";
@@ -26,6 +26,7 @@ vi.mock("@/lib/hooks/repo-intel", () => ({
 }));
 
 import { BlastRadiusCard } from "./BlastRadiusCard";
+import { RESYNC_TIMEOUT_MS } from "./constants";
 
 const MAP: BlastRadius = {
   changed_symbols: [
@@ -110,6 +111,7 @@ describe("BlastRadiusCard", () => {
     blast.state.data = { ...MAP, downstream: [], stats: { symbols: 2, callers: 0, endpoints: 0, crons: 0 } };
     renderCard();
     expect(screen.getByText("2 changed symbols, no downstream callers found.")).toBeInTheDocument();
+    expect(screen.getByTestId("blast-stats")).toHaveTextContent(/^2\s*symbols.*0\s*callers/);
     expect(screen.queryByText("Index incomplete")).not.toBeInTheDocument();
   });
 
@@ -165,6 +167,28 @@ describe("BlastRadiusCard", () => {
     rerender();
     expect(blast.refetch).toHaveBeenCalledTimes(1);
     expect(intel.poll).toHaveBeenLastCalledWith(false);
+  });
+
+  it("gives up waiting after RESYNC_TIMEOUT_MS when no new index state lands", () => {
+    vi.useFakeTimers();
+    try {
+      blast.state.data = { ...MAP, degraded: true, reason: "index_partial" };
+      intel.state = { updatedAt: "t1" };
+      renderCard();
+
+      fireEvent.click(screen.getByRole("button", { name: "Resync" }));
+      expect(screen.getByRole("button", { name: /Resyncing/ })).toBeDisabled();
+
+      act(() => {
+        vi.advanceTimersByTime(RESYNC_TIMEOUT_MS);
+      });
+      expect(screen.getByRole("button", { name: "Resync" })).toBeEnabled();
+      expect(screen.getByRole("status")).toHaveTextContent(/resync may have failed/);
+      expect(intel.poll).toHaveBeenLastCalledWith(false);
+      expect(blast.refetch).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers a retry when the map fails to load", () => {

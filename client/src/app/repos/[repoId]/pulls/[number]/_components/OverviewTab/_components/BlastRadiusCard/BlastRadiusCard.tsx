@@ -11,7 +11,7 @@ import type { BlastRadius, BlastStats } from "@devdigest/shared";
 import { usePrBlast } from "@/lib/hooks/blast";
 import { useRepoIntelStatus, useResyncRepoIntel } from "@/lib/hooks/repo-intel";
 import { BlastSymbolImpact } from "../BlastSymbolImpact";
-import { STAT_ICONS, STAT_KEYS } from "./constants";
+import { RESYNC_TIMEOUT_MS, STAT_ICONS, STAT_KEYS } from "./constants";
 import { linkSha, resyncFinished, symbolLabel } from "./helpers";
 import { s } from "./styles";
 
@@ -73,15 +73,7 @@ function BlastBody({
   const t = useTranslations("blast");
   const sha = linkSha(blast, headSha);
 
-  if (blast.downstream.length === 0 && !blast.degraded) {
-    const count = blast.changed_symbols.length;
-    return (
-      <EmptyState
-        icon="Zap"
-        title={count === 0 ? t("noChangedSymbols") : t("noDownstream", { count })}
-      />
-    );
-  }
+  const count = blast.changed_symbols.length;
 
   return (
     <div style={s.card}>
@@ -89,6 +81,12 @@ function BlastBody({
         <DegradedNotice repoId={repoId} reason={blast.reason} onIndexUpdated={onIndexUpdated} />
       )}
       {blast.stats && <StatsRow stats={blast.stats} />}
+      {blast.downstream.length === 0 && !blast.degraded && (
+        <EmptyState
+          icon="Zap"
+          title={count === 0 ? t("noChangedSymbols") : t("noDownstream", { count })}
+        />
+      )}
       {blast.downstream.length > 0 && (
         <div>
           {blast.downstream.map((impact, i) => (
@@ -152,6 +150,18 @@ function DegradedNotice({
   const [resync, setResync] = React.useState<{ from: string | null } | null>(null);
   const { data: indexState } = useRepoIntelStatus(repoId, resync !== null);
   const resyncMut = useResyncRepoIntel(repoId);
+  // The resync route answers 202 even when the job can't run, and a failed clone/sync may
+  // never write a new index state — give up after RESYNC_TIMEOUT_MS instead of spinning.
+  const [timedOut, setTimedOut] = React.useState(false);
+  const waiting = resync !== null;
+  React.useEffect(() => {
+    if (!waiting) return;
+    const id = setTimeout(() => {
+      setResync(null);
+      setTimedOut(true);
+    }, RESYNC_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [waiting]);
 
   // The resync runs as a server job: watch the polled index state (an external
   // system) and re-read the blast map once a new index row has landed.
@@ -168,6 +178,7 @@ function DegradedNotice({
   }, [resync, indexState, onIndexUpdated]);
 
   const startResync = () => {
+    setTimedOut(false);
     setResync({ from: indexState?.updatedAt ?? null });
     // Errors are toasted by the global MutationCache handler (lib/providers.tsx).
     resyncMut.mutate(undefined, { onError: () => setResync(null) });
@@ -185,6 +196,7 @@ function DegradedNotice({
         </Button>
       </div>
       <span>{t(`degraded.reason.${reason ?? "no_data"}`)}</span>
+      {timedOut && <span role="status">{t("resyncTimeout")}</span>}
     </div>
   );
 }

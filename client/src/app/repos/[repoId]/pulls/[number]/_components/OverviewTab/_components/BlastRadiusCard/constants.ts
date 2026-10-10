@@ -16,3 +16,6 @@ export const STAT_ICONS = {
   endpoints: Icon.Globe,
   crons: Icon.Clock,
 } as const satisfies Record<keyof BlastStats, unknown>;
+
+/** How long Resync waits for a new index state before giving up (the job may never write one). */
+export const RESYNC_TIMEOUT_MS = 120_000;

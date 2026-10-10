@@ -290,6 +290,20 @@ describe('blastView', () => {
     expect(view.reason).toBe('index_partial');
   });
 
+  it('a lone oversized symbol is cut to the budget and still carries the size hint', () => {
+    const callers = Array.from({ length: 200 }, (_, c) => ({
+      name: `caller${c}`,
+      file: `server/src/modules/some/really/long/path/to/a/file-${c}.ts`,
+      line: c + 1,
+    }));
+    const downstream = [{ symbol: 'solo', callers, endpoints_affected: [], crons_affected: [] }];
+    const view = blastView(blastDto({ downstream }));
+    expect(view.symbols[0]?.truncated).toBe(true);
+    expect(view.more).toBeUndefined();
+    expect(view.hint).toBe(BLAST_BUDGET_HINT);
+    expect(JSON.stringify(view).length).toBeLessThanOrEqual(BLAST_RESULT_BUDGET_CHARS);
+  });
+
   it('keeps at least one symbol even when it alone exceeds the budget', () => {
     const callers = Array.from({ length: 200 }, (_, c) => ({
       name: `caller${c}`,
@@ -302,8 +316,12 @@ describe('blastView', () => {
     ];
     const view = blastView(blastDto({ downstream }));
     expect(view.symbols.map((s) => s.symbol)).toEqual(['huge']);
+    expect(view.symbols[0]?.truncated).toBe(true);
+    expect(view.symbols[0]?.callers.length).toBeGreaterThan(0);
+    expect(view.symbols[0]?.callers.length).toBeLessThan(200);
     expect(view.more).toBe(1);
     expect(view.hint).toBe(BLAST_BUDGET_HINT);
+    expect(JSON.stringify(view).length).toBeLessThanOrEqual(BLAST_RESULT_BUDGET_CHARS);
   });
 
   it('no downstream → empty symbols, nothing cut', () => {

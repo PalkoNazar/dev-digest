@@ -44,6 +44,12 @@ export interface IndexState extends IndexResult {
   lastIndexedSha: string;
   indexerVersion: number;
   updatedAt: Date;
+  /**
+   * Source files the walk left out even on a `full` pass: over `MAX_FILE_SIZE`
+   * (`skippedTooLarge`) or beyond `MAX_INDEXED_FILES` (`bounded`). Unlike
+   * `filesSkipped`, this excludes files that simply have no supported language.
+   */
+  filesLeftOut?: number;
   /** True when the layer is running on the ripgrep fallback. */
   degraded?: boolean;
   degradedReason?: DegradedReason;

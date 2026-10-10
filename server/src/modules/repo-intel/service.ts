@@ -219,6 +219,8 @@ export class RepoIntelService implements RepoIntel {
    *   - no `repo_index_state` row → empty, `no_data`;
    *   - status failed / degraded  → empty, the persisted reason (else `index_failed`);
    *   - status partial            → persistent data, `index_partial`;
+   *   - status full, files left out (too large / over MAX_INDEXED_FILES)
+   *                               → persistent data, `repo_too_large`;
    *   - status full               → persistent data, not degraded.
    * `indexedSha` is set whenever an index state exists.
    */
@@ -245,6 +247,11 @@ export class RepoIntelService implements RepoIntel {
     const data = await this.persistentBlast(repoId, changedFiles);
     if (state.status === 'partial') {
       return { ...data, degraded: true, reason: 'index_partial', indexedSha };
+    }
+    // A clean pass still drops oversized files and everything past MAX_INDEXED_FILES —
+    // callers in those files are missing, so don't claim a complete map.
+    if ((state.filesLeftOut ?? 0) > 0) {
+      return { ...data, degraded: true, reason: 'repo_too_large', indexedSha };
     }
     return { ...data, degraded: false, indexedSha };
   }
