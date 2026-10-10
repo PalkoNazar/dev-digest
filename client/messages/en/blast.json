@@ -1,16 +1,39 @@
 {
+  "title": "Blast radius",
+  "loadError": "Could not load the blast radius",
   "stat": {
-    "symbols": "symbols",
-    "callers": "callers",
-    "endpoints": "endpoints",
-    "crons": "cron/jobs"
+    "symbols": "{count, plural, one {<b>#</b> symbol} other {<b>#</b> symbols}}",
+    "callers": "{count, plural, one {<b>#</b> caller} other {<b>#</b> callers}}",
+    "endpoints": "{count, plural, one {<b>#</b> endpoint} other {<b>#</b> endpoints}}",
+    "crons": "{count, plural, one {<b>#</b> cron job} other {<b>#</b> cron jobs}}"
   },
   "view": {
     "tree": "tree",
     "graph": "graph"
   },
-  "callerCount": "{count} callers",
-  "noDownstream": "{count} changed symbol(s), no downstream callers found.",
+  "section": {
+    "callers": "Callers",
+    "endpoints": "Endpoints",
+    "crons": "Cron jobs"
+  },
+  "degraded": {
+    "badge": "Index incomplete",
+    "reason": {
+      "flag_off": "Code indexing is off (REPO_INTEL_ENABLED=false). Turn it on, then resync the repo.",
+      "index_failed": "The code index failed to build. Resync the repo to rebuild it.",
+      "index_partial": "The code index is partial, so some callers may be missing. Resync the repo to complete it.",
+      "repo_too_large": "The repo is too large to index fully, so callers in skipped files are not shown and a resync won't add them. Check those files manually or narrow the change.",
+      "no_data": "This repo has no code index yet. Resync the repo to build it."
+    }
+  },
+  "resync": "Resync",
+  "resyncing": "Resyncing…",
+  "expand": "Expand {symbol}",
+  "collapse": "Collapse {symbol}",
+  "noChangedSymbols": "No symbols are declared in the changed files.",
+  "openOnGithub": "Open {location} on GitHub",
+  "callerCount": "{count, plural, one {# caller} other {# callers}}",
+  "noDownstream": "{count, plural, one {# changed symbol} other {# changed symbols}}, no downstream callers found.",
   "graph": {
     "empty": "No downstream callers to graph.",
     "ariaLabel": "Blast radius graph"
