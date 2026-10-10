@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { linkSha, resyncFinished, symbolLabel } from "./helpers";
+import { duplicateSymbols, linkSha, resyncFinished, symbolLabel } from "./helpers";
 
 describe("linkSha", () => {
   it("prefers the index SHA and falls back to the PR head", () => {
@@ -26,6 +26,26 @@ describe("resyncFinished", () => {
     expect(resyncFinished("t1", undefined)).toBe(false);
     expect(resyncFinished("t1", { updatedAt: "t1" })).toBe(false);
     expect(resyncFinished("t1", { updatedAt: "t2" })).toBe(true);
-    expect(resyncFinished(null, { updatedAt: "t1" })).toBe(false);
+  });
+});
+
+describe("duplicateSymbols / symbolLabel with a file", () => {
+  it("finds names declared in several files and labels each by its own declaration", () => {
+    const d = (symbol: string, file: string) => ({
+      symbol,
+      file,
+      callers: [],
+      endpoints_affected: [],
+      crons_affected: [],
+    });
+    expect([...duplicateSymbols([d("handler", "a.ts"), d("handler", "b.ts"), d("x", "c.ts")])]).toEqual([
+      "handler",
+    ]);
+    const changed = [
+      { name: "handler", file: "a.ts", kind: "function" },
+      { name: "handler", file: "b.ts", kind: "const" },
+    ];
+    expect(symbolLabel("handler", changed, "a.ts")).toBe("handler()");
+    expect(symbolLabel("handler", changed, "b.ts")).toBe("handler");
   });
 });

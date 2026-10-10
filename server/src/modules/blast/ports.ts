@@ -14,6 +14,8 @@ export interface BlastSourceResult {
     symbol: string;
     /** Which changed symbol this caller reaches. */
     viaSymbol: string;
+    /** File declaring `viaSymbol`, when the index resolved it. */
+    viaFile?: string;
     /** 1-based line at `indexedSha`. */
     line: number;
     rank: number;

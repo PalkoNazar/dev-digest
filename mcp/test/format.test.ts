@@ -252,6 +252,13 @@ describe('blastView', () => {
     });
   });
 
+  it('carries the declaring file when the server sends it', () => {
+    const downstream = [
+      { symbol: 'handler', file: 'src/a.ts', callers: [], endpoints_affected: [], crons_affected: [] },
+    ];
+    expect(blastView(blastDto({ downstream })).symbols[0]?.file).toBe('src/a.ts');
+  });
+
   it('degraded carries the reason and a resync hint', () => {
     const summary = 'Index partial — 1 changed symbol';
     const view = blastView(blastDto({ degraded: true, reason: 'index_partial', summary }));

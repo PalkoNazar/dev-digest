@@ -163,6 +163,8 @@ export function selectConventions(
 /** One changed symbol with downstream callers, compacted for a tool result. */
 export interface BlastSymbolResult {
   symbol: string;
+  /** Declaring file — tells same-named changed symbols apart. */
+  file?: string;
   /** `"file:line name"`, in the server's rank order. */
   callers: string[];
   endpoints: string[];
@@ -187,6 +189,7 @@ export interface BlastResult {
 function blastSymbol(impact: BlastView['downstream'][number]): BlastSymbolResult {
   return {
     symbol: impact.symbol,
+    ...(impact.file ? { file: impact.file } : {}),
     callers: impact.callers.map((c) => `${c.file}:${c.line} ${c.name}`),
     endpoints: impact.endpoints_affected,
     crons: impact.crons_affected,

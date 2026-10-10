@@ -126,6 +126,8 @@ export interface FullSymbolRow {
 export interface ResolvedCallerRow {
   fromPath: string;
   toSymbol: string;
+  /** File declaring `toSymbol` (resolved via import edges). */
+  declFile: string | null;
   line: number;
   rank: number;
 }
@@ -213,7 +215,12 @@ export class RepoIntelRepository {
       const durationMs = typeof stats.durationMs === 'number' ? stats.durationMs : 0;
       const reason = typeof stats.reason === 'string' ? stats.reason : undefined;
       const count = (v: unknown) => (typeof v === 'number' && v > 0 ? v : 0);
-      const filesLeftOut = count(stats.skippedTooLarge) + count(stats.bounded);
+      // Full rows carry the walk counters; incremental rows carry the cumulative
+      // `filesLeftOut` forward (their own stats have no walk counters).
+      const filesLeftOut =
+        typeof stats.filesLeftOut === 'number'
+          ? count(stats.filesLeftOut)
+          : count(stats.skippedTooLarge) + count(stats.bounded);
       // A persisted row is the "real" index state. We only mark it `degraded`
       // when the indexer itself stamped status='degraded'|'failed' (e.g. the
       // graph fell over). 'partial' is still a working index — no degraded flag.
@@ -525,6 +532,7 @@ export class RepoIntelRepository {
       .select({
         fromPath: t.references.fromPath,
         toSymbol: t.references.toSymbol,
+        declFile: t.references.declFile,
         line: t.references.line,
         rank: t.fileRank.rank,
       })

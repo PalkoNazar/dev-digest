@@ -12,7 +12,7 @@ import { usePrBlast } from "@/lib/hooks/blast";
 import { useRepoIntelStatus, useResyncRepoIntel } from "@/lib/hooks/repo-intel";
 import { BlastSymbolImpact } from "../BlastSymbolImpact";
 import { RESYNC_TIMEOUT_MS, STAT_ICONS, STAT_KEYS } from "./constants";
-import { linkSha, resyncFinished, symbolLabel } from "./helpers";
+import { duplicateSymbols, linkSha, resyncFinished, symbolLabel } from "./helpers";
 import { s } from "./styles";
 
 interface BlastRadiusCardProps {
@@ -74,6 +74,7 @@ function BlastBody({
   const sha = linkSha(blast, headSha);
 
   const count = blast.changed_symbols.length;
+  const dup = duplicateSymbols(blast.downstream);
 
   return (
     <div style={s.card}>
@@ -91,9 +92,10 @@ function BlastBody({
         <div>
           {blast.downstream.map((impact, i) => (
             <BlastSymbolImpact
-              key={impact.symbol}
+              key={`${impact.file ?? ""}:${impact.symbol}`}
               impact={impact}
-              label={symbolLabel(impact.symbol, blast.changed_symbols)}
+              label={symbolLabel(impact.symbol, blast.changed_symbols, impact.file)}
+              declaredIn={dup.has(impact.symbol) ? impact.file : undefined}
               linkSha={sha}
               repoFullName={repoFullName}
               defaultOpen={i === 0}
@@ -145,9 +147,9 @@ function DegradedNotice({
   onIndexUpdated: () => void;
 }) {
   const t = useTranslations("blast");
-  // `from` = the index state's updatedAt when Resync was clicked; null = clicked before
-  // the first state arrived, so the next state seen becomes the baseline.
-  const [resync, setResync] = React.useState<{ from: string | null } | null>(null);
+  // `from` = the index state's updatedAt when Resync was clicked. Resync stays disabled
+  // until that baseline is known, so a fast resync can't be mistaken for the baseline.
+  const [resync, setResync] = React.useState<{ from: string } | null>(null);
   const { data: indexState } = useRepoIntelStatus(repoId, resync !== null);
   const resyncMut = useResyncRepoIntel(repoId);
   // The resync route answers 202 even when the job can't run, and a failed clone/sync may
@@ -167,10 +169,6 @@ function DegradedNotice({
   // system) and re-read the blast map once a new index row has landed.
   React.useEffect(() => {
     if (!resync) return;
-    if (resync.from === null) {
-      if (indexState) setResync({ from: indexState.updatedAt });
-      return;
-    }
     if (resyncFinished(resync.from, indexState)) {
       setResync(null);
       onIndexUpdated();
@@ -178,12 +176,14 @@ function DegradedNotice({
   }, [resync, indexState, onIndexUpdated]);
 
   const startResync = () => {
+    if (!indexState) return;
     setTimedOut(false);
-    setResync({ from: indexState?.updatedAt ?? null });
+    setResync({ from: indexState.updatedAt });
     // Errors are toasted by the global MutationCache handler (lib/providers.tsx).
     resyncMut.mutate(undefined, { onError: () => setResync(null) });
   };
   const busy = resync !== null || resyncMut.isPending;
+  const ready = !!indexState;
 
   return (
     <div style={s.notice} role="note">
@@ -191,7 +191,7 @@ function DegradedNotice({
         <Badge icon="AlertTriangle" color="var(--warn)" bg="var(--warn-bg)">
           {t("degraded.badge")}
         </Badge>
-        <Button kind="ghost" size="sm" icon="RefreshCw" loading={busy} disabled={busy} onClick={startResync}>
+        <Button kind="ghost" size="sm" icon="RefreshCw" loading={busy} disabled={busy || !ready} onClick={startResync}>
           {busy ? t("resyncing") : t("resync")}
         </Button>
       </div>

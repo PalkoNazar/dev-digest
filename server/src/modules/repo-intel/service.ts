@@ -309,13 +309,14 @@ export class RepoIntelService implements RepoIntel {
         enclosingFromRows(symsByFile.get(c.fromPath) ?? [], c.line) ??
         c.fromPath.split('/').pop() ??
         c.fromPath;
-      const key = `${c.fromPath}|${enclosing}|${c.toSymbol}`;
+      const key = `${c.fromPath}|${enclosing}|${c.declFile ?? ''}|${c.toSymbol}`;
       if (seenCaller.has(key)) continue;
       seenCaller.add(key);
       all.push({
         file: c.fromPath,
         symbol: enclosing,
         viaSymbol: c.toSymbol,
+        ...(c.declFile ? { viaFile: c.declFile } : {}),
         line: c.line,
         rank: c.rank,
       });

@@ -66,6 +66,27 @@ describe('toBlastRadius', () => {
     expect(b.downstream[0]!.callers.map((c) => c.file)).toEqual(['src/api/a.ts']);
   });
 
+  it('keeps same-named symbols declared in different files as separate groups', () => {
+    const out = toBlastRadius(
+      source({
+        changedSymbols: [
+          { file: 'src/a/handler.ts', name: 'handler', kind: 'function' },
+          { file: 'src/b/handler.ts', name: 'handler', kind: 'function' },
+        ],
+        callers: [
+          { file: 'src/api/a.ts', symbol: 'x', viaSymbol: 'handler', viaFile: 'src/a/handler.ts', line: 1, rank: 9 },
+          { file: 'src/jobs/n.ts', symbol: 'y', viaSymbol: 'handler', viaFile: 'src/b/handler.ts', line: 2, rank: 5 },
+        ],
+      }),
+    );
+    expect(out.downstream.map((d) => [d.symbol, d.file, d.callers.map((c) => c.file)])).toEqual([
+      ['handler', 'src/a/handler.ts', ['src/api/a.ts']],
+      ['handler', 'src/b/handler.ts', ['src/jobs/n.ts']],
+    ]);
+    expect(out.downstream[0]?.endpoints_affected).toEqual(['GET /a']);
+    expect(out.downstream[1]?.crons_affected).toEqual(['0 3 * * *']);
+  });
+
   it('sorts downstream by max caller rank, then caller count, then symbol', () => {
     const b = toBlastRadius(
       source({

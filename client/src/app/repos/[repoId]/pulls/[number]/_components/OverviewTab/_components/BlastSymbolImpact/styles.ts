@@ -28,6 +28,14 @@ export const s = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
+  declaredIn: {
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  } satisfies CSSProperties,
   count: {
     marginLeft: "auto",
     fontSize: 12,
