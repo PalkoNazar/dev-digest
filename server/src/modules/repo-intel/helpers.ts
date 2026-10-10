@@ -21,6 +21,14 @@ export interface FileImpact {
   crons: string[];
 }
 
+/** Path kinds that mark a test file (substring match on the lower-cased `/`-prefixed path). */
+export const TEST_PATH_PATTERNS = ['.test.', '.spec.', '__tests__/', '/test/', '/tests/'] as const;
+
+export function isTestPath(path: string): boolean {
+  const lower = `/${path.toLowerCase()}`;
+  return TEST_PATH_PATTERNS.some((t) => lower.includes(t));
+}
+
 const DEGRADED_REASONS: ReadonlySet<string> = new Set<DegradedReason>([
   'flag_off',
   'index_failed',
@@ -96,6 +104,8 @@ export function attributeFacts(
     const endpoints = new Set<string>();
     const crons = new Set<string>();
     for (const f of visited) {
+      // Tests call routes (`app.inject`) but serve none — their URLs are not impacted endpoints.
+      if (isTestPath(f)) continue;
       const facts = factsOf.get(f);
       if (!facts) continue;
       for (const e of facts.endpoints) endpoints.add(e);

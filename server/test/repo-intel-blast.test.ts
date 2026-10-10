@@ -3,6 +3,7 @@ import { RepoIntelService } from '../src/modules/repo-intel/service.js';
 import {
   attributeFacts,
   capCallersPerSymbol,
+  isTestPath,
   toDegradedReason,
 } from '../src/modules/repo-intel/helpers.js';
 import { MAX_CALLERS_PER_SYMBOL } from '../src/modules/repo-intel/constants.js';
@@ -244,6 +245,28 @@ describe('repo-intel helpers', () => {
     expect(attributeFacts(['a.ts'], [edges, edges], facts)['a.ts']?.endpoints).toEqual([
       'GET /far',
     ]);
+  });
+
+  it('attributeFacts ignores facts of test files (they inject routes, they do not serve them)', () => {
+    const edges = [
+      { fromFile: 'routes.ts', toFile: 'svc.ts' },
+      { fromFile: 'test/svc.test.ts', toFile: 'svc.ts' },
+    ];
+    const facts = [
+      { filePath: 'routes.ts', endpoints: ['GET /real'], crons: [] },
+      { filePath: 'test/svc.test.ts', endpoints: ['GET /agents/${id}/versions/99'], crons: ['0 * * * *'] },
+    ];
+    expect(attributeFacts(['svc.ts'], [edges], facts)['svc.ts']).toEqual({
+      endpoints: ['GET /real'],
+      crons: [],
+    });
+  });
+
+  it('isTestPath matches test files, not source files', () => {
+    expect(isTestPath('server/test/blast.it.test.ts')).toBe(true);
+    expect(isTestPath('client/src/a/B.test.tsx')).toBe(true);
+    expect(isTestPath('test/helpers/pg.ts')).toBe(true);
+    expect(isTestPath('server/src/modules/reviews/routes.ts')).toBe(false);
   });
 
   it('attributeFacts with no callers → {}', () => {

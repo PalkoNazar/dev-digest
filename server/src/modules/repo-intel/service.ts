@@ -31,7 +31,7 @@ import {
   type FullSymbolRow,
   type IndexerEdgeRow,
 } from './repository.js';
-import { attributeFacts, capCallersPerSymbol, toDegradedReason } from './helpers.js';
+import { attributeFacts, capCallersPerSymbol, isTestPath, toDegradedReason } from './helpers.js';
 import type {
   BlastCallerRow,
   BlastChangedSymbol,
@@ -592,7 +592,7 @@ export class RepoIntelService implements RepoIntel {
     const rows = await this.repo.getRankedPaths(repoId, 100_000);
     return rows
       .map((r) => r.path)
-      .filter((p) => TEST_PATH_PATTERNS.some((t) => `/${p.toLowerCase()}`.includes(t)))
+      .filter((p) => isTestPath(p))
       .slice(0, n);
   }
 
@@ -691,9 +691,6 @@ const JUNK_PATH_PATTERNS = [
   'eslint',
   'prettier',
 ] as const;
-
-/** Path kinds that mark a test file (subset of JUNK_PATH_PATTERNS). */
-const TEST_PATH_PATTERNS = ['.test.', '.spec.', '__tests__/', '/test/', '/tests/'] as const;
 
 function isJunkPath(path: string): boolean {
   const lower = path.toLowerCase();
