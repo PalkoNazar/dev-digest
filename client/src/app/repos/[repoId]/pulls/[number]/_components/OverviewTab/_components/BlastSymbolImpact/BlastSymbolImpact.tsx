@@ -14,6 +14,8 @@ interface BlastSymbolImpactProps {
   impact: DownstreamImpact;
   /** Display name, e.g. `buildPrompt()` for a function. */
   label: string;
+  /** Declaring file, shown only when another changed symbol has the same name. */
+  declaredIn?: string;
   linkSha: string | null;
   repoFullName: string | null;
   defaultOpen?: boolean;
@@ -22,6 +24,7 @@ interface BlastSymbolImpactProps {
 export function BlastSymbolImpact({
   impact,
   label,
+  declaredIn,
   linkSha,
   repoFullName,
   defaultOpen = false,
@@ -43,6 +46,11 @@ export function BlastSymbolImpact({
         <span className="mono" style={s.symbol}>
           {label}
         </span>
+        {declaredIn && (
+          <span className="mono" style={s.declaredIn}>
+            {declaredIn}
+          </span>
+        )}
         <span style={s.count}>{t("callerCount", { count: impact.callers.length })}</span>
       </button>
 

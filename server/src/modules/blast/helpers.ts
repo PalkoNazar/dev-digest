@@ -59,15 +59,23 @@ export function toBlastRadius(r: BlastSourceResult): BlastRadius {
 
   const groups = new Map<string, Group>();
   for (const c of r.callers) {
-    if (declFiles.get(c.viaSymbol)?.has(c.file)) continue;
-    let g = groups.get(c.viaSymbol);
+    if (c.viaFile ? c.file === c.viaFile : declFiles.get(c.viaSymbol)?.has(c.file)) continue;
+    // Group per declaration (file + name) so same-named symbols in different files stay apart.
+    const key = `${c.viaFile ?? ''}|${c.viaSymbol}`;
+    let g = groups.get(key);
     if (!g) {
       g = {
-        impact: { symbol: c.viaSymbol, callers: [], endpoints_affected: [], crons_affected: [] },
+        impact: {
+          symbol: c.viaSymbol,
+          ...(c.viaFile ? { file: c.viaFile } : {}),
+          callers: [],
+          endpoints_affected: [],
+          crons_affected: [],
+        },
         maxRank: c.rank,
         files: new Set(),
       };
-      groups.set(c.viaSymbol, g);
+      groups.set(key, g);
     }
     g.impact.callers.push({ name: c.symbol, file: c.file, line: c.line });
     g.maxRank = Math.max(g.maxRank, c.rank);
@@ -96,7 +104,8 @@ export function toBlastRadius(r: BlastSourceResult): BlastRadius {
       (a, b) =>
         b.maxRank - a.maxRank ||
         b.impact.callers.length - a.impact.callers.length ||
-        a.impact.symbol.localeCompare(b.impact.symbol),
+        a.impact.symbol.localeCompare(b.impact.symbol) ||
+        (a.impact.file ?? '').localeCompare(b.impact.file ?? ''),
     )
     .map((g) => g.impact);
 

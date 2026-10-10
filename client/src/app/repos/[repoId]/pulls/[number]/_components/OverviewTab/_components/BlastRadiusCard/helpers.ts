@@ -9,21 +9,35 @@ export function linkSha(blast: Pick<BlastRadius, "index_sha">, headSha: string |
   return blast.index_sha || headSha || null;
 }
 
-/** `name()` when a changed symbol of that name is a function/method, else the bare name. */
-export function symbolLabel(symbol: string, changed: ChangedSymbol[]): string {
-  const callable = changed.some((c) => c.name === symbol && CALLABLE_KINDS.has(c.kind));
+/**
+ * `name()` when the changed symbol (that name, and that file when known) is a
+ * function/method, else the bare name.
+ */
+export function symbolLabel(symbol: string, changed: ChangedSymbol[], file?: string): string {
+  const callable = changed.some(
+    (c) => c.name === symbol && (!file || c.file === file) && CALLABLE_KINDS.has(c.kind),
+  );
   return callable ? `${symbol}()` : symbol;
+}
+
+/** Changed-symbol names that head more than one downstream group (declared in several files). */
+export function duplicateSymbols(downstream: BlastRadius["downstream"]): Set<string> {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const d of downstream) {
+    if (seen.has(d.symbol)) dup.add(d.symbol);
+    seen.add(d.symbol);
+  }
+  return dup;
 }
 
 /**
  * A resync whose baseline index state had `updatedAt === startedAt` is finished once
- * the state reports a different `updatedAt` (a new index row). Without a baseline
- * (`startedAt` null — clicked before the first state arrived) it is never finished:
- * the caller first captures the baseline from the next state it sees.
+ * the state reports a different `updatedAt` (a new index row).
  */
 export function resyncFinished(
-  startedAt: string | null,
+  startedAt: string,
   state: Pick<RepoIntelState, "updatedAt"> | undefined,
 ): boolean {
-  return startedAt !== null && !!state && state.updatedAt !== startedAt;
+  return !!state && state.updatedAt !== startedAt;
 }

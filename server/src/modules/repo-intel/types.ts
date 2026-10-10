@@ -71,6 +71,8 @@ export interface BlastCallerRow {
   symbol: string;
   /** Which changed symbol this caller reaches. */
   viaSymbol: string;
+  /** File declaring `viaSymbol` (persistent index). Same-named symbols in different files differ here. */
+  viaFile?: string;
   /** 1-based line of the reference (representative; for the BlastRadius view). */
   line: number;
   /** file_rank.rank of the caller file (0 in the degraded/ripgrep path). */

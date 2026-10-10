@@ -146,27 +146,23 @@ describe("BlastRadiusCard", () => {
     expect(intel.poll).toHaveBeenLastCalledWith(false);
   });
 
-  it("takes the first index state seen after a too-early click as the baseline", () => {
+  it("keeps Resync disabled until the index state (the baseline) has loaded", () => {
     blast.state.data = { ...MAP, degraded: true, reason: "no_data" };
     intel.state = undefined; // index state not loaded yet
     const view = renderCard();
-    const rerender = () =>
-      view.rerender(
-        <NextIntlClientProvider locale="en" messages={{ blast: messages }}>
-          <BlastRadiusCard prId="pr1" repoId="r1" repoFullName="acme/shop" headSha="head456" />
-        </NextIntlClientProvider>,
-      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Resync" }));
-    intel.state = { updatedAt: "old" }; // first response: the pre-resync state
-    rerender();
-    expect(blast.refetch).not.toHaveBeenCalled();
-    expect(intel.poll).toHaveBeenLastCalledWith(true);
+    const button = screen.getByRole("button", { name: "Resync" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(intel.mutate).not.toHaveBeenCalled();
 
-    intel.state = { updatedAt: "new" };
-    rerender();
-    expect(blast.refetch).toHaveBeenCalledTimes(1);
-    expect(intel.poll).toHaveBeenLastCalledWith(false);
+    intel.state = { updatedAt: "t1" };
+    view.rerender(
+      <NextIntlClientProvider locale="en" messages={{ blast: messages }}>
+        <BlastRadiusCard prId="pr1" repoId="r1" repoFullName="acme/shop" headSha="head456" />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Resync" })).toBeEnabled();
   });
 
   it("gives up waiting after RESYNC_TIMEOUT_MS when no new index state lands", () => {

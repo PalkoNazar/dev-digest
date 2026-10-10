@@ -231,6 +231,16 @@ describe('repo-intel helpers', () => {
     expect(capCallersPerSymbol([], 2)).toEqual([]);
   });
 
+  it('capCallersPerSymbol gives same-named symbols from different files their own budget', () => {
+    const rows = [
+      { viaSymbol: 'handler', viaFile: 'a.ts', n: 1 },
+      { viaSymbol: 'handler', viaFile: 'a.ts', n: 2 },
+      { viaSymbol: 'handler', viaFile: 'b.ts', n: 3 },
+      { viaSymbol: 'handler', viaFile: 'a.ts', n: 4 },
+    ];
+    expect(capCallersPerSymbol(rows, 2).map((r) => r.n)).toEqual([1, 2, 3]);
+  });
+
   it('attributeFacts dedupes and sorts the union of own + importer facts', () => {
     const out = attributeFacts(
       ['c.ts'],

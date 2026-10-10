@@ -48,16 +48,18 @@ export function toDegradedReason(value: unknown): DegradedReason {
  * Keep at most `max` callers per changed symbol (`viaSymbol`), preserving the
  * input order (callers arrive sorted by rank DESC, so the top-ranked survive).
  */
-export function capCallersPerSymbol<T extends { viaSymbol: string }>(
+export function capCallersPerSymbol<T extends { viaSymbol: string; viaFile?: string }>(
   callers: readonly T[],
   max: number,
 ): T[] {
   const kept = new Map<string, number>();
   const out: T[] = [];
   for (const c of callers) {
-    const n = kept.get(c.viaSymbol) ?? 0;
+    // One budget per declaration: same-named symbols in different files don't share it.
+    const key = `${c.viaFile ?? ''}|${c.viaSymbol}`;
+    const n = kept.get(key) ?? 0;
     if (n >= max) continue;
-    kept.set(c.viaSymbol, n + 1);
+    kept.set(key, n + 1);
     out.push(c);
   }
   return out;
