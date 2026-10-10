@@ -110,7 +110,11 @@ describe('tool surface', () => {
     expect(capabilities).not.toHaveProperty('prompts');
   });
 
-  it('get_blast_radius says it is not available yet', () => {
-    expect(tool('get_blast_radius').description).toMatch(/^Not available yet/);
+  it('get_blast_radius is read-only and closed-world (side-effect-free number route)', () => {
+    expect(tool('get_blast_radius').annotations).toEqual({
+      readOnlyHint: true,
+      openWorldHint: false,
+    });
+    expect(tool('get_blast_radius').description).toMatch(/^Get a PR's blast radius/);
   });
 });

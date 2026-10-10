@@ -10,6 +10,7 @@ import {
 } from '../src/core/errors.js';
 import {
   agentDto,
+  blastDto,
   conventionDto,
   pullDto,
   repoDto,
@@ -68,6 +69,32 @@ describe('createHttpApi', () => {
     expect(review?.findings[0]?.dismissed_at).toBeNull();
     const [convention] = await api.listConventions('r/1');
     expect(convention?.evidence).toEqual([{ path: 'server/src/platform/errors.ts', line_start: 7 }]);
+  });
+
+  it('GETs the side-effect-free blast route by repo id + PR number and parses it', async () => {
+    const { api, fetch } = apiWith(async () => json(blastDto()));
+    const blast = await api.getBlastRadius('r/1', 42);
+    expect(fetch).toHaveBeenCalledWith(
+      `${BASE}/repos/r%2F1/pulls/42/blast`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(blast).toEqual(blastDto());
+  });
+
+  it('blast 404 envelope → ApiHttpError', async () => {
+    const { api } = apiWith(async () =>
+      json({ error: { code: 'not_found', message: 'Pull request #7 not found' } }, 404),
+    );
+    const err = await api.getBlastRadius('repo-1', 7).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiHttpError);
+    expect(err).toMatchObject({ status: 404, code: 'not_found' });
+  });
+
+  it('blast body that breaks the contract → ApiShapeError naming the route', async () => {
+    const { api } = apiWith(async () => json({ downstream: 'nope' }));
+    const err = await api.getBlastRadius('repo-1', 42).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiShapeError);
+    expect((err as ApiShapeError).route).toBe('GET /repos/:id/pulls/:number/blast');
   });
 
   it('POSTs {agentId} to start a review and returns the started run', async () => {

@@ -1,5 +1,8 @@
 import type { Severity } from '@devdigest/shared';
 import {
+  BLAST_BUDGET_HINT,
+  BLAST_DEGRADED_HINT,
+  BLAST_RESULT_BUDGET_CHARS,
   CONCISE_TITLE_MAX,
   CONVENTIONS_TRUNCATED_HINT,
   DEFAULT_LIMIT,
@@ -9,7 +12,7 @@ import {
   REVIEW_RESULT_BUDGET_CHARS,
   SEVERITY_RANK,
 } from './constants.js';
-import type { ConventionView, FindingView, ReviewView } from './views.js';
+import type { BlastView, ConventionView, FindingView, ReviewView } from './views.js';
 
 /** Pure shaping of API views into compact tool results (no I/O). */
 
@@ -155,4 +158,70 @@ export function selectConventions(
 ): Truncated<ConventionResult> {
   const cut = truncate(conventions, limit, CONVENTIONS_TRUNCATED_HINT);
   return { ...cut, items: cut.items.map(conventionView) };
+}
+
+/** One changed symbol with downstream callers, compacted for a tool result. */
+export interface BlastSymbolResult {
+  symbol: string;
+  /** `"file:line name"`, in the server's rank order. */
+  callers: string[];
+  endpoints: string[];
+  crons: string[];
+}
+
+export interface BlastResult {
+  summary: string;
+  stats?: BlastView['stats'];
+  /** Commit the index was built at — caller line numbers refer to it, not the PR head. */
+  index_sha?: string;
+  degraded?: true;
+  reason?: BlastView['reason'];
+  symbols: BlastSymbolResult[];
+  /** Downstream symbols left out by the size budget. */
+  more?: number;
+  hint?: string;
+}
+
+function blastSymbol(impact: BlastView['downstream'][number]): BlastSymbolResult {
+  return {
+    symbol: impact.symbol,
+    callers: impact.callers.map((c) => `${c.file}:${c.line} ${c.name}`),
+    endpoints: impact.endpoints_affected,
+    crons: impact.crons_affected,
+  };
+}
+
+/**
+ * A blast map as a tool result: summary + stats, a degraded reason with a resync hint, then the
+ * downstream symbols in server order, cut at `BLAST_RESULT_BUDGET_CHARS` of minified JSON.
+ * `more` counts the symbols left out; at least one is always kept.
+ */
+export function blastView(blast: BlastView): BlastResult {
+  const degradedHint = blast.degraded ? BLAST_DEGRADED_HINT : undefined;
+  const base: BlastResult = {
+    summary: blast.summary,
+    ...(blast.stats ? { stats: blast.stats } : {}),
+    ...(blast.index_sha ? { index_sha: blast.index_sha } : {}),
+    ...(blast.degraded ? { degraded: true as const } : {}),
+    ...(blast.degraded && blast.reason ? { reason: blast.reason } : {}),
+    ...(degradedHint ? { hint: degradedHint } : {}),
+    symbols: [],
+  };
+
+  const overflowHint = degradedHint ? `${degradedHint}; ${BLAST_BUDGET_HINT}` : BLAST_BUDGET_HINT;
+  // Reserve the longest more/hint suffix up front, then add each symbol plus its comma.
+  const reserved = JSON.stringify({ more: blast.downstream.length, hint: overflowHint }).length;
+  let size = JSON.stringify(base).length + reserved;
+  const symbols: BlastSymbolResult[] = [];
+  for (const impact of blast.downstream) {
+    const item = blastSymbol(impact);
+    const itemSize = JSON.stringify(item).length + (symbols.length > 0 ? 1 : 0);
+    if (symbols.length > 0 && size + itemSize > BLAST_RESULT_BUDGET_CHARS) break;
+    symbols.push(item);
+    size += itemSize;
+  }
+
+  const more = blast.downstream.length - symbols.length;
+  if (more === 0) return { ...base, symbols };
+  return { ...base, symbols, more, hint: overflowHint };
 }

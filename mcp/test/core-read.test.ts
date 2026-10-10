@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ToolError } from '../src/core/errors.js';
+import { ApiUnreachableError, ToolError } from '../src/core/errors.js';
+import { getBlastRadius } from '../src/core/get-blast-radius.js';
 import { getConventions } from '../src/core/get-conventions.js';
 import { getFindings } from '../src/core/get-findings.js';
 import { listAgents } from '../src/core/list-agents.js';
 import { FakeApi } from './helpers/fake-api.js';
 import {
   agentDto,
+  blastDto,
   conventionDto,
   findingDto,
   pullDto,
@@ -192,5 +194,37 @@ describe('getConventions', () => {
 
   it('unknown repo → ToolError', async () => {
     await expect(getConventions({ api: api() }, { repo: 'nope' })).rejects.toThrow(ToolError);
+  });
+});
+
+describe('getBlastRadius', () => {
+  const blast = { 'repo-1#42': blastDto() };
+
+  it('resolves the repo via listRepos, then the number route — never listPulls', async () => {
+    const fake = api({ blast });
+    const result = await getBlastRadius({ api: fake }, { repo: 'ACME/shop', pr: 42 });
+    expect(fake.calls.map((c) => c.method)).toEqual(['listRepos', 'getBlastRadius']);
+    expect(fake.callsTo('getBlastRadius')).toEqual([['repo-1', 42]]);
+    expect(fake.callsTo('listPulls')).toEqual([]);
+    expect(result.symbols[0]?.symbol).toBe('applyDiscount');
+  });
+
+  it('unknown PR (404) → ToolError naming the PR and the import step', async () => {
+    expect(await toolError(getBlastRadius({ api: api({ blast }) }, { repo: 'acme/shop', pr: 7 })))
+      .toBe('PR #7 not found in acme/shop — import/sync it in the DevDigest UI');
+  });
+
+  it('unknown repo → ToolError, no blast call', async () => {
+    const fake = api({ blast });
+    expect(await toolError(getBlastRadius({ api: fake }, { repo: 'acme/nope', pr: 42 }))).toMatch(
+      /known repos: acme\/shop/,
+    );
+    expect(fake.callsTo('getBlastRadius')).toEqual([]);
+  });
+
+  it('other API errors pass through unchanged', async () => {
+    const down = new ApiUnreachableError('http://localhost:3001');
+    const fake = api({ blast }).failWith('getBlastRadius', down);
+    await expect(getBlastRadius({ api: fake }, { repo: 'acme/shop', pr: 42 })).rejects.toBe(down);
   });
 });

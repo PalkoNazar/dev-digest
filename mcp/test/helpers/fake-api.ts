@@ -1,6 +1,8 @@
+import { ApiHttpError } from '../../src/core/errors.js';
 import type { DevDigestApi } from '../../src/core/port.js';
 import {
   AgentView,
+  BlastView,
   ConventionView,
   PullView,
   RepoView,
@@ -31,6 +33,8 @@ export interface FakeApiData {
   reviews?: Record<string, ReviewView[]>;
   /** By repo id. */
   conventions?: Record<string, ConventionView[]>;
+  /** By `${repoId}#${prNumber}`; a missing key answers like the API's 404. */
+  blast?: Record<string, BlastView>;
 }
 
 /** What a run started via `startReview` does over successive `listRuns` calls. */
@@ -64,6 +68,9 @@ export class FakeApi implements DevDigestApi {
       runs: mapValues(data.runs, (r) => RunView.parse(r)),
       reviews: mapValues(data.reviews, (r) => ReviewView.parse(r)),
       conventions: mapValues(data.conventions, (c) => ConventionView.parse(c)),
+      blast: Object.fromEntries(
+        Object.entries(data.blast ?? {}).map(([key, b]) => [key, BlastView.parse(b)]),
+      ),
     };
   }
 
@@ -150,6 +157,19 @@ export class FakeApi implements DevDigestApi {
   async listConventions(repoId: string): Promise<ConventionView[]> {
     this.record('listConventions', [repoId]);
     return this.data.conventions[repoId] ?? [];
+  }
+
+  async getBlastRadius(repoId: string, number: number): Promise<BlastView> {
+    this.record('getBlastRadius', [repoId, number]);
+    const blast = this.data.blast[`${repoId}#${number}`];
+    if (!blast) {
+      throw new ApiHttpError(
+        404,
+        'not_found',
+        `Pull request #${number} not found in this repo — import/sync it in the DevDigest UI`,
+      );
+    }
+    return blast;
   }
 
   private addReview(prId: string, runId: string, review: Omit<ReviewView, 'run_id'>): void {

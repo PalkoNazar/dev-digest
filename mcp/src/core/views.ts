@@ -1,5 +1,6 @@
 import {
   Agent,
+  BlastRadius,
   ConventionCandidate,
   ConventionEvidence,
   FindingRecord,
@@ -76,3 +77,7 @@ export const ConventionView = ConventionCandidate.pick({
   status: true,
 }).extend({ evidence: z.array(ConventionEvidence.pick({ path: true, line_start: true })) });
 export type ConventionView = z.infer<typeof ConventionView>;
+
+/** A PR's blast radius, as served by `GET /repos/:id/pulls/:number/blast` (no secrets inside). */
+export const BlastView = BlastRadius;
+export type BlastView = z.infer<typeof BlastView>;

@@ -3,6 +3,7 @@ import { ApiHttpError, ApiShapeError, ApiUnreachableError } from '../core/errors
 import type { DevDigestApi } from '../core/port.js';
 import {
   AgentView,
+  BlastView,
   ConventionView,
   PullView,
   RepoView,
@@ -136,5 +137,12 @@ export function createHttpApi(options: HttpApiOptions): DevDigestApi {
       );
       return candidates;
     },
+    getBlastRadius: (repoId, number) =>
+      request(
+        'GET',
+        `/repos/${id(repoId)}/pulls/${number}/blast`,
+        'GET /repos/:id/pulls/:number/blast',
+        BlastView,
+      ),
   };
 }
