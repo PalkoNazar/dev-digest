@@ -298,20 +298,6 @@
   },
   {
     "type": "dependency",
-    "from": "src/modules/repo-intel/service.ts",
-    "to": "src/adapters/codeindex/extract.ts",
-    "unresolvedTo": "../../adapters/codeindex/extract.js",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "modules-use-ports-not-adapters"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "src/modules/reviews/diff-loader.ts",
     "to": "src/adapters/git/diff-parser.ts",
     "unresolvedTo": "../../adapters/git/diff-parser.js",

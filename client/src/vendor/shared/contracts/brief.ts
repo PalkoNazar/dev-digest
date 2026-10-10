@@ -94,10 +94,35 @@ export const DownstreamImpact = z.object({
 });
 export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 
+/** Why a blast map is incomplete (mirrors repo-intel's DegradedReason). */
+export const BlastDegradedReason = z.enum([
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+]);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
+/** Summary counts: changed symbols, callers, distinct endpoints and crons. */
+export const BlastStats = z.object({
+  symbols: z.number().int().nonnegative(),
+  callers: z.number().int().nonnegative(),
+  endpoints: z.number().int().nonnegative(),
+  crons: z.number().int().nonnegative(),
+});
+export type BlastStats = z.infer<typeof BlastStats>;
+
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
   summary: z.string(),
+  /** True when the repo-intel index is missing, partial or failed. */
+  degraded: z.boolean().optional(),
+  reason: BlastDegradedReason.optional(),
+  stats: BlastStats.optional(),
+  /** Commit the index was built at — caller lines refer to this SHA. */
+  index_sha: z.string().nullish(),
 });
 export type BlastRadius = z.infer<typeof BlastRadius>;
 

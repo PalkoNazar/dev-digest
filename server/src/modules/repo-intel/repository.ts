@@ -436,6 +436,18 @@ export class RepoIntelRepository {
       .where(eq(t.fileEdges.repoId, repoId));
   }
 
+  /**
+   * Import edges whose target is one of `files` (who imports these files?) —
+   * one blast BFS hop. Served by `file_edges_repo_to_idx`.
+   */
+  async getImporters(repoId: string, files: string[]): Promise<IndexerEdgeRow[]> {
+    if (files.length === 0) return [];
+    return this.db
+      .select({ fromFile: t.fileEdges.fromFile, toFile: t.fileEdges.toFile })
+      .from(t.fileEdges)
+      .where(and(eq(t.fileEdges.repoId, repoId), inArray(t.fileEdges.toFile, files)));
+  }
+
   /** `{path, percentile}` for the given paths (smart-diff / run-executor). */
   async getFileRankFor(repoId: string, paths: string[]): Promise<FileRankRow[]> {
     if (paths.length === 0) return [];
