@@ -109,6 +109,44 @@ describe('AI contracts parse fixtures', () => {
     ).not.toThrow();
   });
 
+  it('BlastRadius parses the full L04 payload (degraded, reason, stats, index_sha)', () => {
+    const parsed = BlastRadius.parse({
+      changed_symbols: [{ name: 'rateLimit', file: 'a.ts', kind: 'function' }],
+      downstream: [
+        {
+          symbol: 'rateLimit',
+          callers: [{ name: 'publicRouter', file: 'b.ts', line: 23 }],
+          endpoints_affected: ['GET /x'],
+          crons_affected: [],
+        },
+      ],
+      summary: 'Index partial — 1 changed symbol · 1 caller · 1 endpoint · 0 crons',
+      degraded: true,
+      reason: 'index_partial',
+      stats: { symbols: 1, callers: 1, endpoints: 1, crons: 0 },
+      index_sha: 'abc123',
+    });
+    expect(parsed.reason).toBe('index_partial');
+    expect(parsed.stats?.callers).toBe(1);
+  });
+
+  it('BlastRadius still parses a legacy payload without the L04 fields', () => {
+    const parsed = BlastRadius.parse({ changed_symbols: [], downstream: [], summary: 's' });
+    expect(parsed.degraded).toBeUndefined();
+    expect(parsed.index_sha).toBeUndefined();
+  });
+
+  it('BlastRadius rejects an unknown degraded reason', () => {
+    const res = BlastRadius.safeParse({
+      changed_symbols: [],
+      downstream: [],
+      summary: 's',
+      degraded: true,
+      reason: 'disk_full',
+    });
+    expect(res.success).toBe(false);
+  });
+
   it('SmartDiff (data.jsx DIFF)', () => {
     const d = SmartDiff.parse({
       groups: [

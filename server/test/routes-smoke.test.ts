@@ -65,6 +65,25 @@ describe('routes (no DB)', () => {
     await app.close();
   });
 
+  it('GET /pulls/not-a-uuid/blast → 422 (param validated before any DB read)', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({ method: 'GET', url: '/pulls/not-a-uuid/blast' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
+
+  it('GET /repos/:id/pulls/abc/blast → 422 (PR number must be a positive int)', async () => {
+    const app = await buildApp({ config });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/repos/00000000-0000-4000-8000-000000000000/pulls/abc/blast',
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('validation_error');
+    await app.close();
+  });
+
   it('unknown 5xx error → generic message; the raw one stays out of the response', async () => {
     const app = await buildApp({ config });
     app.get('/boom', async () => {

@@ -50,8 +50,8 @@ export interface IndexState extends IndexResult {
 }
 
 // ---------------------------------------------------------------------------
-// Blast radius (facade method `getBlastRadius`). Adopted by blast/service.ts in
-// T2; in T1 the facade returns a degraded best-effort over container.codeIndex.
+// Blast radius (facade method `getBlastRadius`). Consumed by modules/blast;
+// served from the persistent index only (never re-parses the clone).
 // ---------------------------------------------------------------------------
 
 export interface BlastChangedSymbol {
@@ -84,6 +84,11 @@ export interface BlastResult {
   factsByFile?: Record<string, { endpoints: string[]; crons: string[] }>;
   degraded?: boolean;
   reason?: DegradedReason;
+  /**
+   * `repo_index_state.last_indexed_sha` the map was read from (caller lines are
+   * 1-based at this commit). Absent when the repo has no index state.
+   */
+  indexedSha?: string;
 }
 
 // ---------------------------------------------------------------------------

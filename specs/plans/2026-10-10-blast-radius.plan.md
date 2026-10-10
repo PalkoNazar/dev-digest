@@ -1,5 +1,5 @@
 # Plan: Blast Radius (L04 homework) — Overview block + MCP `get_blast_radius`
-Status: approved · Date: 2026-10-10 · Branch: feat/l04-blast-radius · Packages: server, client, mcp
+Status: ready · Date: 2026-10-10 · Branch: feat/l04-blast-radius · Packages: server, client, mcp
 Spec: `specs/L04-blast-radius.md`
 
 Decision (user, 2026-10-10): Open question 1 → **C**. Add a side-effect-free PR lookup on the
