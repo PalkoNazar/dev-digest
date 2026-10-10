@@ -30,6 +30,6 @@ export function buildServer(deps: ServerDeps): McpServer {
   registerRunAgentOnPr(server, deps);
   registerGetFindings(server, deps);
   registerGetConventions(server, deps);
-  registerGetBlastRadius(server);
+  registerGetBlastRadius(server, deps);
   return server;
 }

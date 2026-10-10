@@ -1,5 +1,6 @@
 import type {
   Agent,
+  BlastRadius,
   ConventionCandidate,
   FindingRecord,
   PrMeta,
@@ -149,6 +150,30 @@ export function conventionDto(overrides: Partial<ConventionCandidate> = {}): Con
     edited: false,
     skill_id: null,
     created_at: '2026-10-07T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+export function blastDto(overrides: Partial<BlastRadius> = {}): BlastRadius {
+  return {
+    changed_symbols: [
+      { name: 'applyDiscount', file: 'server/src/modules/checkout/helpers.ts', kind: 'function' },
+    ],
+    downstream: [
+      {
+        symbol: 'applyDiscount',
+        callers: [
+          { name: 'checkout', file: 'server/src/modules/checkout/service.ts', line: 40 },
+          { name: 'quote', file: 'server/src/modules/cart/service.ts', line: 12 },
+        ],
+        endpoints_affected: ['POST /checkout'],
+        crons_affected: ['0 3 * * *'],
+      },
+    ],
+    summary: '1 changed symbol · 2 callers · 1 endpoint · 1 cron',
+    degraded: false,
+    stats: { symbols: 1, callers: 2, endpoints: 1, crons: 1 },
+    index_sha: 'def456',
     ...overrides,
   };
 }

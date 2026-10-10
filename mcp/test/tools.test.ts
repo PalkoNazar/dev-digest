@@ -5,6 +5,7 @@ import { FakeApi } from './helpers/fake-api.js';
 import { API_URL, connect, textOf } from './helpers/harness.js';
 import {
   agentDto,
+  blastDto,
   conventionDto,
   pullDto,
   repoDto,
@@ -18,6 +19,7 @@ function data() {
     pulls: { 'repo-1': [pullDto()] },
     reviews: { 'pr-1': [reviewDto()] },
     conventions: { 'repo-1': [conventionDto()] },
+    blast: { 'repo-1#42': blastDto() },
   });
 }
 
@@ -113,15 +115,48 @@ describe('tools over MCP (in memory)', () => {
     expect(api.calls).toEqual([]);
   });
 
-  it('get_blast_radius → isError, zero API calls', async () => {
+  it('get_blast_radius → compact map; resolves via listRepos, never listPulls', async () => {
     const { client, api } = await setup();
     const result = await client.callTool({
       name: 'get_blast_radius',
       arguments: { repo: 'acme/shop', pr: 42 },
     });
+    expect(result.isError).toBeFalsy();
+    const body = JSON.parse(textOf(result));
+    expect(body.stats).toEqual({ symbols: 1, callers: 2, endpoints: 1, crons: 1 });
+    expect(body.symbols).toEqual([
+      expect.objectContaining({
+        symbol: 'applyDiscount',
+        callers: ['server/src/modules/checkout/service.ts:40 checkout', expect.any(String)],
+      }),
+    ]);
+    expect(api.calls.map((c) => c.method)).toEqual(['listRepos', 'getBlastRadius']);
+    expect(api.callsTo('getBlastRadius')).toEqual([['repo-1', 42]]);
+  });
+
+  it('get_blast_radius on an unknown PR → isError with the import hint', async () => {
+    const { client } = await setup();
+    const result = await client.callTool({
+      name: 'get_blast_radius',
+      arguments: { repo: 'acme/shop', pr: 7 },
+    });
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toBe('Blast radius is not implemented yet in DevDigest.');
-    expect(api.calls).toEqual([]);
+    expect(textOf(result)).toBe(
+      'PR #7 not found in acme/shop — import/sync it in the DevDigest UI',
+    );
+  });
+
+  it('get_blast_radius with the API down → the standard unreachable message', async () => {
+    const api = data().failWith('getBlastRadius', new ApiUnreachableError(API_URL));
+    const { client } = await setup(api);
+    const result = await client.callTool({
+      name: 'get_blast_radius',
+      arguments: { repo: 'acme/shop', pr: 42 },
+    });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toBe(
+      `DevDigest API is not reachable at ${API_URL} — start it with ./scripts/dev.sh`,
+    );
   });
 });
 

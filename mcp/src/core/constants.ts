@@ -50,3 +50,16 @@ export const MAX_KNOWN_REPOS_IN_ERROR = 10;
 
 /** Concise findings cut `title` to this many chars (`detail: "full"` keeps it whole). */
 export const CONCISE_TITLE_MAX = 80;
+
+/**
+ * Max minified-JSON chars of a `get_blast_radius` result (incl. summary, stats and
+ * `more`/`hint`). Symbols that don't fit are counted in `more`; at least one is always kept.
+ */
+export const BLAST_RESULT_BUDGET_CHARS = 4_000;
+
+/** Hint added when the blast map comes from an incomplete repo-intel index. */
+export const BLAST_DEGRADED_HINT = 'index incomplete: resync the repo in the DevDigest UI';
+
+/** Hint added when downstream symbols are cut by the size budget. */
+export const BLAST_BUDGET_HINT =
+  'size cap reached: see the full map on the PR Overview tab in the DevDigest UI';

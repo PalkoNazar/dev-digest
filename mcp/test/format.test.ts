@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BLAST_BUDGET_HINT,
+  BLAST_DEGRADED_HINT,
+  BLAST_RESULT_BUDGET_CHARS,
   CONCISE_TITLE_MAX,
   DEFAULT_LIMIT,
   FINDINGS_BUDGET_HINT,
@@ -7,6 +10,7 @@ import {
   REVIEW_RESULT_BUDGET_CHARS,
 } from '../src/core/constants.js';
 import {
+  blastView,
   conventionView,
   filterFindings,
   formatFinding,
@@ -14,7 +18,7 @@ import {
   selectConventions,
   truncate,
 } from '../src/core/format.js';
-import { conventionDto, findingDto, reviewDto } from './helpers/fixtures.js';
+import { blastDto, conventionDto, findingDto, reviewDto } from './helpers/fixtures.js';
 
 describe('formatFinding', () => {
   it('concise = severity, file, "start-end" line, title', () => {
@@ -225,5 +229,86 @@ describe('conventionView / selectConventions', () => {
     const out = selectConventions(list, 2);
     expect(out.items).toHaveLength(2);
     expect(out.more).toBe(1);
+  });
+});
+
+describe('blastView', () => {
+  it('maps callers to "file:line name" and keeps endpoints and crons apart', () => {
+    expect(blastView(blastDto())).toEqual({
+      summary: '1 changed symbol · 2 callers · 1 endpoint · 1 cron',
+      stats: { symbols: 1, callers: 2, endpoints: 1, crons: 1 },
+      index_sha: 'def456',
+      symbols: [
+        {
+          symbol: 'applyDiscount',
+          callers: [
+            'server/src/modules/checkout/service.ts:40 checkout',
+            'server/src/modules/cart/service.ts:12 quote',
+          ],
+          endpoints: ['POST /checkout'],
+          crons: ['0 3 * * *'],
+        },
+      ],
+    });
+  });
+
+  it('degraded carries the reason and a resync hint', () => {
+    const summary = 'Index partial — 1 changed symbol';
+    const view = blastView(blastDto({ degraded: true, reason: 'index_partial', summary }));
+    expect(view).toMatchObject({
+      degraded: true,
+      reason: 'index_partial',
+      hint: BLAST_DEGRADED_HINT,
+    });
+  });
+
+  it('not degraded → no degraded/reason/hint keys', () => {
+    const view = blastView(blastDto({ reason: 'no_data' }));
+    expect(view).not.toHaveProperty('degraded');
+    expect(view).not.toHaveProperty('reason');
+    expect(view).not.toHaveProperty('hint');
+  });
+
+  it('30 symbols × 20 callers stay within the budget with more + hint', () => {
+    const deep =
+      'client/src/app/repos/[repoId]/pulls/[number]/_components/FindingsPanel/FindingsPanel.tsx';
+    const downstream = Array.from({ length: 30 }, (_, s) => ({
+      symbol: `sharedHelperNumber${s}`,
+      callers: Array.from({ length: 20 }, (_, c) => ({
+        name: `callerFunction${c}`,
+        file: c % 2 ? deep : `server/src/modules/reviews/service-${c}.ts`,
+        line: 100 + c,
+      })),
+      endpoints_affected: ['GET /pulls/:id', 'POST /pulls/:id/review'],
+      crons_affected: ['*/5 * * * *'],
+    }));
+    const view = blastView(blastDto({ downstream, degraded: true, reason: 'index_partial' }));
+    expect(JSON.stringify(view).length).toBeLessThanOrEqual(BLAST_RESULT_BUDGET_CHARS);
+    expect(view.symbols.length).toBeGreaterThanOrEqual(1);
+    expect(view.more).toBe(30 - view.symbols.length);
+    expect(view.hint).toBe(`${BLAST_DEGRADED_HINT}; ${BLAST_BUDGET_HINT}`);
+    expect(view.reason).toBe('index_partial');
+  });
+
+  it('keeps at least one symbol even when it alone exceeds the budget', () => {
+    const callers = Array.from({ length: 200 }, (_, c) => ({
+      name: `caller${c}`,
+      file: `server/src/modules/some/really/long/path/to/a/file-${c}.ts`,
+      line: c + 1,
+    }));
+    const downstream = [
+      { symbol: 'huge', callers, endpoints_affected: [], crons_affected: [] },
+      { symbol: 'next', callers: [], endpoints_affected: [], crons_affected: [] },
+    ];
+    const view = blastView(blastDto({ downstream }));
+    expect(view.symbols.map((s) => s.symbol)).toEqual(['huge']);
+    expect(view.more).toBe(1);
+    expect(view.hint).toBe(BLAST_BUDGET_HINT);
+  });
+
+  it('no downstream → empty symbols, nothing cut', () => {
+    const view = blastView(blastDto({ downstream: [] }));
+    expect(view.symbols).toEqual([]);
+    expect(view).not.toHaveProperty('more');
   });
 });

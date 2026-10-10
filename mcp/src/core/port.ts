@@ -1,5 +1,6 @@
 import type {
   AgentView,
+  BlastView,
   ConventionView,
   PullView,
   RepoView,
@@ -23,4 +24,9 @@ export interface DevDigestApi {
   listRuns(prId: string): Promise<RunView[]>;
   listReviews(prId: string): Promise<ReviewView[]>;
   listConventions(repoId: string): Promise<ConventionView[]>;
+  /**
+   * Blast radius of a PR by repo id + PR number. Side-effect free (unlike `listPulls`): reads the
+   * repo-intel index only. Unknown PR → `ApiHttpError` 404.
+   */
+  getBlastRadius(repoId: string, number: number): Promise<BlastView>;
 }
