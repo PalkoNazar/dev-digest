@@ -36,4 +36,8 @@ table and bans stdout writes (`console.log`, `console.info`, `process.stdout.wri
 - Failures are `isError: true` results with a one-line cause and the next step, not protocol errors.
 - `run_agent_on_pr` is the only write tool; it resolves every argument before the POST so a bad
   argument never starts a paid run.
-- `get_blast_radius` is a stub that returns `isError`.
+- `get_blast_radius` is read-only: it resolves the repo with `listRepos`, then calls
+  `GET /repos/:id/pulls/:number/blast` (`core/get-blast-radius.ts`). Never resolve the PR via
+  `listPulls` — `GET /repos/:id/pulls` upserts, which would make the tool a write. The result is
+  cut at `BLAST_RESULT_BUDGET_CHARS` (`format.ts`); an unknown PR (404) is an `isError` with an
+  import hint. Spec → `specs/L04-blast-radius.md`.

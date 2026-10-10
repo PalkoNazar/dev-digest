@@ -1,5 +1,5 @@
 # Blast Radius
-Status: draft · Lesson: L04 (homework) · Packages: server, client, mcp
+Status: done · Lesson: L04 (homework) · Packages: server, client, mcp
 Plan: `specs/plans/2026-10-10-blast-radius.plan.md`
 
 ## Goal
@@ -32,11 +32,13 @@ clone/resync time; no re-analysis, no LLM.
   PR resolution never calls the upserting `GET /repos/:id/pulls`, so the tool is read-only.
 
 ## Acceptance criteria
-- [ ] Overview block with counts; per-symbol callers file:line + endpoints/crons under them.
+- [x] Overview block with counts; per-symbol callers file:line + endpoints/crons under them
+      (`BlastRadiusCard`, `BlastSymbolImpact`).
 - [ ] A PR changing `server/src/modules/reviews/helpers.ts` shows ≥ 2 callers and ≥ 1 endpoint.
-- [ ] file:line opens the GitHub blob at that line.
-- [ ] Empty state; degraded badge with reason; Resync.
-- [ ] Route response validated by `BlastRadius`; unit test for the mapping; no LLM; the log
+      Manual demo on real data — not covered by an automated test (`blast.it.test.ts` uses a fixture).
+- [x] file:line opens the GitHub blob at that line.
+- [x] Empty state; degraded badge with reason; Resync.
+- [x] Route response validated by `BlastRadius`; unit test for the mapping; no LLM; the log
       line says the index was read (no re-parse).
-- [ ] MCP `get_blast_radius` returns the same map; unknown PR → actionable `isError`;
+- [x] MCP `get_blast_radius` returns the same map; unknown PR → actionable `isError`;
       `readOnlyHint: true`.

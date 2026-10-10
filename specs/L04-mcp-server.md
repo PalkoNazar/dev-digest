@@ -11,12 +11,12 @@ short instructions and five tool names enter the context until a tool is actuall
 ## Scope
 - In:
   - New package `mcp/` (`devdigest-mcp`), stdio transport, five tools:
-    `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions`, `get_blast_radius` (stub).
+    `list_agents`, `run_agent_on_pr`, `get_findings`, `get_conventions`, `get_blast_radius` (implemented — see `specs/L04-blast-radius.md`).
   - Thin client over the existing REST API (`http://localhost:3001`) — no DB, no LLM keys.
   - Project `.mcp.json` at the repo root so Claude Code in this repo picks it up.
   - Token budgets for the tool definitions and for every tool result, guarded by tests.
 - Out:
-  - Blast radius itself (separate L04 feature; this spec only fixes the tool's input shape).
+  - Blast radius itself (separate L04 feature → `specs/L04-blast-radius.md`).
   - Remote / Streamable HTTP transport, OAuth, multi-workspace (single-user, local-first).
   - MCP resources and prompts (each adds discovery surface; no use case yet).
   - New server routes — every tool maps onto routes that already exist.
@@ -37,7 +37,7 @@ Tool roles (course slide): `list_agents` — which reviewer agents are configure
 of a valid agent id. `run_agent_on_pr` — runs the review, waits, returns finished findings;
 **the only write tool**. `get_findings` — concise verdict of an already finished run.
 `get_conventions` — the repo's conventions, the same repo conventions as L02.
-`get_blast_radius` — the PR's impact map; implemented later (homework), stub now.
+`get_blast_radius` — the PR's impact map; implemented — see `specs/L04-blast-radius.md`.
 
 ## Research summary (why the design looks like this)
 | Practice | Source | Applied as |
@@ -95,7 +95,7 @@ Resolution: `GET /repos` → match `full_name` → `GET /repos/:id/pulls` → ma
 | `run_agent_on_pr` | `repo`, `pr`, `agent` | `POST /pulls/:id/review {agentId}` → poll `GET /pulls/:id/runs` until the run ends → `GET /pulls/:id/reviews` | `{run_id, agent, verdict, score, findings: [...]}` |
 | `get_findings` | `repo`, `pr`, `agent?`, `run_id?`, `min_severity?` (default `WARNING`), `detail?` (`concise`), `limit?` (20) | `GET /pulls/:id/reviews` | latest review per agent (or the one for `run_id`): `{reviews: [{run_id, agent, verdict, score, findings: [...]}]}` |
 | `get_conventions` | `repo`, `status?` (default `accepted`), `limit?` | `GET /repos/:id/conventions` | `{conventions: [{category, rule, file}]}` |
-| `get_blast_radius` | `repo`, `pr` | — | stub, see below |
+| `get_blast_radius` | `repo`, `pr` | `GET /repos/:id/pulls/:number/blast` (after `GET /repos`) | compact blast map — implemented, see `specs/L04-blast-radius.md` |
 
 - Concise finding = `{severity, file, line, title}` (`line` = `"start-end"`); `detail: "full"`
   adds `rationale`, `suggestion`, `confidence`. Dismissed findings are hidden.
@@ -113,11 +113,8 @@ notification every 10 s while waiting (keeps idle timeouts from firing; Claude C
 idle timeout is 30 min). The API's own rate
 limit (10/min) surfaces as an actionable error.
 
-### `get_blast_radius` stub
-Final input schema (PR address) so the real implementation does not change the tool
-contract. Returns `isError: true` with `Blast radius is not implemented yet in DevDigest.`
-— an error, not an empty success, so an agent cannot read it as "no downstream impact".
-Description says "not available yet" so agents do not call it speculatively.
+### `get_blast_radius`
+Implemented — see `specs/L04-blast-radius.md`.
 
 ### Errors (all `isError: true`, one line, with the next step)
 API unreachable → `DevDigest API is not reachable at <url> — start it with ./scripts/dev.sh`.
@@ -143,7 +140,7 @@ No reviews yet → "call run_agent_on_pr first". LLM key missing (`ConfigError`)
 - [ ] `run_agent_on_pr` returns the finished findings in the same call (no polling needed).
 - [ ] `get_findings` concise output for 20 findings ≤ 4,000 chars (≈ 1k tokens) (test).
 - [ ] PRs resolvable by `repo` + `pr`; unknown repo / PR / agent → `isError` naming the next tool or step.
-- [ ] `get_blast_radius` → `isError: true`, "not implemented yet".
+- [x] `get_blast_radius`: implemented — see `specs/L04-blast-radius.md` (was a stub).
 - [ ] API down → `isError` naming the URL; the MCP process does not crash.
 - [ ] Nothing written to stdout except protocol messages.
 - [ ] Manual: in Claude Code in this repo, `/mcp` shows `devdigest` connected; a fresh
