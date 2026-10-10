@@ -16,6 +16,10 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## What Doesn't Work
 
+### 2026-10-10 — `resolvePull` is a write; a read-only tool needs a by-number server route
+NEVER resolve a PR through `listPulls` (`GET /repos/:id/pulls`) in a tool meant to be `readOnlyHint: true` — that route upserts PRs from GitHub. Add a side-effect-free `GET /repos/:id/pulls/:number/<thing>` route and call it after `resolveRepo`.
+Why: this is why `get_findings` is `readOnlyHint: false`; `get_blast_radius` uses `/repos/:id/pulls/:number/blast` and asserts no `listPulls` call. Evidence: `mcp/src/core/get-blast-radius.ts`, `mcp/test/core-read.test.ts`.
+
 ## Codebase Patterns
 
 ## Tool & Library Notes

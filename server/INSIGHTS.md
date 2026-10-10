@@ -45,11 +45,23 @@ can run concurrently with the timed-out attempt (e.g. two clones into one dir). 
 NEVER rely on "no override ⇒ ConfigError" in `buildApp` it-tests; pass `secrets: new MockSecretsProvider()` and `github: new MockGitHubClient()` for anything that runs a review.
 Why: `loadConfig` points secrets at the real `~/.devdigest/secrets.json` (`src/platform/config.ts:82`), so the pre-review intent step made paid calls and `reviews.it.test.ts` flaked on `waitForPrRuns`' 10 s wait. Evidence: `pnpm exec vitest run .it.test` exit 1 → exit 0 three times after the overrides (reviews file 40 s → 3.3 s).
 
+### 2026-10-10 — repo-intel `file_facts` of test files hold `app.inject` URLs, not served routes
+NEVER count facts of test paths as impacted endpoints/crons; filter with `isTestPath` (`repo-intel/helpers.ts`).
+Why: the extractor regex-matches `GET '/…'` strings, so `*.test.ts` yields fake endpoints like `GET /agents/${agentId}/versions/99`; on PR #12 of the DevDigest repo they were 19 of 44. Evidence: `attributeFacts` in `server/src/modules/repo-intel/helpers.ts`, test "ignores facts of test files" in `server/test/repo-intel-blast.test.ts`.
+
+### 2026-10-10 — lesson briefs overstate the repo-intel facade; read `service.ts` first
+NEVER plan on a lesson brief's description of a repo-intel facade method without reading it in `server/src/modules/repo-intel/service.ts`.
+Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DEPTH` and returned `index_partial`/`flag_off`; it capped globally, ignored `BFS_DEPTH`, re-parsed via ripgrep and always said `no_data` (fixed in R1 of feat/l04-blast-radius). Evidence: `git show f39d089 -- server/src/modules/repo-intel/service.ts`.
+
 ## Codebase Patterns
 
 ### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
 Do emit your own start/done lines and `redactSecrets` the error when the step's failure can carry a provider error.
 Why: `step()` logs `err.message` unredacted as an `error` event, mirrored to pino and the persisted trace log. Evidence: `src/platform/run-logger.ts` `step`; `run-executor.ts` `deriveIntent` does it by hand.
+
+### 2026-10-10 — fixed a baselined depcruise edge → delete that one baseline entry by hand
+When a diff removes a known violation, delete exactly its object from `.dependency-cruiser-known-violations.json` (filter by `from`+`to`); NEVER run `arch:baseline` in a hoisted worktree.
+Why: `arch:baseline` there would rewrite the 5 drizzle `to` paths from `.pnpm/…` to hoisted ones; the "N known violations ignored" count dropping (36→35) is the signal, not a regression. Evidence: blast R1 removed `repo-intel/service.ts → adapters/codeindex/extract.ts`.
 
 ## Tool & Library Notes
 
