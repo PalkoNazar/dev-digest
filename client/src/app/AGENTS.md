@@ -18,7 +18,7 @@ App Router routes. Pages are thin; feature UI lives in colocated `_components/`.
 ## Map
 - `/` → redirects to the first repo's PR list
 - `/onboarding` — add repo · `/repos/[repoId]/pulls` — PR list
-- `/repos/[repoId]/pulls/[number]` — review detail (overview · diff · findings, Live Log)
+- `/repos/[repoId]/pulls/[number]` — review detail (overview — incl. the Blast radius block (`OverviewTab/_components/BlastRadiusCard`) · diff · findings, Live Log)
 - `/agents`, `/agents/[id]` — agent list + editor (Config · Skills tabs) · `/settings/[section]` — keys, models
 - `/skills`, `/skills/new`, `/skills/[id]` — skills master-detail (Config · Preview · Stats · Versions, L02)
 - `/repos/[repoId]/conventions` — Conventions Extractor: scan, accept/reject/edit candidates, create a skill (L02 homework)
