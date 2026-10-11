@@ -108,7 +108,10 @@ in PR review; route its findings as in Step 1.5–1.6. Insights → commit.
 ## Step 2 — After the last run
 
 1. `plan-verifier` with `Scope: all` — the whole plan over the whole branch; catches
-   a later run that broke an earlier one. Gaps → one fix round as in Step 1.6.
+   a later run that broke an earlier one. Gaps → one fix round as in Step 1.5–1.6,
+   then finish it like a run: Step 1.7 (`./scripts/check.sh`), 1.8 (insights) and
+   1.9 (its own commit, `fix(<scope>): close whole-branch verification gaps`) —
+   before the smoke check, so a code fix never rides along in the docs commit.
 2. **Smoke.** The plan's `Smoke:` line under Verification (older plans: the spec's
    main user story). If the API is up (`curl -s localhost:3001/health`), do it via the
    API / the devdigest MCP tools / the `run` skill on real data; otherwise give the

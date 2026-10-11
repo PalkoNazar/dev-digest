@@ -47,7 +47,9 @@ changed_files() {
   mb="$(git merge-base "$base" HEAD 2>/dev/null)" || { echo "check.sh: no merge-base with $base" >&2; exit 2; }
   { git diff --name-only "$mb"; git ls-files -o --exclude-standard; } | sort -u
 }
-CHANGED="$(changed_files)"
+# `|| exit`: a failure inside $(…) only ends the subshell — an unknown --base must not
+# turn into "nothing changed" and exit 0.
+CHANGED="$(changed_files)" || exit 2
 
 if [[ ${#PKGS[@]} -eq 0 ]]; then
   for p in "${KNOWN[@]}"; do
@@ -61,6 +63,13 @@ fi
 for p in "${PKGS[@]}"; do
   [[ " ${KNOWN[*]} " == *" $p "* ]] || { echo "check.sh: unknown package '$p' (known: ${KNOWN[*]})" >&2; exit 2; }
 done
+# The server copy of @devdigest/shared is compiled by reviewer-core and mcp too (their
+# tsconfig paths point at it): a contract change checks them as well, named or not.
+if grep -q '^server/src/vendor/shared/' <<<"$CHANGED"; then
+  for dep in reviewer-core mcp; do
+    [[ " ${PKGS[*]} " == *" $dep "* ]] || PKGS+=("$dep")
+  done
+fi
 # reviewer-core is compiled by the server: its change needs the server typecheck too.
 if [[ " ${PKGS[*]} " == *" reviewer-core "* && " ${PKGS[*]} " != *" server "* ]]; then
   SERVER_TYPECHECK_ONLY=1
@@ -146,20 +155,35 @@ excerpt() {
   if [[ -n "$hits" ]]; then echo "$hits"; else tail -n 25 "$log"; fi
 }
 
+arch_only_hoisted_mismatch() {
+  local log="$1" baseline="$ROOT/server/.dependency-cruiser-known-violations.json" n=0 rule from to pkg
+  grep -qE '^server/(\.dependency-cruiser|package\.json|pnpm-lock\.yaml|\.npmrc)' <<<"$CHANGED" && return 1
+  [[ -f "$baseline" ]] || return 1
+  while read -r rule from to; do
+    n=$((n + 1))
+    [[ "$to" == node_modules/* && "$to" != node_modules/.pnpm/* ]] || return 1
+    pkg="${to#node_modules/}"; pkg="${pkg%%/*}"
+    [[ "$pkg" == @* ]] && { pkg="${to#node_modules/}"; pkg="$(cut -d/ -f1-2 <<<"$pkg")"; }
+    jq -e --arg r "$rule" --arg f "$from" --arg pre "node_modules/.pnpm/$pkg@" --arg rest "/${to}" \
+      'any(.[]; .from == $f and .rule.name == $r and (.to | startswith($pre)) and (.to | endswith($rest)))' \
+      "$baseline" >/dev/null || return 1
+  done < <(sed -nE 's/^ *error ([a-z-]+): (src\/[^ ]+) → ([^ ]+).*/\1 \2 \3/p' "$log")
+  [[ $n -gt 0 ]]
+}
+
 fail=0
 for p in "${PKGS[@]}"; do
   for res in "$TMP/$p".*.res; do
     [[ -f "$res" ]] || continue
     IFS='|' read -r rc secs label cmd <"$res"
-    # arch:check like hard-checks.mjs: only violations from files this branch changed
-    # count. A worktree's hoisted node_modules makes 5 baseline entries stop matching
-    # (server/INSIGHTS.md) — those are pre-existing, not this change's fault.
-    if [[ "$rc" -ne 0 && "$label" == arch:check ]]; then
-      froms="$(grep -oE '^ *error [a-z-]+: src/[^ ]+' "${res%.res}.log" | sed -E 's#.*: #server/#' | sort -u)"
-      if [[ -n "$froms" ]] && ! grep -qxF -f <(echo "$froms") <<<"$CHANGED"; then
-        echo "⚠ $p $label — exit $rc, but only pre-existing violations (no file of this branch) — not counted"
-        continue
-      fi
+    # arch:check: a worktree's hoisted node_modules makes baseline entries whose `to` is
+    # `node_modules/.pnpm/<pkg>@…` stop matching (server/INSIGHTS.md). Only when EVERY
+    # violation is such a verified mismatch — same from + rule in the baseline, `.pnpm`
+    # path there, hoisted path here — and the branch changes no depcruise config or
+    # dependency file, the failure is reported as pre-existing and not counted.
+    if [[ "$rc" -ne 0 && "$label" == arch:check ]] && arch_only_hoisted_mismatch "${res%.res}.log"; then
+      echo "⚠ $p $label — exit $rc, only hoisted-layout baseline mismatches (pre-existing) — not counted"
+      continue
     fi
     if [[ "$rc" -eq 0 ]]; then
       summary="$(grep -E '^ *Tests +[0-9]' "${res%.res}.log" | tail -1 | sed 's/^ *//')"
