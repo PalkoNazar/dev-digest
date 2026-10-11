@@ -22,10 +22,21 @@ Consumed as TypeScript SOURCE by the server (path alias); never emits JS.
   findings. Never trust model-reported score/verdict.
 - Untrusted text (diff, PR body, repo content) is wrapped via `wrapUntrusted` and
   never parsed for "ignore this" phrases — the defense is `INJECTION_GUARD` only.
-- Optional prompt slots (`skills`, `memory`, `specs`, `callers`, `repoMap`) are omitted
-  from the prompt when empty — keep that "absent ⇒ identical prompt" contract.
+- Optional prompt slots (`skills`, `memory`, `specs`, `callers`, `repoMap`, `intent`) are
+  omitted from the prompt when empty — keep that "absent ⇒ identical prompt" contract.
+- `applyScopeFilter` (`review/scope.ts`) runs only AFTER `groundFindings` and only when
+  `scopeMode` is set; `scoreFromFindings` is computed on the post-filter set. The
+  unfiltered model output stays in `raw`; `ReviewOutcome.scope` is null when off.
 
 ## Gotchas
+- OpenRouter answers `200` + keep-alive whitespace at once and the JSON only when
+  generation ends; the OpenAI SDK `timeout` stops at the headers. `completeStructured`
+  therefore aborts the whole call (body + attempts) after `req.timeoutMs` (default 10 min).
+- Reasoning models (deepseek-v4-flash) can think for 40k–135k hidden tokens; only
+  `max_tokens` bounds that (`reasoning.max_tokens`/`effort` don't). OpenRouter calls default
+  to `max_tokens` 24k; a cap hit with an empty answer retries once with `reasoning: {enabled:false}`.
+  Tokens don't bound time (some endpoints run ~29 tok/s), so a reasoning attempt gets 60% of the
+  budget when a retry is left, then retries without reasoning; calls route `provider.sort: throughput`.
 - `@devdigest/shared` resolves to `../server/src/vendor/shared` — a contract change
   there can break this package (its CI watches that path too).
 - `zod` is pinned to this package's own `node_modules` via tsconfig `paths`;

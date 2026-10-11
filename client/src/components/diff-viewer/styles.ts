@@ -19,10 +19,17 @@ export const s = {
     cursor: "pointer",
   } satisfies CSSProperties,
   fileIcon: { color: "var(--text-muted)" } satisfies CSSProperties,
+  /** Path + findings dot; takes the free space so the stat stays right-aligned. */
+  filePathWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  } satisfies CSSProperties,
   filePath: {
     fontSize: 13,
     fontWeight: 500,
-    flex: 1,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

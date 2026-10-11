@@ -18,6 +18,8 @@ export const pullRequests = pgTable(
     branch: text('branch').notNull(),
     base: text('base').notNull(),
     headSha: text('head_sha').notNull(),
+    /** head the stored detail (pr_files, pr_commits, stats) was fetched at; null = never. */
+    detailHeadSha: text('detail_head_sha'),
     lastReviewedSha: text('last_reviewed_sha'),
     additions: integer('additions').notNull().default(0),
     deletions: integer('deletions').notNull().default(0),

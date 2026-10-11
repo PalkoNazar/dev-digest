@@ -244,6 +244,9 @@ export async function runIncremental(
 
   const stats: Record<string, unknown> = {
     incremental: true,
+    // Coverage gaps of the last full walk stay true until the next full index —
+    // carry them forward so blast keeps reporting `repo_too_large`.
+    filesLeftOut: state.filesLeftOut ?? 0,
     changedFiles: changed.length,
     symbolsWritten: symbolsBuf.length,
     referencesWritten: refsBuf.length,

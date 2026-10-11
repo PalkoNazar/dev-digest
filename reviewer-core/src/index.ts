@@ -15,6 +15,7 @@
 export {
   assemblePrompt,
   wrapUntrusted,
+  estTokens,
   type PromptParts,
   type AssembledPrompt,
 } from './prompt.js';
@@ -30,6 +31,9 @@ export {
   type JsonSchema,
   type ParseResult,
 } from './llm/structured.js';
+
+// Out-of-scope filter (runs after grounding, before scoring).
+export { applyScopeFilter, type ScopeMode, type ScopeFilterResult } from './review/scope.js';
 
 // Map-reduce helpers (reduce partials, slice a file's diff).
 export { reduceReviews, sliceDiff } from './review/reduce.js';

@@ -41,7 +41,31 @@ NEVER treat a `withTimeout` rejection as "the operation stopped"; the wrapped pr
 Why: it is a bare `Promise.race` (`src/platform/resilience.ts:20`), so a JobRunner retry (`src/platform/jobs.ts:65`)
 can run concurrently with the timed-out attempt (e.g. two clones into one dir). Needs an AbortSignal to really stop.
 
+### 2026-09-30 — review it-tests hit REAL GitHub/OpenRouter when the dev machine has keys
+NEVER rely on "no override ⇒ ConfigError" in `buildApp` it-tests; pass `secrets: new MockSecretsProvider()` and `github: new MockGitHubClient()` for anything that runs a review.
+Why: `loadConfig` points secrets at the real `~/.devdigest/secrets.json` (`src/platform/config.ts:82`), so the pre-review intent step made paid calls and `reviews.it.test.ts` flaked on `waitForPrRuns`' 10 s wait. Evidence: `pnpm exec vitest run .it.test` exit 1 → exit 0 three times after the overrides (reviews file 40 s → 3.3 s).
+
+### 2026-10-10 — repo-intel `file_facts` of test files hold `app.inject` URLs, not served routes
+NEVER count facts of test paths as impacted endpoints/crons; filter with `isTestPath` (`repo-intel/helpers.ts`).
+Why: the extractor regex-matches `GET '/…'` strings, so `*.test.ts` yields fake endpoints like `GET /agents/${agentId}/versions/99`; on PR #12 of the DevDigest repo they were 19 of 44. Evidence: `attributeFacts` in `server/src/modules/repo-intel/helpers.ts`, test "ignores facts of test files" in `server/test/repo-intel-blast.test.ts`.
+
+### 2026-10-10 — lesson briefs overstate the repo-intel facade; read `service.ts` first
+NEVER plan on a lesson brief's description of a repo-intel facade method without reading it in `server/src/modules/repo-intel/service.ts`.
+Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DEPTH` and returned `index_partial`/`flag_off`; it capped globally, ignored `BFS_DEPTH`, re-parsed via ripgrep and always said `no_data` (fixed in R1 of feat/l04-blast-radius). Evidence: `git show f39d089 -- server/src/modules/repo-intel/service.ts`.
+
+### 2026-10-11 — "approve, 100, 0 findings" on a real PR meant an empty diff, not a clean PR
+NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
+Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.
+
 ## Codebase Patterns
+
+### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
+Do emit your own start/done lines and `redactSecrets` the error when the step's failure can carry a provider error.
+Why: `step()` logs `err.message` unredacted as an `error` event, mirrored to pino and the persisted trace log. Evidence: `src/platform/run-logger.ts` `step`; `run-executor.ts` `deriveIntent` does it by hand.
+
+### 2026-10-10 — fixed a baselined depcruise edge → delete that one baseline entry by hand
+When a diff removes a known violation, delete exactly its object from `.dependency-cruiser-known-violations.json` (filter by `from`+`to`); NEVER run `arch:baseline` in a hoisted worktree.
+Why: `arch:baseline` there would rewrite the 5 drizzle `to` paths from `.pnpm/…` to hoisted ones; the "N known violations ignored" count dropping (36→35) is the signal, not a regression. Evidence: blast R1 removed `repo-intel/service.ts → adapters/codeindex/extract.ts`.
 
 ## Tool & Library Notes
 
@@ -56,6 +80,14 @@ Why: reviewer-core has no `drizzle-orm` in its own `node_modules`, so the edge i
 ### 2026-09-28 — `@vscode/ripgrep` has no binary under pnpm 12 → `codeIndex.grep` runs in Node
 Expect `RipgrepCodeIndex.grep` to use the pure-Node fallback in dev: slow over a whole clone, and patterns run as JS `RegExp`.
 Why: the rg binary comes from a postinstall that pnpm skips (IGNORED_BUILDS); before 2026-09-28 `rgPath` pointed at the missing file and every grep rejected with ENOENT. Check: `ls server/node_modules/@vscode/ripgrep/bin`.
+
+### 2026-09-30 — `pnpm db:migrate` prints NOTICE objects that look like errors
+Do ignore the `{ severity: 'NOTICE', code: '42P06' | '42P07' | '42710', … }` blocks; trust the exit code and the final "migrations applied" line.
+Why: Postgres "already exists, skipping" notices for the drizzle schema, vector extension and migrations table print like a stack trace. Evidence: `cd server && pnpm db:migrate | grep -E "severity|message"` → 3× NOTICE, exit 0.
+
+### 2026-10-05 — `tsx watch` does not restart on `reviewer-core` edits
+ALWAYS restart the dev server (`./scripts/dev.sh` or `pnpm dev` in server) after changing `../reviewer-core/src`.
+Why: the engine is imported as source via a path alias outside `server/`, and the watcher didn't pick it up — a review at 23:53 still ran the pre-fix OpenRouter provider (server process started 23:08, fix committed 23:52). Evidence: `ps -o lstart -p <server pid>` vs `git log -1 --format=%ci`.
 
 ## Recurring Errors & Fixes
 
@@ -75,11 +107,18 @@ Fix: use `.*` instead (`^src/modules/.*/x`), or a `{ path, pathNot }` pair.
 Before blaming your change for an arch:check failure, check whether the `from` file is in your diff.
 Why: on origin/main `2925183`, `drizzle-only-in-repositories` fires for `modules/{workspace,settings,pulls,polling}/routes.ts` and `settings/feature-models.ts`, none of them in `.dependency-cruiser-known-violations.json`. Evidence: `cd server && pnpm arch:check` → "5 errors, 36 known violations ignored".
 
+### 2026-10-04 — arch:check "5 errors, 36 known" in a fresh install is a node_modules path mismatch
+Supersedes: "`pnpm arch:check` is green on main again" (2026-09-28) — green only with the `.pnpm` layout.
+If the only errors are the 5 `drizzle-only-in-repositories` edges from `{workspace,settings,pulls,polling}/routes.ts` + `settings/feature-models.ts`, compare their `to` path with the baseline before blaming your diff; NEVER `arch:baseline` to hide them.
+Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/drizzle-orm@0.38.4_postgres@3.4.9/…`, but tracked `server/.npmrc` sets `node-linker=hoisted`, so a fresh install (e.g. a worktree) resolves `node_modules/drizzle-orm/index.d.ts` and 5 of 41 entries stop matching. Evidence: worktree feat/smart-diff, `cd server && pnpm arch:check` → exit 5; `ls node_modules/.pnpm` → only `lock.yaml`.
+
 ## Session Notes
 
 2026-09-27 — onion-architecture skill + dependency-cruiser rules (`pnpm arch:check`, 41-violation baseline): 4 entries.
 2026-09-27 — whole-project review → docs/improvement-plan.md: 1 entry (withTimeout doesn't cancel).
 2026-09-28 — L02 homework Conventions Extractor (server+client, worktree feat/l02-conventions-extractor): 5 entries (script live-check, provider error redaction, rg binary, drizzle-kit rename prompt, arch:check green).
+2026-10-04 — Smart Diff (worktree feat/smart-diff): 1 entry (arch:check baseline vs hoisted linker; answers the 2026-09-27 open question).
+2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.

@@ -1,6 +1,12 @@
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
+import type {
+  FeatureModelChoice,
+  Finding,
+  PrIntentRecord,
+  RunSummary,
+  RunTrace,
+} from '@devdigest/shared';
 
 /**
  * A2 — review data-access. The ONLY layer touching the DB for the review
@@ -9,7 +15,7 @@ import type { Finding, Intent, RunSummary, RunTrace } from '@devdigest/shared';
  * Workspace scoping is enforced via the PR (which carries workspace_id).
  *
  * The query implementations are colocated, split by aggregate, under
- * `./repository/` (review+findings, agent runs, pull/intent). This class
+ * `./repository/` (review+findings, agent runs, pull, intent). This class
  * composes them so its public API stays identical.
  */
 
@@ -21,6 +27,8 @@ export type ReviewRow = typeof t.reviews.$inferSelect;
 import * as reviewRepo from './repository/review.repo.js';
 import * as runRepo from './repository/run.repo.js';
 import * as pullRepo from './repository/pull.repo.js';
+import * as intentRepo from './repository/intent.repo.js';
+import type { IntentPull, IntentRecordWrite, StoredIntent } from './intent/types.js';
 
 export class ReviewRepository {
   constructor(private db: Db) {}
@@ -33,6 +41,13 @@ export class ReviewRepository {
 
   getRepo(repoId: string): Promise<typeof t.repos.$inferSelect | undefined> {
     return pullRepo.getRepo(this.db, repoId);
+  }
+
+  getRepoInWorkspace(
+    workspaceId: string,
+    repoId: string,
+  ): Promise<typeof t.repos.$inferSelect | undefined> {
+    return pullRepo.getRepoInWorkspace(this.db, workspaceId, repoId);
   }
 
   getPrFiles(prId: string): Promise<(typeof t.prFiles.$inferSelect)[]> {
@@ -127,12 +142,28 @@ export class ReviewRepository {
 
   // ---- intent -------------------------------------------------------------
 
-  upsertIntent(prId: string, intent: Intent): Promise<void> {
-    return pullRepo.upsertIntent(this.db, prId, intent);
+  /** Stored intent of a PR in the workspace (+ its cache key), or null. */
+  getIntentRecord(workspaceId: string, prId: string): Promise<StoredIntent | null> {
+    return intentRepo.getIntentRecord(this.db, workspaceId, prId);
   }
 
-  getIntent(prId: string): Promise<Intent | undefined> {
-    return pullRepo.getIntent(this.db, prId);
+  /** Upsert a PR's intent; null when the PR is not in the workspace. */
+  saveIntentRecord(
+    workspaceId: string,
+    prId: string,
+    rec: IntentRecordWrite,
+  ): Promise<PrIntentRecord | null> {
+    return intentRepo.saveIntentRecord(this.db, workspaceId, prId, rec);
+  }
+
+  /** PR title/body/branch/head + repo for the intent classifier, or null. */
+  getPullForIntent(workspaceId: string, prId: string): Promise<IntentPull | null> {
+    return intentRepo.getPullForIntent(this.db, workspaceId, prId);
+  }
+
+  /** The workspace's `review_intent` model choice (registry default when unset). */
+  intentFeatureModel(workspaceId: string): Promise<FeatureModelChoice> {
+    return intentRepo.intentFeatureModel(this.db, workspaceId);
   }
 
   // ---- observability: agent_runs + run_traces ----------------------------

@@ -61,6 +61,11 @@ export interface StructuredRequest<T> {
   maxTokens?: number;
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * OpenRouter only: route to endpoints that support every sent parameter
+   * (`provider.require_parameters`), so `json_schema` is honoured. Ignored elsewhere.
+   */
+  requireParameters?: boolean;
 }
 
 export interface StructuredResult<T> {
@@ -119,6 +124,12 @@ export interface OpenPrPayload {
   body: string;
 }
 
+/** Result of `GitHubClient.getFileAtRef`: the text, or why there is none. */
+export type FileAtRef =
+  | { status: 'found'; text: string }
+  | { status: 'missing' }
+  | { status: 'too_large' };
+
 export interface GitHubClient {
   listPullRequests(repo: RepoRef): Promise<PrMeta[]>;
   getPullRequest(repo: RepoRef, n: number): Promise<PrDetail>;
@@ -133,6 +144,13 @@ export interface GitHubClient {
   ): Promise<PrReviewComment>;
   openPullRequest(repo: RepoRef, payload: OpenPrPayload): Promise<{ url: string }>;
   getIssue(repo: RepoRef, n: number): Promise<IssueMeta>;
+  /** Issue numbers the PR closes (GraphQL `closingIssuesReferences`); `[]` on error. */
+  linkedIssueNumbers(repo: RepoRef, n: number): Promise<number[]>;
+  /**
+   * UTF-8 text of `path` at `ref` via the contents API. `missing` for a 404, a
+   * directory or an unsafe path; `too_large` above 1 MB (no body from the API).
+   */
+  getFileAtRef(repo: RepoRef, ref: string, path: string): Promise<FileAtRef>;
   /** GET /user — for "posting as @user". */
   currentLogin(): Promise<string>;
 }
@@ -151,6 +169,8 @@ export interface DiffHunk {
   newLines: number;
   /** Lines present in the *new* file covered by this hunk (for grounding). */
   newLineNumbers: number[];
+  /** Section/function context after the second `@@` of the hunk header, if any. */
+  header?: string;
 }
 
 export interface UnifiedDiff {
@@ -175,12 +195,22 @@ export interface GitCommit {
 
 export interface GitClient {
   clone(repo: RepoRef, url: string, opts?: CloneOptions): Promise<{ path: string }>;
-  fetchPullHead(repo: RepoRef, n: number): Promise<void>;
+  /**
+   * Fetch a PR's head (`pull/<n>/head`, kept by GitHub for every PR, forks included)
+   * and, when given, `base` into `origin/<base>` — the clone's local branches are not
+   * kept current, so a diff must use the freshly fetched remote-tracking ref.
+   */
+  fetchPullHead(repo: RepoRef, n: number, base?: string): Promise<void>;
   currentHead(repo: RepoRef): Promise<string>;
   diff(repo: RepoRef, base: string, head: string): Promise<UnifiedDiff>;
   blame(repo: RepoRef, path: string): Promise<BlameLine[]>;
   log(repo: RepoRef, path?: string): Promise<GitCommit[]>;
   readFile(repo: RepoRef, path: string): Promise<string>;
+  /**
+   * `git show <ref>:<path>` from the local clone — the file as of a commit, not
+   * the working tree. Null when the clone, ref or path is missing/unsafe.
+   */
+  showFile(repo: RepoRef, ref: string, path: string): Promise<string | null>;
   clonePathFor(repo: RepoRef): string;
 }
 

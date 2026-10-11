@@ -1,4 +1,4 @@
-// Run: node --test .claude/skills/pr-self-review/scripts/test/
+// Run: node --test .claude/skills/pr-self-review/scripts/test/self-review.test.mjs
 // Each test builds a throwaway git repo, so nothing touches the real clone's state.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFil
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { globToRegExp, loadRouting, parseUnifiedDiff, readWorkingFile, route } from '../lib.mjs';
+import { globToRegExp, loadRouting, packageOf, parseUnifiedDiff, readWorkingFile, route } from '../lib.mjs';
 
 const SCRIPTS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -85,6 +85,15 @@ test('routing: client file → ui skills; zod only when content matches', () => 
   assert.ok(route('server/src/x.ts', 'const S = z.object({})', routing).skills.includes('zod'));
   assert.ok(route('server/src/modules/a/service.ts', '', routing).skills.includes('onion-architecture'));
   assert.deepEqual(route('README.md', '', routing).skills, []);
+});
+
+test('mcp: own package; src routed to typescript-expert + zod, not onion-architecture', () => {
+  assert.equal(packageOf('mcp/src/x.ts'), 'mcp');
+  assert.equal(packageOf('mcpx/a.ts'), 'root');
+  const mcp = route('mcp/src/core/format.ts', '', loadRouting());
+  assert.ok(mcp.skills.includes('typescript-expert'));
+  assert.ok(mcp.skills.includes('zod'));
+  assert.ok(!mcp.skills.includes('onion-architecture'));
 });
 
 test('diff parser: new-side line numbers of added lines, header-like content lines', () => {

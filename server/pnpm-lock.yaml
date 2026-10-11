@@ -65,6 +65,9 @@ importers:
       p-queue:
         specifier: ^8.0.1
         version: 8.1.1
+      picomatch:
+        specifier: ^4.0.4
+        version: 4.0.4
       postgres:
         specifier: ^3.4.5
         version: 3.4.9
@@ -81,6 +84,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.19
+      '@types/picomatch':
+        specifier: ^4.0.3
+        version: 4.0.3
       drizzle-kit:
         specifier: ^0.30.1
         version: 0.30.6
@@ -1110,6 +1116,9 @@ packages:
 
   '@types/node@22.19.19':
     resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
+
+  '@types/picomatch@4.0.3':
+    resolution: {integrity: sha512-iG0T6+nYJ9FAPmx9SsUlnwcq1ZVRuCXcVEvWnntoPlrOpwtSTKNDC9uVAxTsC3PUvJ+99n4RpAcNgBbHX3JSnQ==}
 
   '@types/ssh2-streams@0.1.13':
     resolution: {integrity: sha512-faHyY3brO9oLEA0QlcO8N2wT7R0+1sHWZvQ+y3rMLwdY1ZyS1z0W3t65j9PqT4HmQ6ALzNe7RZlNuCNE0wBSWA==}
@@ -3347,6 +3356,8 @@ snapshots:
   '@types/node@22.19.19':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/picomatch@4.0.3': {}
 
   '@types/ssh2-streams@0.1.13':
     dependencies:

@@ -7,11 +7,69 @@ import { z } from 'zod';
 
 // ---- Intent ----
 export const Intent = z.object({
-  intent: z.string(),
+  summary: z.string(),
   in_scope: z.array(z.string()),
   out_of_scope: z.array(z.string()),
 });
 export type Intent = z.infer<typeof Intent>;
+
+/** Evidence-based confidence of a derived intent (not the model's self-report). */
+export const IntentConfidence = z.enum(['low', 'medium', 'high']);
+export type IntentConfidence = z.infer<typeof IntentConfidence>;
+
+/** `llm` = classifier output; `fallback` = derived from title/branch/paths only. */
+export const IntentMode = z.enum(['llm', 'fallback']);
+export type IntentMode = z.infer<typeof IntentMode>;
+
+export const IntentSourceKind = z.enum([
+  'title',
+  'body',
+  'linked_issue',
+  'mentioned_issue',
+  'spec_doc',
+  'branch',
+  'file_hunks',
+]);
+export type IntentSourceKind = z.infer<typeof IntentSourceKind>;
+
+/** A source that was actually fed to the intent classifier. */
+export const IntentSource = z.object({
+  kind: IntentSourceKind,
+  ref: z.string(),
+  title: z.string().nullish(),
+  truncated: z.boolean().nullish(),
+});
+export type IntentSource = z.infer<typeof IntentSource>;
+
+export const UnresolvedRefReason = z.enum([
+  'not_found',
+  'too_large',
+  'invalid_path',
+  'external_repo',
+  'no_credentials',
+  'no_github_token',
+  'fetch_failed',
+  'limit_reached',
+]);
+export type UnresolvedRefReason = z.infer<typeof UnresolvedRefReason>;
+
+/** A referenced issue/doc/tracker link that could not be read (never invented). */
+export const UnresolvedRef = z.object({
+  kind: z.enum(['issue', 'doc', 'external']),
+  ref: z.string(),
+  reason: UnresolvedRefReason,
+});
+export type UnresolvedRef = z.infer<typeof UnresolvedRef>;
+
+/** Size of one classifier prompt component (sizes only — never the text). */
+export const IntentPromptComponent = z.object({
+  component: z.enum(['title', 'body', 'issue', 'doc', 'branch', 'files']),
+  ref: z.string().nullish(),
+  chars: z.number().int(),
+  est_tokens: z.number().int(),
+  truncated: z.boolean().nullish(),
+});
+export type IntentPromptComponent = z.infer<typeof IntentPromptComponent>;
 
 // ---- Blast radius ----
 export const ChangedSymbol = z.object({
@@ -30,16 +88,43 @@ export type BlastCaller = z.infer<typeof BlastCaller>;
 
 export const DownstreamImpact = z.object({
   symbol: z.string(),
+  /** File declaring this changed symbol — tells same-named symbols in different files apart. */
+  file: z.string().optional(),
   callers: z.array(BlastCaller),
   endpoints_affected: z.array(z.string()),
   crons_affected: z.array(z.string()),
 });
 export type DownstreamImpact = z.infer<typeof DownstreamImpact>;
 
+/** Why a blast map is incomplete (mirrors repo-intel's DegradedReason). */
+export const BlastDegradedReason = z.enum([
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+]);
+export type BlastDegradedReason = z.infer<typeof BlastDegradedReason>;
+
+/** Summary counts: changed symbols, callers, distinct endpoints and crons. */
+export const BlastStats = z.object({
+  symbols: z.number().int().nonnegative(),
+  callers: z.number().int().nonnegative(),
+  endpoints: z.number().int().nonnegative(),
+  crons: z.number().int().nonnegative(),
+});
+export type BlastStats = z.infer<typeof BlastStats>;
+
 export const BlastRadius = z.object({
   changed_symbols: z.array(ChangedSymbol),
   downstream: z.array(DownstreamImpact),
   summary: z.string(),
+  /** True when the repo-intel index is missing, partial or failed. */
+  degraded: z.boolean().optional(),
+  reason: BlastDegradedReason.optional(),
+  stats: BlastStats.optional(),
+  /** Commit the index was built at — caller lines refer to this SHA. */
+  index_sha: z.string().nullish(),
 });
 export type BlastRadius = z.infer<typeof BlastRadius>;
 
@@ -78,7 +163,7 @@ export const PrHistory = z.object({
 export type PrHistory = z.infer<typeof PrHistory>;
 
 // ---- Smart Diff ----
-export const SmartDiffRole = z.enum(['core', 'wiring', 'boilerplate']);
+export const SmartDiffRole = z.enum(['core', 'tests', 'wiring', 'docs', 'boilerplate']);
 export type SmartDiffRole = z.infer<typeof SmartDiffRole>;
 
 export const SmartDiffFile = z.object({

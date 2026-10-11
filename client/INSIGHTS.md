@@ -42,12 +42,29 @@ Evidence: `src/app/repos/[repoId]/pulls/_components/FindingsCell/FindingsCell.ts
 NEVER follow `react-best-practices` → "Code Organization" (`features/`, `utils/`) in the client; use skill `frontend-ui-architecture`.
 Why: the client's features are route folders with `_components/`; shared pure logic is `lib/<responsibility>.ts`, no `utils.ts`. Evidence: `.claude/skills/react-best-practices/SKILL.md:167`.
 
+### 2026-09-30 — mutation hooks don't need their own error toast
+NEVER add `notify.error` in a `useMutation` `onError` in `lib/hooks/*`; the global `MutationCache.onError` already toasts every mutation failure.
+Why: a local call shows two toasts. Queries toast only on status 0 or ≥ 500, so 4xx empty states stay silent. Evidence: `client/src/lib/providers.tsx:35-43`; `lib/hooks/intent.ts` `useDeriveIntent`.
+
+### 2026-10-04 — Smart Diff indicators come from `usePrReviews`, not from `finding_lines`
+Do derive diff dots/counters/inline findings from `usePrReviews` + `lib/smart-diff.ts` (`latestReviewsPerAgent`, `countsAsFinding`); use `useSmartDiff` only for grouping.
+Why: `["reviews", prId]` is invalidated after a run and after Accept/Dismiss, `["smart-diff", prId]` is not — reading `finding_lines` would show stale counts. The latest-per-agent rule is deliberately mirrored in `server/src/modules/reviews/smart-diff/build.ts`; change both. Evidence: `_components/DiffTab/DiffTab.tsx`.
+
+### 2026-10-10 — counts go inside an ICU plural; keep the number bold with `t.rich`
+ALWAYS write counted labels as `{count, plural, one {<b>#</b> x} other {<b>#</b> xs}}` and call `t.rich(key, { count, b: (c) => <strong>{c}</strong> })`; NEVER render `{n} {t("label")}`.
+Why: a number outside the message can't be pluralised ("1 endpoints"). Evidence: `client/messages/en/blast.json` `stat.*`, `BlastRadiusCard.tsx` stats row; convention in `messages/en/runs.json`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
 Filter by a folder or file NAME instead: `pnpm exec vitest run FindingsPanel`.
 Why: vitest escapes the brackets in a path filter (`[repoId/]`) → "No test files found", exit 1.
 Evidence: `pnpm exec vitest run "src/app/repos/\[repoId\]/pulls/..."`.
+
+### 2026-09-29 — no `user-event`, no `msw`: component tests use `fireEvent` + mocked `@/lib/hooks`
+Use `fireEvent` and `vi.mock("@/lib/hooks/<domain>")` in component tests; don't add `user-event`/`msw` without a plan step.
+Why: neither is in `client/package.json`; the generic `react-testing-library` skill (user-event, MSW, "never mock your
+own hooks") conflicts — local pattern wins. Evidence: `SkillEditor.test.tsx`, `FindingsCell.test.tsx`.
 
 ## Recurring Errors & Fixes
 
@@ -77,6 +94,7 @@ Why: `vitest.config.ts` sets `globals: true`, so `pnpm test` passes, but tsconfi
 2026-09-27 — skill frontend-ui-architecture v1.0.0 (client placement rules): 1 entry (beats react-best-practices on layout).
 2026-09-27 — L02 Skills UI (skills page, editor, import modal, agent Skills tab, trace): 1 entry (shared runtime imports in webpack); +2 in root INSIGHTS.md.
 2026-09-28 — L02 review follow-up: useSetAgentSkillLinks test + rollback fix: 2 entries (vitest beforeEach return, setQueryData undefined).
+2026-10-04 — Smart Diff Files changed (role groups, inline findings): 1 entry (indicators from usePrReviews).
 
 - 2026-09-28 — moved Agents nav item to SKILLS LAB; added `src/vendor/ui/nav.test.ts` (invariants, not a snapshot).
 - 2026-09-28 — Skills Lab gaps (create/delete modals, card version, Diff/Restore, agent Skills tab lists all): 2 entries (worktree CORS, card-vs-parent modal).

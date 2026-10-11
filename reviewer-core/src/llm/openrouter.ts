@@ -24,6 +24,34 @@ import { toJsonSchema, parseWithRepair } from './structured.js';
 
 const NOT_SUPPORTED = 'OpenRouterProvider only implements completeStructured';
 
+/**
+ * Default wall-clock budget for one completeStructured call (all attempts, body
+ * included). The SDK `timeout` only covers the wait for response HEADERS and is
+ * cleared once they arrive — and OpenRouter sends `200` + keep-alive whitespace
+ * within ~1 s, then the JSON when generation ends. Without this budget a model
+ * that "thinks" for minutes (or a stalled upstream) keeps a review running forever.
+ * Large one-pass reviews have legitimately taken ~6.5 min, so the default is generous.
+ */
+const DEFAULT_CALL_BUDGET_MS = 600_000;
+
+/**
+ * Default cap on completion tokens per OpenRouter call when the request sets none.
+ * Reasoning tokens count toward it, and it is the only HARD bound: reasoning models
+ * (deepseek-v4-flash) sometimes reason for 40k–135k hidden tokens (20–60 min) for a
+ * ~700-char answer, and `reasoning.max_tokens` / `effort: low` only lower the effort
+ * (measured 2026-10-04). ~24k tokens ≈ 4–6 min at the observed 65–100 tok/s.
+ */
+const DEFAULT_MAX_TOKENS = 24_000;
+
+/**
+ * Share of the call budget a reasoning attempt may use while a retry is still
+ * possible. Token caps don't bound TIME: some deepseek-v4-flash endpoints run at
+ * ~29 tok/s (103k tokens in 59 min), so 24k tokens can take ~14 min. When the
+ * share runs out, the next attempt asks for the answer without reasoning in the
+ * time that is left (a 35k-token review prompt answers in ~1–2 min that way).
+ */
+const REASONING_ATTEMPT_SHARE = 0.6;
+
 export interface OpenRouterProviderOptions {
   /** OpenAI-compatible base URL (default: OpenRouter). */
   baseURL?: string;
@@ -64,24 +92,76 @@ export class OpenRouterProvider implements LLMProvider {
     let tokensOut = 0;
     let costFromApi: number | null = null;
     let lastRaw = '';
+    // Per-attempt diagnostics for the final error: routed provider, finish reason and
+    // which fields failed — never the model's text (the message reaches logs/UI).
+    const failures: string[] = [];
+    const budgetMs = req.timeoutMs ?? DEFAULT_CALL_BUDGET_MS;
+    const deadline = Date.now() + budgetMs;
+    const maxTokens = req.maxTokens ?? (this.id === 'openrouter' ? DEFAULT_MAX_TOKENS : undefined);
+    // Set once a reasoning model spent the whole cap thinking: the next attempt
+    // asks for the answer without reasoning instead of thinking again.
+    let reasoningOff = false;
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      const res = await this.client.chat.completions.create({
-        model: req.model,
-        messages,
-        temperature: req.temperature ?? 0,
-        ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
-        },
-        // OpenRouter session grouping — extra body field (spread is exempt from
-        // excess-property checks). Only sent when talking to OpenRouter.
-        ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
-        // OpenRouter usage accounting — ask it to return the REAL generation
-        // cost (USD) in `usage.cost`, instead of estimating from a price book.
-        ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
-      });
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        throw new Error(
+          `OpenRouter call for ${req.schemaName} exceeded its ${budgetMs}ms budget` +
+            (failures.length ? ` — ${failures.join('; ')}` : ''),
+        );
+      }
+      // Aborts the request at any stage, including while the body is still being
+      // read (which the SDK timeout does not cover).
+      // While reasoning is on and a retry is left, this attempt gets only a share of
+      // the budget, so the no-reasoning retry still has time to answer.
+      const slice =
+        this.id === 'openrouter' && !reasoningOff && attempt <= maxRetries
+          ? Math.min(remaining, Math.round(budgetMs * REASONING_ATTEMPT_SHARE))
+          : remaining;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), slice);
+      let res: OpenAI.Chat.Completions.ChatCompletion;
+      try {
+        res = await this.client.chat.completions.create({
+          model: req.model,
+          messages,
+          temperature: req.temperature ?? 0,
+          ...(maxTokens ? { max_tokens: maxTokens } : {}),
+          ...(reasoningOff ? { reasoning: { enabled: false } } : {}),
+          response_format: {
+            type: 'json_schema',
+            json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
+          },
+          // OpenRouter session grouping — extra body field (spread is exempt from
+          // excess-property checks). Only sent when talking to OpenRouter.
+          ...(this.id === 'openrouter' && req.sessionId ? { session_id: req.sessionId } : {}),
+          // Prefer the fastest endpoints (same model, same price class): slow ones turn a
+          // long reasoning pass into a timeout. `require_parameters` routes only to
+          // endpoints that honour every parameter (json_schema included).
+          ...(this.id === 'openrouter'
+            ? { provider: { sort: 'throughput', ...(req.requireParameters ? { require_parameters: true } : {}) } }
+            : {}),
+          // OpenRouter usage accounting — ask it to return the REAL generation
+          // cost (USD) in `usage.cost`, instead of estimating from a price book.
+          ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
+        }, { signal: controller.signal });
+      } catch (err) {
+        if (controller.signal.aborted && slice < remaining) {
+          reasoningOff = true;
+          failures.push(
+            `attempt ${attempt}: no answer within ${slice}ms while reasoning — retrying without reasoning`,
+          );
+          continue;
+        }
+        if (controller.signal.aborted) {
+          throw new Error(
+            `OpenRouter call for ${req.schemaName} timed out after ${budgetMs}ms (attempt ${attempt})`,
+          );
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
 
       // OpenRouter can return HTTP 200 with no `choices` (an upstream provider
       // error / moderation / free-tier limit in the body) — surface it.
@@ -96,6 +176,19 @@ export class OpenRouterProvider implements LLMProvider {
       // `usage.cost` is an OpenRouter extension (USD), absent from the OpenAI SDK type.
       const apiCost = (res.usage as { cost?: number } | null | undefined)?.cost;
       if (typeof apiCost === 'number') costFromApi = (costFromApi ?? 0) + apiCost;
+      const routed = (res as unknown as { provider?: string }).provider ?? 'unknown';
+
+      // The cap ran out while the model was still reasoning: no answer at all. Retry
+      // the same messages with reasoning disabled (no repair reprompt — nothing to repair).
+      const reasoningTokens = res.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+      if (choice.finish_reason === 'length' && !lastRaw.trim() && reasoningTokens > 0 && !reasoningOff) {
+        reasoningOff = true;
+        failures.push(
+          `attempt ${attempt}: provider=${routed} reasoning used the whole ${maxTokens}-token cap ` +
+            `(${reasoningTokens} reasoning tokens) — retrying without reasoning`,
+        );
+        continue;
+      }
 
       const parsed = parseWithRepair(req.schema, lastRaw);
       if (parsed.ok) {
@@ -109,10 +202,16 @@ export class OpenRouterProvider implements LLMProvider {
           attempts: attempt,
         };
       }
+      failures.push(
+        `attempt ${attempt}: provider=${routed} finish=${choice.finish_reason ?? 'unknown'} ` +
+          `out=${res.usage?.completion_tokens ?? '?'} (${parsed.problems.slice(0, 4).join(', ')})`,
+      );
       messages.push({ role: 'assistant', content: lastRaw });
       messages.push({ role: 'user', content: parsed.repromptMessage });
     }
-    throw new Error(`OpenRouter structured output failed schema validation for ${req.schemaName}`);
+    throw new Error(
+      `OpenRouter structured output failed schema validation for ${req.schemaName} — ${failures.join('; ')}`,
+    );
   }
 
   /**

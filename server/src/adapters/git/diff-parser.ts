@@ -9,7 +9,7 @@ import type { UnifiedDiff, DiffHunk } from '@devdigest/shared';
  *   diff --git a/path b/path
  *   --- a/path
  *   +++ b/path
- *   @@ -oldStart,oldLines +newStart,newLines @@
+ *   @@ -oldStart,oldLines +newStart,newLines @@ optional section header
  */
 export function parseUnifiedDiff(raw: string): UnifiedDiff {
   const files: UnifiedDiff['files'] = [];
@@ -43,7 +43,7 @@ export function parseUnifiedDiff(raw: string): UnifiedDiff {
       continue;
     }
     if (line.startsWith('--- ')) continue;
-    const hh = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+    const hh = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: (.*))?$/);
     if (hh) {
       flushHunk();
       const newStart = Number(hh[3]);
@@ -56,6 +56,9 @@ export function parseUnifiedDiff(raw: string): UnifiedDiff {
         newLines,
         newLineNumbers: [],
       };
+      // Section/function context git prints after the second `@@` (may be absent).
+      const header = hh[5]?.trim();
+      if (header) hunk.header = header;
       newLineCursor = newStart;
       continue;
     }

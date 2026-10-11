@@ -44,14 +44,20 @@ export interface IndexState extends IndexResult {
   lastIndexedSha: string;
   indexerVersion: number;
   updatedAt: Date;
+  /**
+   * Source files the walk left out even on a `full` pass: over `MAX_FILE_SIZE`
+   * (`skippedTooLarge`) or beyond `MAX_INDEXED_FILES` (`bounded`). Unlike
+   * `filesSkipped`, this excludes files that simply have no supported language.
+   */
+  filesLeftOut?: number;
   /** True when the layer is running on the ripgrep fallback. */
   degraded?: boolean;
   degradedReason?: DegradedReason;
 }
 
 // ---------------------------------------------------------------------------
-// Blast radius (facade method `getBlastRadius`). Adopted by blast/service.ts in
-// T2; in T1 the facade returns a degraded best-effort over container.codeIndex.
+// Blast radius (facade method `getBlastRadius`). Consumed by modules/blast;
+// served from the persistent index only (never re-parses the clone).
 // ---------------------------------------------------------------------------
 
 export interface BlastChangedSymbol {
@@ -65,6 +71,8 @@ export interface BlastCallerRow {
   symbol: string;
   /** Which changed symbol this caller reaches. */
   viaSymbol: string;
+  /** File declaring `viaSymbol` (persistent index). Same-named symbols in different files differ here. */
+  viaFile?: string;
   /** 1-based line of the reference (representative; for the BlastRadius view). */
   line: number;
   /** file_rank.rank of the caller file (0 in the degraded/ripgrep path). */
@@ -84,6 +92,11 @@ export interface BlastResult {
   factsByFile?: Record<string, { endpoints: string[]; crons: string[] }>;
   degraded?: boolean;
   reason?: DegradedReason;
+  /**
+   * `repo_index_state.last_indexed_sha` the map was read from (caller lines are
+   * 1-based at this commit). Absent when the repo has no index state.
+   */
+  indexedSha?: string;
 }
 
 // ---------------------------------------------------------------------------

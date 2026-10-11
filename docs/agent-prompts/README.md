@@ -39,6 +39,8 @@ delimiter-wrapped (`prompt.ts:104-122`):
 ```
 <task line, e.g. "Review PR #7 '…'">
 ## PR description        (untrusted, author-controlled, truncated to 4000 chars)
+## Derived PR intent (untrusted, auto-generated)   (intent layer; truncated to 2000 chars,
+                         followed by a TRUSTED line asking the model to set `scope` on every finding)
 ## Skills / rules        (the agent's enabled skills, in order: ### name, description, body)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)
@@ -50,6 +52,14 @@ delimiter-wrapped (`prompt.ts:104-122`):
 Sections with no content are omitted. Everything repo- or author-derived is wrapped
 in `<untrusted source="…">…</untrusted>` so the model can tell instructions
 (system) from data (user).
+
+The derived intent (summary, in/out of scope, confidence, sources, missing context) is
+produced before the review by a separate cheap classifier (Settings → Feature Models →
+"PR Review · Intent") and rendered by the server (`renderIntentForPrompt`). The scope
+instruction sits outside the untrusted block and only when an intent is present:
+"For every finding set `scope`: `in` if it concerns the in-scope work described above,
+`out` if it concerns code or behaviour outside it. `scope` never changes a finding's
+severity." Agent system prompts don't change, so the three prompt copies are untouched.
 
 ## The output schema is NOT in the prompt
 
@@ -64,7 +74,8 @@ response_format: { type: 'json_schema', json_schema: { name, schema, strict: tru
 
 The schema is the Zod `Review` contract in
 `server/src/vendor/shared/contracts/findings.ts`, converted to JSON Schema and sent
-as a separate API parameter. In `strict` mode the model **cannot** return anything
+as a separate API parameter. Each finding carries an optional `scope: 'in' | 'out'`
+(null = untagged, treated as in scope). In `strict` mode the model **cannot** return anything
 that doesn't match it. Consequences for prompt authors:
 
 - **Do not describe the JSON shape, field names, or a markdown layout in the prompt.**
@@ -112,6 +123,12 @@ numbers and gates from what the model returns:
 - **Findings are citation-grounded**: a finding whose line range doesn't intersect a
   real diff hunk is dropped (`grounding.ts`). Cite real `file:line` from the diff or
   the finding disappears.
+- **Out-of-scope findings may be filtered** (`review/scope.ts`, `applyScopeFilter`),
+  AFTER grounding and BEFORE the score. With a medium/high-confidence classifier
+  intent (`enforce`), `scope: 'out'` findings are dropped except exemptions (every
+  CRITICAL, `secret_leak`, `lethal_trifecta`, `security` at WARNING or higher) and the
+  single most severe remaining WARNING (kept as the "Outside PR scope" signal). With a low-
+  confidence or fallback intent (`tag`) nothing is dropped. The score uses the kept set.
 - **`verdict` is currently passed through from the model** (`run.ts:208`). That is
   why a wrong verdict reaches the UI unchanged — and why the verdict convention
   above is load-bearing until/unless the verdict is also derived deterministically.
@@ -124,6 +141,7 @@ numbers and gates from what the model returns:
 | `score` | **ignored** — recomputed from findings |
 | `verdict` | passed through to the review record (shown in the UI) |
 | `findings[]` | citation-grounded; ungrounded ones dropped |
+| `findings[].scope` | `out` may be dropped by the scope filter (enforce mode) |
 
 The per-agent merge gate (`agents.ciFailOn`, default `critical`) decides when a CI
 review **blocks**: it is deterministic from finding severities, independent of the

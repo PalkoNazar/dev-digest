@@ -33,6 +33,7 @@ reviewer-core's source).
 | client | `pnpm typecheck` · `pnpm test` | client |
 | reviewer-core | `npm run typecheck` · `npm test` | reviewer-core |
 | e2e | `npm run typecheck` | e2e |
+| mcp | `pnpm typecheck` · `pnpm test` | mcp |
 
 Integration tests (`*.it.test.ts`, Testcontainers) and the browser e2e are not run — they
 need Docker and belong to CI. Missing `node_modules` or a missing tool → the command is

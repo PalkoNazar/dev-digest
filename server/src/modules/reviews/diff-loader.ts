@@ -5,9 +5,15 @@ import * as schema from '../../db/schema.js';
 import type { ReviewRepository, PullRow } from './repository.js';
 
 /**
- * Load the unified diff for a PR. Prefers a real `git diff base...head`; falls
- * back to assembling a synthetic unified diff from the persisted pr_files
+ * Load the unified diff for a PR. Prefers a real `git diff origin/<base>...head`;
+ * falls back to assembling a synthetic unified diff from the persisted pr_files
  * patches (so the reviewer works even before a clone completes / in tests).
+ *
+ * The clone follows only the default branch and its local branches are moved only
+ * by a resync, so first fetch `pull/<n>/head` and the base into `origin/<base>`.
+ * Diffing against a stale local `<base>` would pull every commit merged since the
+ * last resync into the review. Offline (fetch fails) the refs already in the clone
+ * are tried: `origin/<base>`, then `<base>`.
  */
 export async function loadDiff(
   container: Container,
@@ -16,15 +22,23 @@ export async function loadDiff(
   pull: PullRow,
   repoRow: typeof schema.repos.$inferSelect,
 ): Promise<UnifiedDiff> {
+  const ref = { owner: repoRow.owner, name: repoRow.name };
   try {
-    const diff = await container.git.diff(
-      { owner: repoRow.owner, name: repoRow.name },
-      pull.base,
-      pull.headSha,
-    );
-    if (diff.files.length > 0) return diff;
+    await container.git.fetchPullHead(ref, pull.number, pull.base);
   } catch {
-    /* fall through to pr_files reconstruction */
+    /* no clone / offline — try the refs the clone already has */
+  }
+  for (const base of [`origin/${pull.base}`, pull.base]) {
+    try {
+      const diff = await container.git.diff(ref, base, pull.headSha);
+      if (diff.files.length > 0) return diff;
+      // Diffed fine but empty: the head is already in the base (merged, or stacked
+      // into another PR). The stale local `<base>` would re-add everything merged
+      // since the last resync — stop here.
+      break;
+    } catch {
+      /* ref or head missing — next candidate */
+    }
   }
   return diffFromPrFiles(repo, pull.id);
 }

@@ -8,6 +8,7 @@ import type {
   StructuredResult,
   Embedder,
   GitHubClient,
+  FileAtRef,
   RepoRef,
   PrMeta,
   PrDetail,
@@ -125,6 +126,12 @@ export interface MockGitHubOptions {
   login?: string;
   /** Existing inline review comments returned by listReviewComments. */
   comments?: PrReviewComment[];
+  /** Issue numbers `linkedIssueNumbers` returns (default `[]`). */
+  linkedIssues?: number[];
+  /** When set, `getIssue` serves these and throws a 404-shaped error for any other number. */
+  issues?: Record<number, IssueMeta>;
+  /** File text by path served by `getFileAtRef` (any ref); a missing path → `missing`. */
+  filesAtRef?: Record<string, string>;
 }
 
 export class MockGitHubClient implements GitHubClient {
@@ -132,6 +139,7 @@ export class MockGitHubClient implements GitHubClient {
   public openedPrs: OpenPrPayload[] = [];
   public committed: CommitFilesPayload[] = [];
   public createdComments: CreateReviewCommentInput[] = [];
+  public fileAtRefCalls: { ref: string; path: string }[] = [];
 
   constructor(private opts: MockGitHubOptions = {}) {}
 
@@ -231,7 +239,22 @@ export class MockGitHubClient implements GitHubClient {
   }
 
   async getIssue(_repo: RepoRef, n: number): Promise<IssueMeta> {
+    if (this.opts.issues) {
+      const issue = this.opts.issues[n];
+      if (!issue) throw Object.assign(new Error(`Not Found: issue #${n}`), { status: 404 });
+      return issue;
+    }
     return { number: n, title: `Issue #${n}`, body: 'mock issue', state: 'open' };
+  }
+
+  async linkedIssueNumbers(_repo: RepoRef, _n: number): Promise<number[]> {
+    return this.opts.linkedIssues ?? [];
+  }
+
+  async getFileAtRef(_repo: RepoRef, ref: string, path: string): Promise<FileAtRef> {
+    this.fileAtRefCalls.push({ ref, path });
+    const text = this.opts.filesAtRef?.[path];
+    return text === undefined ? { status: 'missing' } : { status: 'found', text };
   }
 
   async currentLogin(): Promise<string> {
@@ -249,11 +272,14 @@ export interface MockGitOptions {
   head?: string;
   /** Head `currentHead()` returns AFTER `sync()` runs — simulates fetch+reset advancing HEAD. */
   syncedHead?: string;
+  /** File text by path served by `showFile` (any ref); a missing path → null. */
+  filesAtRef?: Record<string, string>;
 }
 
 export class MockGitClient implements GitClient {
   public cloned: { repo: RepoRef; url: string }[] = [];
   public syncs: { repo: RepoRef; branch: string }[] = [];
+  public shown: { ref: string; path: string }[] = [];
   private syncedHead?: string;
 
   constructor(private opts: MockGitOptions = {}) {}
@@ -292,6 +318,10 @@ export class MockGitClient implements GitClient {
   }
   async readFile(_repo: RepoRef, path: string): Promise<string> {
     return this.opts.files?.[path] ?? '';
+  }
+  async showFile(_repo: RepoRef, ref: string, path: string): Promise<string | null> {
+    this.shown.push({ ref, path });
+    return this.opts.filesAtRef?.[path] ?? null;
   }
 }
 

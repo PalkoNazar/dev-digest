@@ -23,6 +23,67 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
   const app = appBase.withTypeProvider<ZodTypeProvider>();
   const { container } = app;
 
+  /**
+   * Persist a GitHub PR detail: files (with patches), commits, diff stats and the
+   * head it was fetched at. The PR row is locked first: a list sync and a detail
+   * read can refresh the same PR at once, and under READ COMMITTED two bare
+   * delete+insert transactions would both insert (no unique (pr_id, path)).
+   */
+  /** prId → head + time of a failed detail fetch (404 seeded PR, no access, network
+   *  down…): not retried at that head for DETAIL_RETRY_MS, so it can't cost GitHub
+   *  calls on every list read, but a transient failure heals without a restart. */
+  const DETAIL_RETRY_MS = 15 * 60_000;
+  const detailFailedAt = new Map<string, { head: string; at: number }>();
+  const recentlyFailed = (prId: string, head: string): boolean => {
+    const f = detailFailedAt.get(prId);
+    return !!f && f.head === head && Date.now() - f.at < DETAIL_RETRY_MS;
+  };
+
+  const persistDetail = async (prId: string, detail: PrDetail): Promise<void> => {
+    await container.db.transaction(async (tx) => {
+      await tx.select({ id: t.pullRequests.id }).from(t.pullRequests).where(eq(t.pullRequests.id, prId)).for('update');
+      await tx.delete(t.prFiles).where(eq(t.prFiles.prId, prId));
+      if (detail.files.length > 0) {
+        await tx.insert(t.prFiles).values(
+          detail.files.map((f) => ({
+            prId,
+            path: f.path,
+            additions: f.additions,
+            deletions: f.deletions,
+            patch: f.patch ?? null,
+          })),
+        );
+      }
+      await tx.delete(t.prCommits).where(eq(t.prCommits.prId, prId));
+      if (detail.commits.length > 0) {
+        await tx.insert(t.prCommits).values(
+          detail.commits.map((c) => ({
+            prId,
+            sha: c.sha,
+            message: c.message,
+            author: c.author,
+            committedAt: c.committed_at ? new Date(c.committed_at) : null,
+          })),
+        );
+      }
+      await tx
+        .update(t.pullRequests)
+        .set({
+          body: detail.body ?? null,
+          // Diff stats aren't on GitHub's PR-list payload — backfill them from
+          // the detail fetch so the Pull Requests list shows real size/files.
+          additions: detail.additions,
+          deletions: detail.deletions,
+          filesCount: detail.files_count,
+          // The detail is the newer source: the list payload is one page of 50, so
+          // a stored head can lag — keep both equal or the PR looks stale forever.
+          headSha: detail.head_sha,
+          detailHeadSha: detail.head_sha,
+        })
+        .where(eq(t.pullRequests.id, prId));
+    });
+  };
+
   app.get('/repos/:id/pulls', { schema: { params: IdParams } }, async (req): Promise<PrMeta[]> => {
     const { workspaceId } = await getContext(container, req);
     const [repo] = await container.db
@@ -40,6 +101,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     // Local-first: sync from GitHub when a token is configured, but never
     // fail the read — already-imported/seeded PRs stay viewable offline.
+    // A failed list sync means GitHub is unreachable right now — skip the detail
+    // refresh below instead of failing (and remembering) up to 10 fetches.
+    let listSynced = false;
     if (gh) {
       try {
         const pulls = await gh.listPullRequests({ owner: repo.owner, name: repo.name });
@@ -66,12 +130,14 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
               target: [t.pullRequests.repoId, t.pullRequests.number],
               set: {
                 title: pr.title,
+                base: pr.base, // a PR can be retargeted (e.g. its base branch was merged)
                 headSha: pr.head_sha,
                 status: pr.status,
                 updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
               },
             });
         }
+        listSynced = true;
       } catch (err) {
         app.log.warn({ err }, 'GitHub PR sync skipped (no token / offline); serving persisted PRs');
       }
@@ -82,31 +148,35 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
       .from(t.pullRequests)
       .where(eq(t.pullRequests.repoId, repo.id));
 
-    // Diff stats aren't on GitHub's PR-list payload, so freshly-imported PRs
-    // land with zeroed size/diff. Backfill them once from the detail endpoint
-    // so the list shows real S/M/L + ± counts. Capped per request (each backfill
-    // is a detail fetch) — the periodic refetch chips away at any remainder.
-    const BACKFILL_LIMIT = 10;
-    if (gh) {
-      const needStats = rows
-        .filter((r) => r.additions === 0 && r.deletions === 0 && r.filesCount === 0)
-        .slice(0, BACKFILL_LIMIT);
-      for (const r of needStats) {
+    // The list payload has neither diff stats nor files. Smart Diff, blast radius
+    // and the review fallback read `pr_files`, which only a detail fetch writes —
+    // so refresh every PR whose stored detail was not fetched at its current head
+    // (`detail_head_sha`: never fetched, or pushed since). Without this a PR reviewed
+    // via MCP before anyone opened it had no files, and one pushed to since kept the
+    // old list. Keyed on the fetched head, not on `pr_commits` (GitHub lists at most
+    // 250 commits — a big PR's head would never show up and refetch on every call).
+    // Capped per request, open and recently updated first; the next read continues.
+    const DETAIL_REFRESH_LIMIT = 10;
+    if (gh && listSynced) {
+      const stale = rows
+        .filter((r) => r.detailHeadSha !== r.headSha && !recentlyFailed(r.id, r.headSha))
+        .sort(
+          (a, b) =>
+            Number(b.status === 'open') - Number(a.status === 'open') ||
+            (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0),
+        )
+        .slice(0, DETAIL_REFRESH_LIMIT);
+      for (const r of stale) {
         try {
           const detail = await gh.getPullRequest({ owner: repo.owner, name: repo.name }, r.number);
-          await container.db
-            .update(t.pullRequests)
-            .set({
-              additions: detail.additions,
-              deletions: detail.deletions,
-              filesCount: detail.files_count,
-            })
-            .where(eq(t.pullRequests.id, r.id));
+          await persistDetail(r.id, detail);
           r.additions = detail.additions;
           r.deletions = detail.deletions;
           r.filesCount = detail.files_count;
+          r.headSha = detail.head_sha;
         } catch (err) {
-          app.log.warn({ err, number: r.number }, 'PR diff-stat backfill skipped');
+          detailFailedAt.set(r.id, { head: r.headSha, at: Date.now() });
+          app.log.warn({ err, number: r.number }, 'PR detail refresh skipped');
         }
       }
     }
@@ -233,42 +303,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     try {
       const gh = await container.github();
       const detail = await gh.getPullRequest({ owner: repo.owner, name: repo.name }, pr.number);
-
-      await container.db.delete(t.prFiles).where(eq(t.prFiles.prId, pr.id));
-      if (detail.files.length > 0) {
-        await container.db.insert(t.prFiles).values(
-          detail.files.map((f) => ({
-            prId: pr.id,
-            path: f.path,
-            additions: f.additions,
-            deletions: f.deletions,
-            patch: f.patch ?? null,
-          })),
-        );
-      }
-      await container.db.delete(t.prCommits).where(eq(t.prCommits.prId, pr.id));
-      if (detail.commits.length > 0) {
-        await container.db.insert(t.prCommits).values(
-          detail.commits.map((c) => ({
-            prId: pr.id,
-            sha: c.sha,
-            message: c.message,
-            author: c.author,
-            committedAt: c.committed_at ? new Date(c.committed_at) : null,
-          })),
-        );
-      }
-      await container.db
-        .update(t.pullRequests)
-        .set({
-          body: detail.body ?? null,
-          // Diff stats aren't on GitHub's PR-list payload — backfill them from
-          // the detail fetch so the Pull Requests list shows real size/files.
-          additions: detail.additions,
-          deletions: detail.deletions,
-          filesCount: detail.files_count,
-        })
-        .where(eq(t.pullRequests.id, pr.id));
+      await persistDetail(pr.id, detail);
 
       return { ...detail, id: pr.id };
     } catch (err) {

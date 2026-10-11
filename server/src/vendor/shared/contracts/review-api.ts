@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { Finding, Verdict } from './findings.js';
-import { Intent, SmartDiff } from './brief.js';
+import {
+  Intent,
+  IntentConfidence,
+  IntentMode,
+  IntentPromptComponent,
+  IntentSource,
+  SmartDiff,
+  UnresolvedRef,
+} from './brief.js';
 
 /**
  * A2 — Review-Core API surface contracts. These extend the core
@@ -56,9 +64,36 @@ export const ReviewRunResponse = z.object({
 });
 export type ReviewRunResponse = z.infer<typeof ReviewRunResponse>;
 
-/** Intent persisted for a PR (the Intent plus the pr_id it scopes). */
-export const PrIntentRecord = Intent.extend({ pr_id: z.string() });
+/**
+ * Intent persisted for a PR: the Intent plus how it was derived (confidence,
+ * sources, unresolved refs, prompt component sizes, model and cost).
+ */
+export const PrIntentRecord = Intent.extend({
+  pr_id: z.string(),
+  head_sha: z.string().nullable(),
+  confidence: IntentConfidence,
+  mode: IntentMode,
+  missing_context: z.boolean(),
+  context_gaps: z.array(z.string()),
+  sources_used: z.array(IntentSource),
+  unresolved_refs: z.array(UnresolvedRef),
+  prompt_components: z.array(IntentPromptComponent),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  tokens_in: z.number().int().nullable(),
+  tokens_out: z.number().int().nullable(),
+  cost_usd: z.number().nullable(),
+  fallback_reason: z.string().nullable(),
+  updated_at: z.string(),
+});
 export type PrIntentRecord = z.infer<typeof PrIntentRecord>;
+
+/** Response of `GET|POST /pulls/:id/intent`. `intent: null` = not derived yet. */
+export const PrIntentResponse = z.object({
+  intent: PrIntentRecord.nullable(),
+  stale: z.boolean(),
+});
+export type PrIntentResponse = z.infer<typeof PrIntentResponse>;
 
 /** Smart-diff response for a PR (the SmartDiff). */
 export const SmartDiffResponse = SmartDiff;
