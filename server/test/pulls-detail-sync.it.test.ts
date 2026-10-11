@@ -39,6 +39,11 @@ const commit = (sha: string) => ({ sha, message: sha, author: 'dev', committed_a
 class CountingGitHub extends MockGitHubClient {
   detailCalls = 0;
   failDetail = false;
+  failList = false;
+  override async listPullRequests(repo: RepoRef): Promise<PrMeta[]> {
+    if (this.failList) throw new Error('getaddrinfo ENOTFOUND api.github.com');
+    return super.listPullRequests(repo);
+  }
   override async getPullRequest(repo: RepoRef, n: number): Promise<PrDetail> {
     this.detailCalls++;
     if (this.failDetail) throw new Error('Not Found');
@@ -140,6 +145,29 @@ d('PR list sync refreshes PR detail at head', () => {
     await app.inject({ method: 'GET', url: `/repos/${repoId}/pulls` });
     await app.close();
     expect(failing.detailCalls).toBe(1);
+  });
+
+  it('no detail fetch while the list sync itself fails (GitHub unreachable)', async () => {
+    const offline = new CountingGitHub({ pulls: [meta('h6')] });
+    offline.failList = true;
+    await listWith(offline);
+    expect(offline.detailCalls).toBe(0);
+  });
+
+  it('a detail fetched at a newer head than the list row is not refetched', async () => {
+    // the list still says h7, GitHub's detail is already at h8 (pushed in between)
+    const ahead = new CountingGitHub({
+      pulls: [meta('h7')],
+      detail: { head_sha: 'h8', files: [file('src/e.ts')], commits: [commit('h8')], files_count: 1, additions: 1 },
+    });
+    await listWith(ahead);
+    expect(ahead.detailCalls).toBe(1);
+    const [pr] = await pg.handle.db.select().from(t.pullRequests).where(eq(t.pullRequests.number, 900));
+    expect([pr!.headSha, pr!.detailHeadSha]).toEqual(['h8', 'h8']);
+    // next read: the PR is no longer in the list payload page → stays at h8, fresh
+    const later = new CountingGitHub({ pulls: [] });
+    await listWith(later);
+    expect(later.detailCalls).toBe(0);
   });
 
   it('two concurrent detail refreshes of one PR leave one row per file', async () => {
