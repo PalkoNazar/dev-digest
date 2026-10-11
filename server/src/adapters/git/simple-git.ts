@@ -69,9 +69,14 @@ export class SimpleGitClient implements GitClient {
     return { path: dest };
   }
 
-  async fetchPullHead(repo: RepoRef, n: number): Promise<void> {
-    // Fetch the PR head ref into a local ref (GitHub exposes pull/<n>/head).
-    await this.git(repo).fetch(['origin', `pull/${n}/head:pr-${n}`]);
+  async fetchPullHead(repo: RepoRef, n: number, base?: string): Promise<void> {
+    // Fetch the PR head ref into a local ref (GitHub exposes pull/<n>/head), and the
+    // base branch into its remote-tracking ref: local `main` is only moved by
+    // sync(), so diffing against it pulls in commits merged since then.
+    // `+` because both refs can be force-pushed / rewound.
+    const refspecs = [`+pull/${n}/head:pr-${n}`];
+    if (base) refspecs.push(`+refs/heads/${base}:refs/remotes/origin/${base}`);
+    await this.git(repo).fetch(['origin', ...refspecs]);
   }
 
   async sync(repo: RepoRef, branch: string): Promise<{ head: string }> {

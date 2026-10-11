@@ -224,7 +224,12 @@ export interface GitCommit {
 
 export interface GitClient {
   clone(repo: RepoRef, url: string, opts?: CloneOptions): Promise<{ path: string }>;
-  fetchPullHead(repo: RepoRef, n: number): Promise<void>;
+  /**
+   * Fetch a PR's head (`pull/<n>/head`, kept by GitHub for every PR, forks included)
+   * and, when given, `base` into `origin/<base>` — the clone's local branches are not
+   * kept current, so a diff must use the freshly fetched remote-tracking ref.
+   */
+  fetchPullHead(repo: RepoRef, n: number, base?: string): Promise<void>;
   /**
    * Resync an already-cloned repo to the tip of `branch`: fetch from origin and
    * advance the local working tree to `origin/<branch>`. Unlike `clone`'s bare
