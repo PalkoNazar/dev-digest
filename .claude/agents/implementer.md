@@ -29,8 +29,9 @@ after you.
 A plan: a path (`specs/plans/*.plan.md`) or the plan text. If there is no plan, or
 its `Status` is not `ready`, stop and return `BLOCKED` asking for an
 implementation-planner run.
-If its `Execution:` line still says `ask-user`, stop and return `BLOCKED`: the user
-hasn't picked a mode yet.
+Its `Execution:` line must be exactly `multi-agent` or `single-agent`. Missing,
+`ask-user` or any other value → stop and return `BLOCKED`: the user hasn't picked a
+mode (older plans predate the field — the calling session asks and adds it).
 Optionally one run from the plan's **Runs** table ("R1") or a step range ("S1–S3") — execute
 only those steps, and verify with that run's "Ends green on" command plus Step 3
 (`Execution: multi-agent`).
