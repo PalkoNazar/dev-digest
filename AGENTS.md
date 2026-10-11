@@ -13,6 +13,8 @@ Node ≥22 · pnpm ≥10 · TypeScript 5.7 (strict, `noUncheckedIndexedAccess`) 
 ## Commands
 - Whole stack from zero: `./scripts/dev.sh` (`--no-seed` · `--no-client` · `--db-only`)
 - Hermetic browser e2e: `./scripts/e2e.sh` (own Postgres :5433, never touches dev DB)
+- Checks for every package this branch changed: `./scripts/check.sh` (`--related` ·
+  `--it` · or name packages) — typecheck + tests + arch:check, compact output, exit 0/1/2
 - Per package, run inside it: `pnpm typecheck` · `pnpm test`
   (reviewer-core and e2e use **npm** — they have `package-lock.json`)
 - MCP server for Claude Code: `.mcp.json` runs `pnpm --silent --dir mcp start` (API must be up)

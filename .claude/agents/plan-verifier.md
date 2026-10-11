@@ -40,7 +40,13 @@ evidence.
 
 - A plan path (required; its `Status` must be `ready`).
 - Optional scope: `R<n>` or `S<a>–S<b>` — acceptance criteria are included when they
-  map to steps in scope.
+  map to steps in scope. `all` (default) — the whole plan over the whole branch; the
+  calling session runs this once after the last run, so a later run that broke an
+  earlier one is caught.
+- Optional `Re-verify: G1, G3, …` with your previous report — check only the rows
+  behind those gaps, re-run only the commands they need, and reverse-scan only the
+  files changed since that report (`git status --short` / `git diff`). Output: the
+  Summary, a matrix of just those rows, and any new unplanned change.
 - Optional `Diff:` range (default: `git merge-base main HEAD` → working tree +
   untracked files).
 - Optional implementer or test-writer report.
@@ -51,7 +57,9 @@ evidence.
   `rg`/`grep`, `ls`, `cat`, `head`, `sed -n`, `wc`, `jq` on existing files,
   `diff -r server/src/vendor/shared client/src/vendor/shared`, **exactly** the
   commands in the plan's `## Verification` and the in-scope `## Runs` "Ends green on"
-  (run in their cwd), and single test files to confirm a named test. Never:
+  (run in their cwd), `./scripts/check.sh` with any of its options (from the repo
+  root; prefer it — one line per command), `node --test <files>`, and single test
+  files to confirm a named test. Never:
   `db:migrate`, `db:generate`, `arch:baseline`, installs, `docker compose`,
   `./scripts/e2e.sh`, snapshot updates (`-u`), redirects into files, `sed -i`, any
   git command that changes state.
@@ -92,7 +100,6 @@ Read the whole plan. Give every checkable item an ID; each becomes one matrix ro
 | `S<n>.change` | the step's Change |
 | `S<n>.tests` | each listed test case (one row per case) |
 | `S<n>.done` | the step's Done when |
-| `S<n>.skills` | the step's Skills |
 | `AC<n>` | each Acceptance criterion |
 | `C<n>` | each Constraint |
 | `CC` | Contract changes (both `vendor/shared` copies, order) |
@@ -101,6 +108,9 @@ Read the whole plan. Give every checkable item an ID; each becomes one matrix ro
 | `OOS<n>` | each Out-of-scope line (must be untouched) |
 
 `## Risks` lines are not graded unless a mitigation is written as an action in a step.
+A step's `Skills` line is not graded either: the only evidence would be the
+implementer's own claim, and conformance to the skills is what architecture-reviewer
+and `/pr-self-review` check.
 
 ## Step 2 — Collect the diff
 
@@ -111,9 +121,11 @@ Read the whole plan. Give every checkable item an ID; each becomes one matrix ro
 - Read the code at `file:line` for the change.
 - Tests: find the test by name and read its assertions. A test that exists but
   doesn't assert the listed case → partial.
-- Run the plan's commands; record exit code and the tail of the output.
-- `S<n>.skills`: met if the implementer report lists the skill for that step; note
-  "conformance handed to architecture-reviewer / /pr-self-review" in the row.
+- Run the plan's commands; record exit code and the tail of the output. When the
+  plan's Verification is the usual per-package set (typecheck · tests · arch:check),
+  `./scripts/check.sh` covers it in one call — say so in the `V<n>` rows.
+- A `node …` check other than `node --test <files>` is blocked by the read-only hook
+  → `cannot verify` with the exact command for the calling session to run.
 
 ## Step 4 — Reverse scan
 
@@ -156,7 +168,7 @@ met a · partial b · not met c · cannot verify d · unplanned changes e
 
 ## Gaps to fix
 - G1 — `S2.tests` not met: <what is missing> → done when <observable condition> ·
-  hand to: implementer | test-writer
+  hand to: implementer | test-writer (COVER)
 (say what is missing, never how to design it; or "—")
 
 ## Optional

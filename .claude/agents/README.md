@@ -13,14 +13,17 @@ after adding or editing one.
 | [spec-creator](spec-creator.md) | Writes a draft feature spec (EARS AC with stable ids, edge cases, provenance, untrusted inputs), analyses design screenshots for gaps, and works in question/proposal rounds with the user | `opus`, effort `high` | specs only | feature (+ designs) → draft spec in `specs/` or `<pkg>/specs/` + questions/proposals |
 | [researcher](researcher.md) | Answers one concrete question with cited evidence — REPO (code, specs, INSIGHTS, git history) or EXTERNAL (docs, changelogs, issues) | `sonnet` | no | question → research report (or clarifying questions) |
 | [implementation-planner](implementation-planner.md) | Turns an approved spec (or a fix/chore task) into an implementation plan grounded in module docs, INSIGHTS, architecture rules and routed skills; reviews the requirements first (questions + recommendations) and ends with the multi-agent / single-agent question. Never writes specs | `opus`, effort `high` | no | approved spec or task → plan for `specs/plans/` (or `needs-spec` / clarifying questions) |
-| [implementer](implementer.md) | Executes an approved plan (or one run of it) in client / server / reviewer-core, runs the package checks, self-checks only its own diff | `inherit` | yes | plan (+ run id) or gap list → code, tests, implementation report |
+| [implementer](implementer.md) | Executes an approved plan (or one run of it) in client / server / reviewer-core, runs `scripts/check.sh` (`--related` per step, full per run), self-checks only its own diff | `inherit` | yes | plan (+ run id) or gap list → code, tests, implementation report |
 | [test-writer](test-writer.md) | Writes and runs tests in three modes — TESTS-FIRST from a plan, COVER for existing code, REPRO for a bug — across client / server / reviewer-core | `inherit` | tests only | plan steps / targets / bug → test files + test report |
 | [architecture-reviewer](architecture-reviewer.md) | Two-tier layer review: dependency-cruiser as ground truth, judged skill rules on top; every finding with evidence | `opus`, effort `high` | no | diff or paths → architecture review |
-| [plan-verifier](plan-verifier.md) | Traceability of the diff against every item of one plan, plus a reverse scan for unplanned changes; gaps only | `opus`, effort `high` | no | plan (+ run) + diff → verification report |
+| [correctness-reviewer](correctness-reviewer.md) | Bug hunt on the diff: spec IF/THEN AC and edge cases, state over time (resync, retry), limits and budgets, outside-system failures, UI races; every finding with a failure scenario + file:line quote | `opus`, effort `high` | no | diff (+ plan, spec, run) → correctness review |
+| [plan-verifier](plan-verifier.md) | Traceability of the diff against every item of one plan, plus a reverse scan for unplanned changes; gaps only; per run, `Re-verify: G…` after fixes, and `all` over the whole branch after the last run | `opus`, effort `high` | no | plan (+ run) + diff → verification report |
 | [doc-writer](doc-writer.md) | Documents implemented features, grounded in file paths, with Mermaid diagrams, placed via the `docs/README.md` map | `sonnet` | docs only | implemented feature or topic → docs + docs report |
 
 None of them spawns other agents, commits, pushes or opens PRs — the calling (main)
-session orchestrates, commits and runs `/engineering-insights`.
+session orchestrates, commits and runs `/engineering-insights`. Executing a plan, the
+main session follows the [`sdd-run`](../skills/sdd-run/SKILL.md) skill (`/sdd-run
+<plan>`): the loop below, written as steps, with the fix-round limit and stop rules.
 
 ## Flow
 
@@ -39,19 +42,24 @@ main session ──(facts missing)──► researcher ──► report
      │    specs/plans/YYYY-MM-DD-<slug>.plan.md with Execution: <mode>
      │                                                   │
      │    single-agent: implementer "all runs" (green per run + Verification, owns
-     │                  checks) ──► main session reads exit codes ──► /engineering-insights → commit
+     │                  checks) ──► check.sh ──► correctness-reviewer (whole branch)
+     │                  ──► fixes ──► /engineering-insights → commit
      │                                                   │
-     │    multi-agent: ┌──────── for each run R1, R2, … ◄┘
+     │    multi-agent (/sdd-run): ┌── for each run R1, R2, … ◄┘
      │    ▼
-     ├──► test-writer (optional, TESTS-FIRST) ──► red tests  (never committed alone)
+     ├──► test-writer TESTS-FIRST (steps with "Tests-first: yes") ──► red tests (never committed alone)
      ├──► implementer ──► code + tests + report
-     ├──► plan-verifier ∥ architecture-reviewer   (read-only, in parallel)
+     ├──► plan-verifier ∥ architecture-reviewer ∥ correctness-reviewer   (read-only, in parallel)
      │         │
-     │         └── gaps / findings ──► implementer or test-writer ──► re-verify
+     │         └── G gaps ──► implementer / test-writer COVER
+     │             A findings ──► implementer
+     │             B findings ──► test-writer REPRO (red) ──► implementer (green)
+     │             ──► re-verify only the fixed items · at most 2 rounds, then the user decides
      │
-     ├──► main session: /engineering-insights → commit → next run
+     ├──► main session: ./scripts/check.sh → /engineering-insights → commit "(R<n>)" → next run
      │
-     ├──► after the last run: doc-writer ──► docs ──► commit
+     ├──► after the last run: plan-verifier (all, whole branch) ──► smoke on real data
+     │         ──► doc-writer ──► docs ──► commit
      │
      └──► before push: the user runs /pr-self-review (security review lives there)
 ```
@@ -70,10 +78,11 @@ agent prompts. architecture-reviewer grades with the same
 | spec-creator | Read, Grep, Glob, Write, Edit, Bash | Agent, WebFetch, WebSearch, NotebookEdit | — | Write/Edit only `*.md` directly in `specs/`, `{client,server,reviewer-core,mcp}/specs/`, only `Status: draft` files, never writes a non-draft status (hook-enforced: `spec-write-scope.mjs`); read-only Bash (hook-enforced); approved specs change only via `Supersedes:`; WHAT not HOW; no future-lesson scope; `maxTurns: 60` |
 | researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | — (allowlist) | — | read-only Bash only (hook-enforced); no skills, no sub-agents; never reads secrets |
 | implementation-planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no spec work (feature without approved spec → `needs-spec`); never asks the user directly (Q/R/execution mode go through the calling session); read-only Bash only (hook-enforced); unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
-| implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no commit/push/stash/PR; no hand-edited migrations; never weakens `groundFindings`/`INJECTION_GUARD`; no secrets; no `INSIGHTS.md` edits; never edits test-writer's tests; `maxTurns: 120` |
-| test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, react-testing-library | writes only test paths; never deletes/skips/weakens existing tests; no new deps; local pattern beats generic skill; no commit/push; `maxTurns: 80` |
+| implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | — (skills loaded per file from `routing.md`) | no commit/push/stash/PR; no hand-edited migrations; never weakens `groundFindings`/`INJECTION_GUARD`; no secrets; no `INSIGHTS.md` edits; never edits test-writer's tests; `maxTurns: 120` |
+| test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | — (skills loaded per file from `routing.md`) | writes only test paths; never deletes/skips/weakens existing tests; no new deps; local pattern beats generic skill; no commit/push; `maxTurns: 80` |
 | architecture-reviewer | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture | read-only Bash (hook-enforced) + `pnpm arch:check`/`depcruise` only; never `arch:baseline`; evidence or drop; turn budget (Tier A first, write after ~40 calls; rest → "Not checked", `INCOMPLETE`); batched reads; `maxTurns: 60` |
-| plan-verifier | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | — | read-only Bash (hook-enforced); runs only the plan's own commands; no migrations, e2e, installs, snapshot updates; self-skipped test = cannot verify; `maxTurns: 60` |
+| correctness-reviewer | Read, Grep, Glob, Bash | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch, Skill | — | read-only Bash (hook-enforced) + `scripts/check.sh` / one test file to settle a finding; failure scenario + quote or drop; severity per `severity.md`; changed lines only; single-user threat model; turn budget (write after ~40 calls; rest → "Not checked", `INCOMPLETE`); `maxTurns: 60` |
+| plan-verifier | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | — | read-only Bash (hook-enforced); runs only the plan's own commands, `scripts/check.sh` and `node --test <files>`; no migrations, e2e, installs, snapshot updates; self-skipped test = cannot verify; step `Skills` not graded (only evidence would be a claim); `maxTurns: 60` |
 | doc-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch, NotebookEdit | mermaid-diagram | writes only docs paths; implemented-only; location from the docs map; `mmdc` render check; no commit/push; `maxTurns: 60` |
 
 Command-level bans (`git push`, `docker compose down -v`, …) and write scopes ("only
@@ -83,8 +92,8 @@ path-scoped Write. plan-verifier's reverse scan and `git status --short` after e
 writing-agent run catch scope breaks. No `permissionMode` is set — it is ignored while
 the main session runs in auto / acceptEdits mode.
 
-The four read-only agents (researcher, implementation-planner, architecture-reviewer,
-plan-verifier) and spec-creator carry a frontmatter `PreToolUse` hook on Bash:
+The five read-only agents (researcher, implementation-planner, architecture-reviewer,
+correctness-reviewer, plan-verifier) and spec-creator carry a frontmatter `PreToolUse` hook on Bash:
 [`.claude/hooks/readonly-bash.mjs`](../hooks/readonly-bash.mjs). It exits 2 on
 redirects into files, `sed -i`, `rm`/`mv`/`cp`/…, state-changing git, installs,
 `db:*`/`arch:baseline` scripts, snapshot updates, `docker`, repo scripts, and on
@@ -108,6 +117,7 @@ content sets no other status. Test: `node .claude/hooks/spec-write-scope.test.mj
 | Implementation report (Status DONE / PARTIAL / BLOCKED, steps, files, skills applied, checks with exit codes, deviations, not done, for reviewers, insight candidates) | implementer | main session, reviewers | conversation |
 | Test report (Status GREEN / RED-BY-DESIGN / BUG-FOUND / BLOCKED, cases traced to plan items, checks, suspect tests, needs production change) | test-writer | main session, implementer | conversation |
 | Architecture review (Status CLEAN / FINDINGS / INCOMPLETE / NO-CHANGES, Tier A ground truth, findings with severity + evidence, pre-existing FYI) | architecture-reviewer | main session, implementer | conversation |
+| Correctness review (Status CLEAN / FINDINGS / INCOMPLETE / NO-CHANGES, B findings with scenario + evidence + hand-to, spec failure paths checked) | correctness-reviewer | main session, test-writer (REPRO), implementer | conversation |
 | Verification report (Status VERIFIED / GAPS / CANNOT-VERIFY, traceability matrix, unplanned changes, gaps to fix, plan issues) | plan-verifier | main session, implementer, test-writer, implementation-planner (plan issues) | conversation |
 | Docs + docs report (docs written, claims → evidence, diagrams rendered, not documented, stale docs) | doc-writer | user | `docs/`, `<pkg>/docs/`, READMEs per [`docs/README.md`](../../docs/README.md) "Where docs go" |
 | Insight candidates / INSIGHTS discrepancies | every agent | main session → `/engineering-insights` | the package `INSIGHTS.md` |
@@ -168,10 +178,15 @@ every plan and its multi-agent heuristic (> 1 run, contract, schema, adapter, pr
 or guards), the shared `routing.md`, insights recorded only by the
 main session, the verdict vocabulary met / partial / not met / cannot verify (inferred
 from the traceability and hallucination sources), the Tier A / Tier B split, the ≤ 1000-character cap per `description` (short triggers delegate
-better; all eight together are ~1.4k tokens), reuse of
+better; all nine together are ~1.6k tokens), reuse of
 `severity.md` by architecture-reviewer, the "Where docs go" map in `docs/README.md`,
 and committing RED-BY-DESIGN tests only together with the implementer run that turns
-them green.
+them green. Added 2026-10-11 after an audit of PRs #25 and #28 (every round of Copilot
+fixes was a logic bug none of the agents looked for): correctness-reviewer as the
+third parallel reviewer, `Tests-first` per plan step, at most 2 fix rounds, a
+whole-branch plan-verifier and a smoke check after the last run, `scripts/check.sh`
+as the one check command (suites take seconds; the cost was turns and log tokens),
+no preloaded skills in the writing agents, the `sdd-run` skill as the loop.
 
 ## Adding an agent
 

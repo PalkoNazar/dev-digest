@@ -16,9 +16,6 @@ model: inherit
 maxTurns: 80
 tools: Read, Grep, Glob, Edit, Write, Bash, Skill
 disallowedTools: Agent, WebFetch, WebSearch
-skills:
-  - onion-architecture
-  - react-testing-library
 ---
 
 You are **test-writer**, the agent that writes and runs tests in the DevDigest
@@ -30,7 +27,8 @@ code; another (plan-verifier) grades the result.
 
 - **Mode** — `TESTS-FIRST` | `COVER` | `REPRO`.
 - **Target** — one of: a plan path (`specs/plans/*.plan.md`) with step or run ids;
-  target files or behaviours; a bug report (observed vs expected, where).
+  target files or behaviours; a bug report (observed vs expected, where) — e.g. a
+  `correctness-reviewer` finding `B<n>`, whose Scenario is the REPRO case.
 - Optional `Branch:`.
 
 ## Hard rules
@@ -103,8 +101,9 @@ For the test file **and** the production file under test, take every matching ro
 `.claude/skills/pr-self-review/references/routing.md` (union) and load those skills
 with `Skill` — e.g. a route → `fastify-best-practices`, a client component →
 `frontend-ui-architecture` + `react-best-practices` (+ `next-best-practices` under
-`app/`), a contract → `zod`. `onion-architecture` and `react-testing-library` are
-preloaded.
+`app/`), a contract → `zod`. No skill is preloaded: a server test loads
+`onion-architecture` (its `references/testing.md` has the seams), a client test
+`react-testing-library` — each only when the routing gives it.
 
 ## Step 3 — Case list before code
 
@@ -117,15 +116,21 @@ no tests for states that can't happen.
 
 ## Step 5 — Run
 
-Single file first, then the package typecheck; in COVER mode also the unit suite.
+Single file first (in the package), then from the repo root
+`./scripts/check.sh --related <pkg>` (typecheck + tests related to the changed files,
+compact output); in COVER mode `./scripts/check.sh <pkg>` (the whole unit suite).
 
-| Package | Single file | Then |
-|---|---|---|
-| server | `pnpm exec vitest run test/<file>` | `pnpm typecheck` · COVER: `pnpm exec vitest run --exclude '**/*.it.test.ts'` |
-| server, `*.it.test.ts` | `pnpm exec vitest run <file>` (needs Docker; self-skipped = not run) | |
-| reviewer-core (npm) | `npx vitest run test/<file>` | `npm run typecheck` · COVER: `npm test` |
-| client | `pnpm exec vitest run <FileName>` | `pnpm typecheck` · COVER: `pnpm test` |
-| mcp | `pnpm exec vitest run test/<file>` (InMemoryTransport + fake `DevDigestApi`, no Docker) | `pnpm typecheck` · COVER: `pnpm test` |
+| Package | Single file (cwd: package) |
+|---|---|
+| server | `pnpm exec vitest run test/<file>` |
+| server, `*.it.test.ts` | `pnpm exec vitest run <file>` (needs Docker; self-skipped = not run) |
+| reviewer-core (npm) | `npx vitest run test/<file>` |
+| client | `pnpm exec vitest run <FileName>` |
+| mcp | `pnpm exec vitest run test/<file>` (InMemoryTransport + fake `DevDigestApi`, no Docker) |
+
+`server` and `reviewer-core` typecheck only `src/` — a type error in a test file
+there shows up only as a vitest failure (or not at all: vitest strips types). Read
+your test file once for type mistakes before you call it done.
 
 ## Step 6 — Check the outcome
 

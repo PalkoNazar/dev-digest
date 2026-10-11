@@ -147,6 +147,12 @@ For each screen or state shown, go through this list and note every gap:
   jobs (queue), devdigest-mcp tools, reviewer-core, repo-intel index, GitHub and
   LLM adapters. Ask which module owns the data, what the client sees while the
   server is still working, and what happens when one side fails or times out.
+- **State over time:** what the user sees after a second run, a resync or
+  incremental update (does a "degraded" / "too large" / "truncated" flag survive
+  it?), a retry after a failure, a server restart, a job that finishes after the user
+  left the page, an action started before the first data loaded. Every limit (size,
+  count, timeout): what happens to the item that alone exceeds it, and does the user
+  learn that something was cut? Past bugs in this repo were exactly these.
 - **Consistency:** compare with the closest existing screen in `client/src`
   (badges, cards, tabs, empty states, strings via next-intl), not just the image.
 - **Accessibility:** contrast, colour not the only signal, labels, focus order,
