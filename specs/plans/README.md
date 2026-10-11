@@ -19,7 +19,8 @@ the execution mode (the plan's `Execution:` line, set by the calling session) �
   before the next, full Verification at the end — the implementer owns the checks)
   → the calling session reads the reported exit codes, `git status --short` → commit.
 
-A plan with `Execution: ask-user` doesn't start: the implementer returns `BLOCKED`.
+A plan whose `Execution:` isn't exactly `multi-agent` or `single-agent` (missing,
+`ask-user`, anything else) doesn't start: the implementer returns `BLOCKED`.
 
 Before push: `/pr-self-review` (security lives there). The full map is
 in [`.claude/agents/README.md`](../../.claude/agents/README.md).
