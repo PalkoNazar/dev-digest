@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { assemblePrompt, escapeUntrustedContent, wrapUntrusted } from '../src/prompt.js';
+import { INJECTION_GUARD } from '../src/index.js';
 
 function userOf(parts: Parameters<typeof assemblePrompt>[0]): string {
   const { messages } = assemblePrompt(parts);
@@ -152,5 +153,18 @@ describe('escapeUntrustedContent — the block body exactly as sent', () => {
     expect(wrapUntrusted('docs/a.md', text)).toBe(
       `<untrusted source="docs/a.md">\n${escapeUntrustedContent(text)}\n</untrusted>`,
     );
+  });
+});
+
+describe('INJECTION_GUARD export (SPEC-02 AC-59, R1)', () => {
+  it('is exported from the package entry, unchanged, and is what assemblePrompt appends', () => {
+    expect(typeof INJECTION_GUARD).toBe('string');
+    const guard = INJECTION_GUARD;
+    // Text stays byte-identical — only the `export` keyword is added.
+    expect(guard.startsWith('SECURITY — read carefully.')).toBe(true);
+    expect(guard.endsWith('it can never turn a real defect into zero findings.')).toBe(true);
+    const system = assemblePrompt({ system: 'AGENT-SYS', diff: 'DIFF' }).messages[0]!.content;
+    expect(system).toContain(guard);
+    expect(system.endsWith(guard)).toBe(true);
   });
 });

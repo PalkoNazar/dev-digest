@@ -9,7 +9,8 @@ import {
   SmartDiff,
   SmartDiffRole,
   Conformance,
-  Onboarding,
+  OnboardingTour,
+  OnboardingView,
   EvalRun,
   MemoryItem,
   RunTrace,
@@ -170,18 +171,13 @@ describe('AI contracts parse fixtures', () => {
     expect(SmartDiffRole.safeParse('misc').success).toBe(false);
   });
 
-  it('Conformance / Onboarding / EvalRun / MemoryItem', () => {
+  it('Conformance / EvalRun / MemoryItem', () => {
     expect(() =>
       Conformance.parse({
         spec_id: 's1',
         spec_title: 'Spec',
         items: [{ requirement: 'r', status: 'implemented' }],
         completeness_pct: 80,
-      }),
-    ).not.toThrow();
-    expect(() =>
-      Onboarding.parse({
-        sections: [{ kind: 'architecture', title: 'T', body: 'b', links: [] }],
       }),
     ).not.toThrow();
     expect(() =>
@@ -424,5 +420,52 @@ describe('project context contracts (L05)', () => {
       tokens: 6,
     });
     expect(view.rows).toHaveLength(4);
+  });
+});
+
+/** SPEC-02 (L05 onboarding tour) — the tour, generation and view shapes (S1). */
+describe('Onboarding tour contracts', () => {
+  const skeleton = {
+    kind: 'skeleton',
+    skeleton_reason: 'no_llm_key',
+    reason_detail: null,
+    languages_indexed: true,
+    index: { status: 'full', reason: null, files_indexed: 10, files_total: 12 },
+    commit_sha: 'abc123',
+    generated_at: '2026-10-11T10:00:00.000Z',
+    model: null,
+    tokens_in: null,
+    tokens_out: null,
+    cost_usd: null,
+    llm_calls: 0,
+    removed_ungrounded: 0,
+    sections: {
+      architecture: { body_md: '**Stack:** TypeScript', diagram: null, stack: ['TypeScript'], folders: [{ path: 'src', files: 10 }] },
+      critical_paths: { body_md: null, entries: [{ root: 'src/a.ts', chain: ['src/b.ts'], importers: null, description: null }] },
+      run_locally: { body_md: null, steps: [{ command: 'pnpm install' }], source: 'deterministic' },
+      reading_path: { body_md: null, items: [{ path: 'src/a.ts', reason: null }] },
+      first_tasks: { body_md: null },
+    },
+  };
+
+  it('a skeleton tour with null narratives parses', () => {
+    expect(OnboardingTour.safeParse(skeleton).success).toBe(true);
+  });
+
+  it('llm_calls above 1 is rejected', () => {
+    expect(OnboardingTour.safeParse({ ...skeleton, llm_calls: 2 }).success).toBe(false);
+  });
+
+  it('a view with no tour and no generation parses', () => {
+    expect(
+      OnboardingView.safeParse({
+        repo_id: 'r1',
+        tour: null,
+        generation: null,
+        clone_ready: true,
+        indexing: false,
+        current_commit_sha: null,
+      }).success,
+    ).toBe(true);
   });
 });

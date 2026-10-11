@@ -14,6 +14,7 @@
 // Prompt assembly + prompt-injection hardening.
 export {
   assemblePrompt,
+  INJECTION_GUARD,
   wrapUntrusted,
   escapeUntrustedContent,
   estTokens,
