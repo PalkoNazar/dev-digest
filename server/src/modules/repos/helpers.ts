@@ -41,6 +41,11 @@ export function withGitHubToken(url: string, token: string): string {
 }
 
 /** Map a persisted repo row to the API `Repo` DTO. */
+/** HTTPS clone URL of a GitHub repo from its `owner/name`. */
+export function githubCloneUrl(fullName: string): string {
+  return `https://github.com/${fullName}.git`;
+}
+
 export function toRepoDto(row: typeof t.repos.$inferSelect): Repo {
   return {
     id: row.id,
