@@ -6,8 +6,9 @@
 //   node .claude/skills/workflow-retro/scripts/collect.mjs                 # latest session of this project
 //   node … --session <id | path.jsonl> --since 2026-10-11T15:30 --until … --json
 //
-// Read-only. Prints counts, timings, tool names, file paths and short error heads —
-// never message bodies. Token usage is de-duplicated by message id (one API response
+// Read-only. Prints counts, timings, tool names, file paths and short excerpts of tool
+// errors and user prompts — redacted (keys, tokens, PEM blocks, long secrets) because a
+// retro file is committed; never other message bodies. Token usage is de-duplicated by message id (one API response
 // is logged as several lines, one per content block).
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -78,7 +79,19 @@ const inWindow = (e) => {
 const contentOf = (e) => (Array.isArray(e.message?.content) ? e.message.content : []);
 const textOf = (c) =>
   typeof c === 'string' ? c : Array.isArray(c) ? c.map((x) => x.text ?? '').join(' ') : String(c ?? '');
-const head = (s, n = 140) => textOf(s).replace(/\s+/g, ' ').trim().slice(0, n);
+// Redact before truncating: an error or a prompt can carry a key. Same key shapes as
+// pr-self-review's secret check, plus long opaque tokens and key=value secrets.
+const SECRET_RES = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+  /\b(sk|rk|pk)-[A-Za-z0-9_-]{16,}/g,
+  /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
+  /\b(Bearer|token|api[_-]?key|secret|password)(\s*[:=]\s*|\s+)["']?[^\s"']{8,}/gi,
+  /\b[A-Za-z0-9+/_-]{40,}={0,2}/g,
+];
+const redact = (s) => SECRET_RES.reduce((acc, re) => acc.replace(re, '[redacted]'), s);
+const head = (s, n = 140) => redact(textOf(s).replace(/\s+/g, ' ').trim()).slice(0, n);
 
 const BLOCK_RE = /Blocked by|denied by the Claude Code|Permission for this action was denied|hook/i;
 
@@ -234,7 +247,11 @@ const sum = (ts) => ts.reduce((s, t) => ({
   output: s.output + t.output,
 }), { input: 0, cache_create: 0, cache_read: 0, output: 0 });
 const total = sum([main.tokens, ...agents.map((a) => a.tokens)]);
-const mcp = Object.fromEntries(Object.entries(main.tools).filter(([k]) => k.startsWith('mcp__')));
+// MCP calls of the main session and of every subagent
+const mcp = {};
+for (const t of [main.tools, ...agents.map((a) => a.tools)]) {
+  for (const [name, n] of Object.entries(t)) if (name.startsWith('mcp__')) mcp[name] = (mcp[name] ?? 0) + n;
+}
 
 const report = {
   session: sessionId,

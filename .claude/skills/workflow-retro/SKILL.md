@@ -1,6 +1,6 @@
 ---
 name: workflow-retro
-description: "Retrospective of a finished multi-agent workflow in DevDigest (an /sdd-run, a spec → plan → implement → review chain, a PR review loop): collects facts from Claude Code's own session transcripts — tokens per agent and in total, which agents ran, in what order and in parallel, turns, tool calls, errors and hook blocks, files several agents read — then grades each agent (difficulties, what went easily, duplicated context, what it missed that a later agent, Copilot, DevDigest or the user caught) and the workflow as a whole, and proposes concrete changes to agent prompts and skills. Use when the user asks for a retro / ретроспектива / 'як пройшов workflow' / 'оціни агентів', or offer it at the end of /sdd-run. Read-only except the retro file it writes."
+description: "Retrospective of a finished multi-agent workflow in DevDigest (an /sdd-run, a spec → plan → implement → review chain, a PR review loop): collects facts from Claude Code's own session transcripts — tokens per agent and in total, which agents ran, in what order and in parallel, turns, tool calls, errors and hook blocks, files several agents read — then grades each agent (difficulties, what went easily, duplicated context, what it missed that a later agent, Copilot, DevDigest or the user caught) and the workflow as a whole, and proposes concrete changes to agent prompts and skills. Use when the user asks for a retro / ретроспектива / 'як пройшов workflow' / 'оціни агентів', or offer it at the end of /sdd-run. Writes only the retro file and the retros index; changes to agents or skills only after the user picks them."
 metadata:
   version: 1.0.0
   updated: 2026-10-11
@@ -10,7 +10,8 @@ metadata:
 
 Turns one finished workflow into a short, evidence-backed retro: numbers from the
 transcripts, judgement from the conversation, and a list of changes to agents and
-skills that the user can accept or reject. You never apply those changes yourself.
+skills that the user can accept or reject. You apply only the changes the user picked
+(Step 6), never on your own.
 
 ```
 collect.mjs (facts) ─► read reports + conversation ─► grade agents + workflow ─► retro file ─► proposals (user decides) ─► insights
@@ -31,8 +32,9 @@ node .claude/skills/workflow-retro/scripts/collect.mjs [--since <UTC time>] [--u
   the same time), duration, turns, SendMessage resumes, tool counts, errors and hook
   blocks, the final `Status:` of each agent, MCP calls (DevDigest runs etc.), files read
   by more than one participant, and the prompts the user typed.
-- `--json` for the raw numbers. The script reads transcripts only and prints no message
-  bodies; keep it that way in the retro (no secrets, no pasted diffs).
+- `--json` for the raw numbers. The script reads transcripts only; the only text it
+  prints is short, redacted excerpts of tool errors and user prompts. Keep the retro the
+  same way: no message bodies, no secrets, no pasted diffs.
 
 Token numbers are what the API reported. Don't convert them to money unless the user
 gives the prices — never guess a price.
