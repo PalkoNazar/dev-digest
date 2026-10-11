@@ -272,3 +272,47 @@ describe('ProjectContextService — readDoc used_by (Copilot gap)', () => {
     expect((await svc.readDoc(WS, REPO.id, 'docs/b.md')).used_by).toBe(2);
   });
 });
+
+/**
+ * Copilot fix — a run resolves the agent's effective skills ONCE (in the
+ * executor's `loadSkills`) and passes them to `forRun`, so the prompt's skills
+ * block and the inherited documents come from the same snapshot.
+ */
+describe('ProjectContextService.forRun — given skill snapshot', () => {
+  it('uses the given skills and never calls effectiveSkills', async () => {
+    let calls = 0;
+    const counting: EffectiveSkillsSource = {
+      effectiveSkills: async (agentId: string) => {
+        calls += 1;
+        return EFFECTIVE[agentId] ?? [];
+      },
+    };
+    const repo = new FakeContextRepo({ 'ag-1': ['specs/a.md'] });
+    const git = new MockGitClient({ filesAtRef: FILES, tree: TREE });
+    const svc = new ProjectContextService({ repo, skills: counting, git });
+
+    // The snapshot holds sk-off (not ag-1's current effective set) → its doc is inherited.
+    const ctx = await svc.forRun(WS, 'ag-1', REPO.id, [{ id: 'sk-off', name: 'Off' }]);
+
+    expect(calls).toBe(0);
+    expect(ctx.injected.map((d) => d.path)).toEqual(['specs/a.md', 'docs/c.md']);
+  });
+
+  it('an empty snapshot inherits nothing and still skips effectiveSkills', async () => {
+    let calls = 0;
+    const counting: EffectiveSkillsSource = {
+      effectiveSkills: async () => {
+        calls += 1;
+        return [{ id: 'sk-sec', name: 'Security' }];
+      },
+    };
+    const repo = new FakeContextRepo({ 'ag-1': ['specs/a.md'] });
+    const git = new MockGitClient({ filesAtRef: FILES, tree: TREE });
+    const svc = new ProjectContextService({ repo, skills: counting, git });
+
+    const ctx = await svc.forRun(WS, 'ag-1', REPO.id, []);
+
+    expect(calls).toBe(0);
+    expect(ctx.injected.map((d) => d.path)).toEqual(['specs/a.md']);
+  });
+});

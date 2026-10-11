@@ -240,7 +240,14 @@ export class ReviewRunExecutor {
 
       // L05 — attached repo documents (own + inherited from effective skills),
       // resolved once here and passed by value (AC-39). Best-effort.
-      const docs = await this.loadProjectContext(workspaceId, agent, pull.repoId, runLog);
+      // Inherited documents come from the same skill snapshot as the skills block.
+      const docs = await this.loadProjectContext(
+        workspaceId,
+        agent,
+        pull.repoId,
+        skills.used.map(({ id, name }) => ({ id, name })),
+        runLog,
+      );
 
       // Intent layer — the derived intent as an untrusted block + the scope
       // filter mode (enforce only for a medium/high classifier intent).
@@ -499,10 +506,11 @@ export class ReviewRunExecutor {
     workspaceId: string,
     agent: AgentRow,
     repoId: string,
+    skills: { id: string; name: string }[],
     runLog: RunLogger,
   ): Promise<RunDocs> {
     try {
-      const ctx = await this.container.projectContext.forRun(workspaceId, agent.id, repoId);
+      const ctx = await this.container.projectContext.forRun(workspaceId, agent.id, repoId, skills);
       for (const path of ctx.skipped) runLog.info(`Project context: skipped ${path} (not readable)`);
       for (const path of ctx.omitted) {
         runLog.info(`Project context: omitted ${path} (over the 60,000-character budget)`);

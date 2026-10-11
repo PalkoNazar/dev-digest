@@ -142,14 +142,21 @@ export class ProjectContextService {
   /**
    * The documents a run of `agentId` on `repoId` injects, resolved once per run
    * (AC-30, AC-39). Unreadable or no longer discovered paths are `skipped`
-   * (AC-35); the rest go through the limits (AC-36, AC-37).
+   * (AC-35); the rest go through the limits (AC-36, AC-37). `skills` is the
+   * run's already-resolved effective skill set: when given, it is used as-is so
+   * the prompt's skills and the inherited documents come from ONE snapshot.
    */
-  async forRun(workspaceId: string, agentId: string, repoId: string): Promise<RunProjectContext> {
+  async forRun(
+    workspaceId: string,
+    agentId: string,
+    repoId: string,
+    skills?: { id: string; name: string }[],
+  ): Promise<RunProjectContext> {
     const empty: RunProjectContext = { injected: [], omitted: [], skipped: [] };
     const repo = await this.deps.repo.findRepo(workspaceId, repoId);
     if (!repo) return empty;
     const own = await this.deps.repo.agentDocs(workspaceId, agentId, repoId);
-    const effective = await this.effectiveFor(workspaceId, agentId, repoId, own);
+    const effective = await this.effectiveFor(workspaceId, agentId, repoId, own, skills);
     if (effective.length === 0) return empty;
     const docs = (await this.discoverOrNull(repo)) ?? [];
     const read = await this.readAll(repo, docs, effective);
@@ -207,8 +214,9 @@ export class ProjectContextService {
     agentId: string,
     repoId: string,
     own: string[],
+    given?: { id: string; name: string }[],
   ): Promise<EffectiveDoc[]> {
-    const skills = await this.deps.skills.effectiveSkills(agentId);
+    const skills = given ?? (await this.deps.skills.effectiveSkills(agentId));
     const byId =
       skills.length > 0
         ? await this.deps.repo.skillDocsFor(
