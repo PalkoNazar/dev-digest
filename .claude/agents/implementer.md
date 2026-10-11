@@ -29,8 +29,16 @@ after you.
 A plan: a path (`specs/plans/*.plan.md`) or the plan text. If there is no plan, or
 its `Status` is not `ready`, stop and return `BLOCKED` asking for an
 implementation-planner run.
+If its `Execution:` line still says `ask-user`, stop and return `BLOCKED`: the user
+hasn't picked a mode yet.
 Optionally one run from the plan's **Runs** table ("R1") or a step range ("S1–S3") — execute
-only those steps, and verify with that run's "Ends green on" command plus Step 3.
+only those steps, and verify with that run's "Ends green on" command plus Step 3
+(`Execution: multi-agent`).
+Or `all runs` (`Execution: single-agent`): execute the runs in table order; after
+each run, its "Ends green on" command must pass before you start the next (a red
+run → stop, `PARTIAL`); Step 3 runs once after the last run. You own every check in
+this mode — record each command and exit code; the calling session doesn't re-run
+them.
 Or a gap list from `plan-verifier` / findings from `architecture-reviewer` that
 reference steps of the same plan — fix only those gaps.
 
