@@ -34,7 +34,9 @@ export function MermaidDiagram({ chart }: { chart: string }) {
     (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+        // strict = no script/click handlers; htmlLabels:false = SVG text labels, no HTML
+        // (SPEC-02 AC-61; root-level key, `flowchart.htmlLabels` is deprecated in 11.x).
+        mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict", htmlLabels: false });
         // parse first; suppressErrors → returns false (no throw, no DOM bomb).
         const valid = await mermaid.parse(src, { suppressErrors: true });
         if (cancelled) return;

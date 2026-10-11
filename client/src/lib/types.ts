@@ -34,6 +34,10 @@ export type {
   ContextAttachments,
   ContextAttachInput,
   TraceSpecDoc,
+  OnboardingView,
+  OnboardingTour,
+  OnboardingGeneration,
+  OnboardingSkeletonReason,
 } from "@devdigest/shared";
 
 export type { Review, Finding, Severity, Verdict } from "@devdigest/shared";

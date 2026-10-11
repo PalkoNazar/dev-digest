@@ -60,6 +60,17 @@ Why: a number outside the message can't be pluralised ("1 endpoints"). Evidence:
 NEVER rely on `activeKeyFor` for any path containing `/onboarding` without checking it; the add-repo page matches the tour key.
 Why: `activeKeyFor` uses `pathname.includes("/onboarding")`; and `src/vendor/ui/nav.test.ts` pins WORKSPACE order (pulls → context), so inserting a nav item must update it. Evidence: `src/components/app-shell/helpers.ts:29-33`.
 
+### 2026-10-12 — show a polled page's full-page error only when there is no data
+ALWAYS gate `ErrorState` on `isError && !data` (or render data first) in views that poll.
+Why: TanStack Query v5 keeps `data` but sets `isError` when a background refetch fails, so gating on `isError` swaps a good cached tour for an error screen during a server restart. Evidence: R4 B3 repro in `src/app/repos/[repoId]/tour/_components/OnboardingTourView/OnboardingTourView.test.tsx`.
+
+### 2026-10-12 — reusing another domain's mutation does not refresh this page
+Do pass `mutate(arg, { onSettled: () => refetch() })` when a page calls another domain's mutation (e.g. `useRefreshRepo`) whose `onSuccess` doesn't invalidate the page's query; and check `indexing` before `clone_ready` — `clonePath` is set only when the clone job ends.
+Why: `useRefreshRepo` invalidates only `["repos"]`/`["pulls", id]`, so the tour stayed on "no local clone" after Resync; during the first clone the page offered a redundant Resync. Evidence: R4 B1/B2 repros, `src/lib/hooks/core.ts:84-87`, `server/src/modules/repos/service.ts:58`.
+
+### 2026-10-12 — resolved: `/onboarding` no longer lights up the tour nav key
+The 2026-10-11 entry about `activeKeyFor` matching `includes("/onboarding")` is fixed: it now matches `/^\/repos\/[^/]+\/tour(\/|$)/`, and `nav.test.ts` pins WORKSPACE `["pulls","onboarding-tour","context"]`. Evidence: `src/components/app-shell/helpers.ts:30`, `src/components/app-shell/helpers.test.ts`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
@@ -103,5 +114,6 @@ Why: `vitest.config.ts` sets `globals: true`, so `pnpm test` passes, but tsconfi
 2026-10-04 — Smart Diff Files changed (role groups, inline findings): 1 entry (indicators from usePrReviews).
 
 - 2026-09-28 — moved Agents nav item to SKILLS LAB; added `src/vendor/ui/nav.test.ts` (invariants, not a snapshot).
+- 2026-10-12 — SPEC-02 Onboarding Tour R4 (tour page): 3 entries (error gate, cross-domain mutation refresh, /onboarding nav resolved).
 
 ## Open Questions
