@@ -23,6 +23,10 @@ server fails to boot. `scripts/dev.sh` installs it since commit 66727c8.
 
 ## What Works
 
+### 2026-10-11 — agent checks: one compact `scripts/check.sh`, not raw suite runs
+Do have agents verify with `./scripts/check.sh` (`--related` per step, plain per run): one line per command, a short excerpt on failure.
+Why: each package suite takes 2–5 s (server 279 tests, client 152, all four packages ≈ 8 s in parallel), so the cost was turns and log tokens from the same commands run 3–4× (implementer, plan-verifier, hard checks), not wall time. Evidence: `./scripts/check.sh server client reviewer-core mcp` on chore/sdd-workflow.
+
 ## What Doesn't Work
 
 ### 2026-09-27 — no formatter config: never run `npx prettier --write`
@@ -109,6 +113,14 @@ Use plain `pnpm <cmd>`; fall back to the corepack recipe only when `which pnpm` 
 Why: nvm's Node 24 ships pnpm 10.34.5 (matches "pnpm ≥10"), no stray `pnpm-workspace.yaml`. Evidence: `which pnpm` →
 `~/.nvm/versions/node/v24.13.1/bin/pnpm`, `pnpm -v` → 10.34.5.
 
+### 2026-10-11 — server and reviewer-core `typecheck` skip test files
+NEVER take a green `pnpm typecheck` (server) / `npm run typecheck` (reviewer-core) as proof that tests type-check.
+Why: both tsconfigs `include` only `src/**/*.ts` and vitest strips types, so a type error in a test passes both (client and mcp include their tests). Evidence: `server/tsconfig.json` include; a test with `const x: number = 'a'` passed `./scripts/check.sh --related`.
+
+### 2026-10-11 — Claude auto mode denies edits to `.claude/hooks/*` as self-modification
+Do ask the user to apply or approve changes to the agent guard hooks (`readonly-bash.mjs`, `spec-write-scope.mjs`); don't route around the denial.
+Why: the auto-mode classifier blocked an edit to `readonly-bash.mjs` with "[Self-Modification]"; agent prompts and skills were editable. Evidence: chore/sdd-workflow session.
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-27 — `ERR_PNPM_IGNORED_BUILDS` on install in a fresh git worktree
@@ -142,6 +154,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-11 — PR #29 Copilot round 3: 0 entries (wrapper options `env -i`, anchored Status field — same class as the entries above).
 
 2026-10-11 — planner → implementation-planner (no spec work, requirements review, execution-mode question; feat/implementation-planner-agent): 1 entry (subagent choices via the main session).
+2026-10-11 — SDD workflow audit: correctness-reviewer, sdd-run skill, scripts/check.sh (worktree chore/sdd-workflow): 3 entries (check cost = turns not time, tests not typechecked, hooks need the user).
 
 ## Open Questions
 
