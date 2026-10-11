@@ -69,6 +69,14 @@ Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DE
 NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
 Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.
 
+### 2026-10-11 — NEVER ground LLM Markdown links with regexes or text-node offsets
+ALWAYS parse with the client's grammar (mdast `fromMarkdown` + GFM), splice by node offsets, escape leftover `[`/`]` in the RAW source between kept spans, re-parse the output and fail closed.
+Why: regexes missed paren titles, nested brackets, `<…>` targets, definitions in quotes/lists; GFM autolink literals create text nodes with no `position`; micromark skips a leading U+FEFF (offsets shift by 1); removing a link can turn a paragraph into a GFM table and free a link from a code span. Evidence: `src/modules/onboarding/helpers/grounding.ts`, REPRO tests in `test/onboarding-grounding.test.ts`.
+
+### 2026-10-11 — `/^[a-z][a-z0-9+.-]*:/` is not "external link"
+NEVER treat a Markdown target as external because it matches a URL-scheme regex; `server.ts:42` matches, and react-markdown renders it with `href=""`.
+Why: react-markdown's `defaultUrlTransform` allows only http(s)/irc(s)/mailto/xmpp (`client/node_modules/react-markdown/lib/index.js:113`). Known open issue B9 in `src/modules/onboarding/helpers/grounding.ts:19`.
+
 ## Codebase Patterns
 
 ### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
@@ -86,6 +94,10 @@ Why: the clone is depth 1 (Option B), so the pipeline hard-codes hotness = 0. Ev
 ### 2026-10-11 — "exactly one LLM call" needs three request fields, not one
 ALWAYS send `transportRetries: 0` AND `maxRetries: 0` (and `reasoning: 'off'` on OpenRouter) when a feature promises one paid call.
 Why: `transportRetries` only caps `withRetry` + SDK retries; `maxRetries` caps the schema-repair loop (up to 3 more calls); OpenRouter also retries a reasoning-exhausted attempt unless reasoning is off from attempt 1. Evidence: `reviewer-core/src/llm/openrouter.ts:104-195`, `src/platform/resilience.ts:47-53`.
+
+### 2026-10-11 — `check.sh --related` skips untracked test files
+NEVER trust `./scripts/check.sh --related server` to run new, untracked tests; run them with `pnpm exec vitest run <files>` or use plain `./scripts/check.sh server`.
+Why: in onboarding R2, `--related` ran 282 tests and none of the 82 new ones; the plain run ran 412.
 
 ## Tool & Library Notes
 
@@ -108,6 +120,10 @@ Why: Postgres "already exists, skipping" notices for the drizzle schema, vector 
 ### 2026-10-05 — `tsx watch` does not restart on `reviewer-core` edits
 ALWAYS restart the dev server (`./scripts/dev.sh` or `pnpm dev` in server) after changing `../reviewer-core/src`.
 Why: the engine is imported as source via a path alias outside `server/`, and the watcher didn't pick it up — a review at 23:53 still ran the pre-fix OpenRouter provider (server process started 23:08, fix committed 23:52). Evidence: `ps -o lstart -p <server pid>` vs `git log -1 --format=%ci`.
+
+### 2026-10-11 — `pnpm add` in server/ needs the pnpm that built node_modules
+Do run the pnpm version from `node_modules/.modules.yaml` (`packageManager`, e.g. `node ~/.cache/node/corepack/v1/pnpm/12.6.0/bin/pnpm.mjs add <pkg>`) and delete the `server/pnpm-workspace.yaml` it creates.
+Why: global pnpm 10.x fails with `ERR_PNPM_UNEXPECTED_STORE` (store v11); pnpm 12 links, then exits `ERR_PNPM_IGNORED_BUILDS` and writes an `allowBuilds:` placeholder (the repo is not a workspace).
 
 ## Recurring Errors & Fixes
 
@@ -144,6 +160,7 @@ Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/
 2026-10-04 — Smart Diff (worktree feat/smart-diff): 1 entry (arch:check baseline vs hoisted linker; answers the 2026-09-27 open question).
 2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
 2026-10-11 — SPEC-02 Onboarding Tour R1 (feat/l05-onboarding-tour): 3 entries (file_edges PK, hotness=0, one-call fields).
+2026-10-11 — SPEC-02 Onboarding Tour R2: 4 entries (Markdown grounding, scheme regex, pnpm add store, --related skips untracked).
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.
