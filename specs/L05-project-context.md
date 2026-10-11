@@ -83,10 +83,11 @@ Lesson: L05 · Packages: server, client, reviewer-core · Designs: `designs/proj
 
 ### Agent → Context
 - AC-11 (US-2): WHEN the user opens the Context tab of an agent, the agent editor SHALL
-  list every discovered document of the active repo with an attach checkbox.
+  list every discovered document of the active repo as exactly one row, with an attach
+  checkbox on every row except inherited-only rows (AC-42).
 - AC-12 (US-2): The agent Context tab SHALL show the count "K of M attached", where K
   counts the agent's own attachments for the active repo.
-- AC-13 (US-2): WHEN the user ticks a document's checkbox, the server SHALL store the
+- AC-13 (US-2): WHEN the user ticks a document row's checkbox, the server SHALL store the
   attachment for this agent and repo immediately, without a separate Save action.
 - AC-14 (US-2): WHEN the user unticks a document's checkbox, the server SHALL remove that
   attachment immediately.
@@ -94,8 +95,15 @@ Lesson: L05 · Packages: server, client, reviewer-core · Designs: `designs/proj
   order immediately.
 - AC-16 (US-2): The agent Context tab SHALL list attached and inherited documents first, in
   prompt order (AC-30), followed by unattached documents in alphabetical path order.
-- AC-42 (US-2): The agent Context tab SHALL show each document inherited from one of the
-  agent's effective skills as a non-toggleable row labelled "via <skill name>".
+- AC-42 (US-2): The agent Context tab SHALL show each document that is inherited from one of
+  the agent's effective skills and not attached to the agent directly as a non-toggleable
+  row labelled "via <skill name>".
+- AC-46 (US-2): WHERE a document is both attached to the agent directly and inherited from
+  an effective skill, the agent Context tab SHALL show it as a normal checked row annotated
+  "also via <skill name>".
+- AC-47 (US-2): WHEN the user unticks a document that is also inherited from an effective
+  skill, the agent Context tab SHALL turn its row into the non-toggleable "via <skill name>"
+  row of AC-42 (the document stays in the effective list via the skill, AC-30).
 - AC-17 (US-2): The agent Context tab SHALL show "≈ T tokens", where T is ceil(characters / 4)
   of all document text the agent's next run on this repo would inject, including inherited
   documents and after the limits of AC-36/AC-37.
@@ -184,7 +192,9 @@ Lesson: L05 · Packages: server, client, reviewer-core · Designs: `designs/proj
 - EC-5: Один документ більший за 20,000 символів → AC-36, AC-54.
 - EC-6: Сума документів перевищує 60,000 символів → AC-37, AC-54, AC-17.
 - EC-7: Той самий документ прикріплений і до агента, і до його скіла → AC-30 (один раз, на
-  першій позиції), AC-42.
+  першій позиції); на вкладці агента — один рядок: звичайний чекбокс з позначкою «also via
+  <skill>» (AC-46); після відкріплення рядок стає заблокованим «via <skill>», документ
+  лишається в промпті через скіл (AC-47).
 - EC-8: Документ прикріплений до скіла, який вимкнено для агента або глобально → AC-30
   (не успадковується).
 - EC-9: Агенти й скіли спільні для воркспейсу, а документи належать репо; агент запускається
