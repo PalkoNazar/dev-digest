@@ -67,6 +67,9 @@ export const s = {
   promptLabel: { fontSize: 13, fontWeight: 600 } satisfies CSSProperties,
   promptMeta: { fontSize: 12, color: "var(--text-muted)", marginLeft: 8 } satisfies CSSProperties,
   promptToggle: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  // ---- SpecsPromptBlock rows (one per injected document) ----
+  specDocRow: { borderTop: "1px solid var(--border)" } satisfies CSSProperties,
+  specDocHead: { display: "flex", alignItems: "center", gap: 8, padding: "6px 12px 6px 29px", cursor: "pointer" } satisfies CSSProperties,
   promptPre: {
     margin: 0,
     padding: "12px 14px",

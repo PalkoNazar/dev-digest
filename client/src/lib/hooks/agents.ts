@@ -76,6 +76,9 @@ export function useDeleteAgent() {
     onSuccess: (_d, id) => {
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.removeQueries({ queryKey: ["agent", id] });
+      // L05: the agent's Context views are gone and "Used by N agents" drops it.
+      qc.removeQueries({ queryKey: ["agent-context", id] });
+      qc.invalidateQueries({ queryKey: ["context"] });
     },
   });
 }

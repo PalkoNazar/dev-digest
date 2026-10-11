@@ -95,6 +95,7 @@
   "detail": {
     "tabs": {
       "config": "Config",
+      "context": "Context",
       "preview": "Preview",
       "versions": "Versions",
       "stats": "Stats"

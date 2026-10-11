@@ -52,6 +52,15 @@ function invalidateSkillViews(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["skills"] });
   qc.invalidateQueries({ queryKey: ["agents"] });
   qc.invalidateQueries({ queryKey: ["agent"] });
+  invalidateInheritedContext(qc);
+}
+
+/* An agent inherits the documents of its linked, enabled skills (L05): any change to
+   links or to a skill's state changes the agent Context views and "Used by N agents".
+   Prefix match compares whole key elements — ["agent"] does not cover ["agent-context"]. */
+function invalidateInheritedContext(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["agent-context"] });
+  qc.invalidateQueries({ queryKey: ["context"] });
 }
 
 export function useCreateSkill() {
@@ -150,6 +159,7 @@ export function useSetAgentSkillLinks(agentId: string) {
       qc.invalidateQueries({ queryKey: ["skills"] });
       qc.invalidateQueries({ queryKey: ["skill"] });
       qc.invalidateQueries({ queryKey: ["skill-stats"] });
+      invalidateInheritedContext(qc);
     },
   });
 }
@@ -164,6 +174,7 @@ export function useLinkSkillToAgent() {
       qc.invalidateQueries({ queryKey: ["agent-skills", agentId] });
       qc.invalidateQueries({ queryKey: ["agents"] });
       qc.invalidateQueries({ queryKey: ["skills"] });
+      invalidateInheritedContext(qc);
     },
   });
 }

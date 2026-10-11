@@ -12,6 +12,12 @@ describe("NAV", () => {
     expect(sectionOf("pulls")).toBe("WORKSPACE");
   });
 
+  it("lists Project Context under WORKSPACE, right after Pull Requests (L05)", () => {
+    const workspace = NAV.find((g) => g.section === "WORKSPACE")!.items.map((it) => it.key);
+    expect(workspace.slice(0, 2)).toEqual(["pulls", "context"]);
+    expect(NAV.flatMap((g) => g.items).find((it) => it.key === "context")?.href).toBe("/repos/:repoId/context");
+  });
+
   it("item keys are unique (the sidebar keys and highlights items by them)", () => {
     const keys = allItems.map((it) => it.key);
     expect(new Set(keys).size).toBe(keys.length);

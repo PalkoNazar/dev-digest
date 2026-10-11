@@ -20,7 +20,19 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## What Doesn't Work
 
+### 2026-10-11 — a server-derived view goes stale unless every mutation of its inputs invalidates it
+ALWAYS invalidate `["agent-context"]` and `["context"]` from any mutation that changes an agent's skill links or a skill's state (`invalidateInheritedContext` in `lib/hooks/skills.ts`).
+Why: the server builds the agent Context view from links + skill state; TanStack prefix matching compares whole key elements, so `["agent"]` doesn't cover `["agent-context"]`, and with `staleTime: 30_000` a remounted tab showed old "via skill" rows and tokens. Evidence: `src/lib/hooks/context-invalidation.test.tsx` red before, green after (L05 R3 B1).
+
+### 2026-10-11 — a cache-invalidation test can't use mocked data hooks
+Do mock `@/lib/api` with a real QueryClient (not `@/lib/hooks/<domain>`) when a component test must prove a query is re-read.
+Why: with mocked hooks an `invalidateQueries` fix is invisible. Evidence: `ProjectContextView.refresh.test.tsx` next to `ProjectContextView.test.tsx` (L05 R3 B2).
+
 ## Codebase Patterns
+
+### 2026-10-11 — the UI kit `Checkbox` is named by its `label` and has no `disabled`
+Do pass the visible text (e.g. the path span) as `label`; for a pending state wrap it (`pointer-events: none`) and guard the handler.
+Why: it renders `<label><button role="checkbox"/>{label}</label>` with no `aria-label`/`disabled` props. Evidence: `src/vendor/ui/kit/Checkbox.tsx`; `ContextDocsPanel.test.tsx`.
 
 ### 2026-09-27 — PR-list popovers must portal out of the table card
 Render hover cards from a PR row via `createPortal(…, document.body)` with `position: fixed` coords.

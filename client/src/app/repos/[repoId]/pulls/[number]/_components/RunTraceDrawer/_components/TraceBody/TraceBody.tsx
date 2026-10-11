@@ -7,12 +7,13 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@devdigest/ui";
 import type { RunTrace, FindingRecord } from "@devdigest/shared";
 import { PROMPT_COLORS } from "../../constants";
-import { formatSeconds, formatTokens } from "../../helpers";
+import { formatSeconds, formatTokens, injectedSpecDocs, specsReadEntries } from "../../helpers";
 import { formatUsd } from "@/components/run-cost-badge";
 import { s } from "../../styles";
 import { TraceSection } from "../TraceSection";
 import { ToolCallRow } from "../ToolCallRow";
 import { PromptBlock } from "../PromptBlock";
+import { SpecsPromptBlock } from "../SpecsPromptBlock";
 import { FindingsSection } from "../FindingsSection";
 import { Row, Stat } from "../atoms";
 
@@ -26,6 +27,8 @@ function skillsMeta(trace: RunTrace, t: ReturnType<typeof useTranslations>): str
 export function TraceBody({ trace, findings }: { trace: RunTrace; findings: FindingRecord[] }) {
   const t = useTranslations("runs");
   const stats = trace.stats;
+  const specsRead = specsReadEntries(trace);
+  const specDocs = injectedSpecDocs(trace);
   return (
     <>
       <TraceSection icon="Settings" title={t("trace.configuration")}>
@@ -58,12 +61,19 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
           </Row>
           <Row label={t("trace.config.specsRead")}>
             <div style={s.specsWrap}>
-              {trace.specs_read.length === 0 ? (
+              {specsRead.length === 0 ? (
                 <span style={s.specsNone}>{t("trace.config.none")}</span>
               ) : (
-                trace.specs_read.map((sp, i) => (
-                  <span key={i} className="mono" style={s.spec}>
-                    {sp}
+                specsRead.map((sp) => (
+                  <span key={`${sp.tag ?? "read"}:${sp.path}`} style={s.specsWrap}>
+                    <span className="mono" style={s.spec}>
+                      {sp.path}
+                    </span>
+                    {sp.tag && (
+                      <Badge color={sp.tag === "omitted" ? "var(--text-muted)" : "var(--warn)"}>
+                        {t(`trace.specs.${sp.tag}`)}
+                      </Badge>
+                    )}
                   </span>
                 ))
               )}
@@ -110,9 +120,7 @@ export function TraceBody({ trace, findings }: { trace: RunTrace; findings: Find
         {trace.prompt_assembly.repo_map != null && (
           <PromptBlock label={t("trace.prompt.repoMap")} text={trace.prompt_assembly.repo_map} color={PROMPT_COLORS.repoMap} />
         )}
-        {trace.prompt_assembly.specs != null && (
-          <PromptBlock label={t("trace.prompt.specs")} text={trace.prompt_assembly.specs} color={PROMPT_COLORS.specs} />
-        )}
+        {specDocs.length > 0 && <SpecsPromptBlock docs={specDocs} color={PROMPT_COLORS.specs} />}
         {trace.prompt_assembly.callers != null && (
           <PromptBlock label={t("trace.prompt.callers")} text={trace.prompt_assembly.callers} color={PROMPT_COLORS.callers} />
         )}
