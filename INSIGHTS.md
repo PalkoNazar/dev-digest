@@ -130,6 +130,10 @@ Why: both tsconfigs `include` only `src/**/*.ts` and vitest strips types, so a t
 Do ask the user to apply or approve changes to the agent guard hooks (`readonly-bash.mjs`, `spec-write-scope.mjs`); don't route around the denial.
 Why: the auto-mode classifier blocked an edit to `readonly-bash.mjs` with "[Self-Modification]"; agent prompts and skills were editable. Evidence: chore/sdd-workflow session.
 
+### 2026-10-11 — the snap `mmdc` can't render Mermaid on this machine
+Do treat doc-writer's "not rendered (mmdc exit 1)" as unverified, not broken; check diagrams by eye or on GitHub.
+Why: snap confinement — a file path gives "Input file doesn't exist", stdin input fails at startup, even for diagrams already in the repo. Evidence: L05 doc-writer run (`/snap/mermaid-cli/25/…/index.js:260`).
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-27 — `ERR_PNPM_IGNORED_BUILDS` on install in a fresh git worktree

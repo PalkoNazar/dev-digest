@@ -77,6 +77,7 @@ flowchart TB
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
+    projectContext["project-context<br/>/repos/:id/context(/file) · /agents/:id/context · /skills/:id/context"]
   end
   subgraph Platform["Platform"]
     settings["settings<br/>/settings · /providers"]
