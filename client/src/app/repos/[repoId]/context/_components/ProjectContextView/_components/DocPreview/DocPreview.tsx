@@ -7,6 +7,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { ErrorState, Icon, Markdown, Skeleton } from "@devdigest/ui";
 import type { SpecFile } from "@devdigest/shared";
+import { splitFrontmatter } from "@/lib/frontmatter";
 import { useContextDoc } from "@/lib/hooks/context";
 import { s } from "../../styles";
 
@@ -18,7 +19,20 @@ export function DocPreview({ repoId, doc }: { repoId: string; doc: SpecFile }) {
   if (isLoading) body = <Skeleton height={160} />;
   else if (isError) body = <ErrorState title={t("preview.loadError")} onRetry={() => refetch()} />;
   else if (!data?.content) body = <span style={s.muted}>{t("preview.empty")}</span>;
-  else body = <Markdown>{data.content}</Markdown>;
+  else {
+    // A leading YAML frontmatter block is shown as-is in a code block, not parsed as Markdown.
+    const { frontmatter, body: markdown } = splitFrontmatter(data.content);
+    body = (
+      <>
+        {frontmatter !== null && (
+          <pre className="mono" style={s.frontmatter}>
+            {frontmatter}
+          </pre>
+        )}
+        <Markdown>{markdown}</Markdown>
+      </>
+    );
+  }
 
   return (
     <>

@@ -12,6 +12,7 @@ import { RepoNotFound } from "@/components/repo-not-found";
 import { useContextDocs, useInvalidateRepoDocs } from "@/lib/hooks/context";
 import { useActiveRepo, useRepoNotFound } from "@/lib/repo-context";
 import { DocPreview } from "./_components/DocPreview";
+import { middleEllipsisPath } from "@/lib/path-ellipsis";
 import { lastSyncDate } from "./helpers";
 import { useDocsRefresh } from "./useDocsRefresh";
 import { s } from "./styles";
@@ -72,7 +73,7 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
           >
             <Icon.FileText size={13} />
             <span className="mono" style={s.itemPath}>
-              {d.path}
+              <ShortPath path={d.path} />
             </span>
             <Badge>{d.category}</Badge>
           </button>
@@ -129,5 +130,20 @@ export function ProjectContextView({ repoId }: { repoId: string }) {
         <main style={s.main}>{main}</main>
       </div>
     </AppShell>
+  );
+}
+
+/** Characters of a list-row path before it is shortened in the middle (300 px side pane). */
+const LIST_PATH_MAX = 30;
+
+/** The path cut in the middle for the eye; the full path stays the accessible text (AC-43). */
+function ShortPath({ path }: { path: string }) {
+  const short = middleEllipsisPath(path, LIST_PATH_MAX);
+  if (short === path) return <>{path}</>;
+  return (
+    <>
+      <span aria-hidden="true">{short}</span>
+      <span style={s.srOnly}>{path}</span>
+    </>
   );
 }
