@@ -27,7 +27,7 @@ export function DocPreviewModal({ repoId, path, onClose }: { repoId: string; pat
             {frontmatter}
           </pre>
         )}
-        <Markdown>{markdown}</Markdown>
+        <Markdown variant="document">{markdown}</Markdown>
       </>
     );
   }

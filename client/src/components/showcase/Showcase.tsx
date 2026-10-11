@@ -149,6 +149,9 @@ export function Gallery() {
         <div style={s.w420}>
           <Markdown>{"A finding with **bold**, `inline code`, and a [link](https://example.com).\n\n- one\n- two"}</Markdown>
         </div>
+        <div style={s.w420}>
+          <Markdown variant="document">{"# Document\n\n## Goals\n\nA whole file with `inline code`.\n\n- one\n- two\n\n```\ncode block\n```"}</Markdown>
+        </div>
       </Group>
 
       <Group title="Form controls (real, controlled)">

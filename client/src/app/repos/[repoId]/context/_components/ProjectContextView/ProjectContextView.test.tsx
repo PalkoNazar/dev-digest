@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { SpecFile } from "@devdigest/shared";
 import messages from "../../../../../../../messages/en/context.json";
@@ -90,10 +90,14 @@ describe("ProjectContextView", () => {
     docContent.mockImplementation((path) => `# Heading of ${path}`);
     renderView();
 
-    const readme = screen.getByRole("button", { name: /README\.md/ });
-    expect(readme).toHaveTextContent("root");
-    const spec = screen.getByRole("button", { name: /specs\/x\.md/ });
-    expect(spec).toHaveTextContent("specs");
+    // Grouped by directory; the group header carries the category (AC-2).
+    const rootGroup = screen.getByRole("group", { name: "root" });
+    expect(rootGroup).toHaveTextContent("root");
+    within(rootGroup).getByRole("button", { name: "README.md" });
+    const specsGroup = screen.getByRole("group", { name: "specs/" });
+    expect(specsGroup).toHaveTextContent("specs/");
+    const spec = within(specsGroup).getByRole("button", { name: "specs/x.md" });
+    within(screen.getByRole("group", { name: "docs/" })).getByRole("button", { name: "docs/y.md" });
 
     fireEvent.click(spec);
     expect(screen.getByRole("heading", { name: "Heading of specs/x.md" })).toBeInTheDocument();

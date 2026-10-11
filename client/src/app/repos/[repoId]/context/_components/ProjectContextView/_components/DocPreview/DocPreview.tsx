@@ -9,11 +9,13 @@ import { ErrorState, Icon, Markdown, Skeleton } from "@devdigest/ui";
 import type { SpecFile } from "@devdigest/shared";
 import { splitFrontmatter } from "@/lib/frontmatter";
 import { useContextDoc } from "@/lib/hooks/context";
+import { splitPath } from "../../helpers";
 import { s } from "../../styles";
 
 export function DocPreview({ repoId, doc }: { repoId: string; doc: SpecFile }) {
   const t = useTranslations("context");
   const { data, isLoading, isError, refetch } = useContextDoc(repoId, doc.path);
+  const { dir, name } = splitPath(doc.path);
 
   let body: React.ReactNode;
   if (isLoading) body = <Skeleton height={160} />;
@@ -29,7 +31,7 @@ export function DocPreview({ repoId, doc }: { repoId: string; doc: SpecFile }) {
             {frontmatter}
           </pre>
         )}
-        <Markdown>{markdown}</Markdown>
+        <Markdown variant="document">{markdown}</Markdown>
       </>
     );
   }
@@ -37,15 +39,18 @@ export function DocPreview({ repoId, doc }: { repoId: string; doc: SpecFile }) {
   return (
     <>
       <div style={s.mainHead}>
-        <span className="mono" style={s.mainPath}>
-          {doc.path}
+        <span className="mono" style={s.mainPath} title={doc.path}>
+          {dir && <span style={s.mainDir}>{dir}</span>}
+          <span style={s.mainName}>{name}</span>
         </span>
         <span style={s.usedBy}>
-          <Icon.Cpu size={12} />
-          {t.rich("usedBy", { count: doc.used_by, b: (c) => <strong>{c}</strong> })}
+          <Icon.Cpu size={13} />
+          <span>{t.rich("usedBy", { count: doc.used_by, b: (c) => <span style={s.usedByCount}>{c}</span> })}</span>
         </span>
       </div>
-      <div style={s.mainBody}>{body}</div>
+      <div style={s.mainBody}>
+        <div style={s.prose}>{body}</div>
+      </div>
     </>
   );
 }
