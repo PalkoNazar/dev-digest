@@ -42,11 +42,18 @@ function escapeLabel(label: string): string {
     .replace(/[\u0000-\u001f\u007f]/g, ' ');
 }
 
+/**
+ * The body text exactly as it is placed inside an `<untrusted>` block: any
+ * attempt to close our own delimiter, including case and whitespace/attribute
+ * variants (`</UNTRUSTED>`, `</untrusted >`, `</untrusted x="y">`), is neutralised
+ * to `<\\/untrusted>`. Exported so traces can record what the model received.
+ */
+export function escapeUntrustedContent(content: string): string {
+  return content.replace(/<\/\s*untrusted\b[^>]*>/gi, '<\\/untrusted>');
+}
+
 export function wrapUntrusted(label: string, content: string): string {
-  // Neutralise any attempt to close our own delimiter, including case and
-  // whitespace/attribute variants (`</UNTRUSTED>`, `</untrusted >`, `</untrusted x="y">`).
-  const safe = content.replace(/<\/\s*untrusted\b[^>]*>/gi, '<\\/untrusted>');
-  return `<untrusted source="${escapeLabel(label)}">\n${safe}\n</untrusted>`;
+  return `<untrusted source="${escapeLabel(label)}">\n${escapeUntrustedContent(content)}\n</untrusted>`;
 }
 
 /** Cap the PR description so a huge author body can't blow the token budget. */

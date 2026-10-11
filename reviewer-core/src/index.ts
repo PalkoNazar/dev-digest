@@ -15,6 +15,7 @@
 export {
   assemblePrompt,
   wrapUntrusted,
+  escapeUntrustedContent,
   estTokens,
   type PromptParts,
   type AssembledPrompt,
