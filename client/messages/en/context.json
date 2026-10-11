@@ -8,6 +8,7 @@
   "usedBy": "Used by {count, plural, one {<b>#</b> agent} other {<b>#</b> agents}}",
   "footer": "{count, plural, one {<b>#</b> document} other {<b>#</b> documents}} · last sync {when}",
   "never": "never",
+  "rootGroup": "root",
   "empty": {
     "title": "No Markdown documents",
     "body": "Every .md file of this repo’s default branch is listed here (except under node_modules, dist, build, coverage, .next, out, vendor and .git). This repo has none yet."

@@ -1,10 +1,10 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { SpecFile } from "@devdigest/shared";
 import messages from "../../../../../../../messages/en/context.json";
 
-/* L05 manual-check fixes — frontmatter preview (AC-3) and middle-cut list paths (AC-43). */
+/* L05 manual-check fixes — frontmatter preview (AC-3) and file-name rows grouped by directory (AC-43). */
 
 const docsState: { data?: SpecFile[]; isLoading: boolean; isError: boolean } = {
   data: undefined,
@@ -77,13 +77,14 @@ describe("ProjectContextView display", () => {
     expect(screen.queryByRole("heading", { name: /skills/ })).not.toBeInTheDocument();
   });
 
-  it("cuts a long list path in the middle; the full path stays the title and accessible name (AC-43)", () => {
+  it("lists a long path as its file name under its directory; the full path stays the title and accessible name (AC-43)", () => {
     const long = ".claude/skills/drizzle-orm-patterns/references/relations.md";
     docsState.data = [doc(long, "skills")];
     renderView();
 
-    const row = screen.getByRole("button", { name: new RegExp(long.replace(/[.]/g, "\\.")) });
+    const group = screen.getByRole("group", { name: ".claude/skills/drizzle-orm-patterns/references/" });
+    const row = within(group).getByRole("button", { name: long });
     expect(row).toHaveAttribute("title", long);
-    expect(screen.getByText(".claude/skills/…/relations.md")).toHaveAttribute("aria-hidden", "true");
+    expect(row).toHaveTextContent(/^relations\.md$/);
   });
 });

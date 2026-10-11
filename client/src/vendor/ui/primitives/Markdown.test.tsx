@@ -24,3 +24,23 @@ describe("Markdown (untrusted input)", () => {
     expect(hrefs).toContain("https://example.com");
   });
 });
+
+/* Tailwind's preflight strips heading sizes and list markers; the `document` variant
+   restores them for whole files, the default `compact` variant stays as it was. */
+describe("Markdown variants", () => {
+  const md = "## Goals\n\n- one\n- two\n\n```\ncode block\n```";
+
+  it("document: styles headings, lists and code blocks", () => {
+    const { container } = render(<Markdown variant="document">{md}</Markdown>);
+    expect(container.querySelector("h2")?.style.fontSize).toBe("17px");
+    expect(container.querySelector("ul")?.style.listStyleType).toBe("disc");
+    // A fenced block's code is not drawn as an inline chip.
+    expect(container.querySelector("pre code")?.getAttribute("style")).toBeNull();
+  });
+
+  it("compact (default): leaves block elements unstyled", () => {
+    const { container } = render(<Markdown>{md}</Markdown>);
+    expect(container.querySelector("h2")?.getAttribute("style")).toBeNull();
+    expect(container.querySelector("ul")?.getAttribute("style")).toBeNull();
+  });
+});
