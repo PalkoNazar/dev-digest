@@ -50,6 +50,7 @@ export default async function pollingRoutes(appBase: FastifyInstance) {
           target: [t.pullRequests.repoId, t.pullRequests.number],
           set: {
             title: pr.title,
+            base: pr.base, // a PR can be retargeted (e.g. its base branch was merged)
             headSha: pr.head_sha,
             status: pr.status,
             updatedAt: pr.updated_at ? new Date(pr.updated_at) : null,
