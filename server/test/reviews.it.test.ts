@@ -532,4 +532,99 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(llm.calls).toHaveLength(0);
     await app.close();
   });
+
+  // ---- L05 Project Context (plan S7) ----
+
+  const SPEC_A = 'Spec A: every public endpoint MUST validate its input. SENTINEL-SPEC-A';
+  const BIG_LINE = 'big document line SENTINEL-BIG\n'; // 31 chars
+  const BIG = BIG_LINE.repeat(Math.ceil(25_000 / BIG_LINE.length)).slice(0, 25_000);
+
+  function appWithDocs(filesAtRef: Record<string, string>) {
+    return buildApp({
+      config: config(),
+      db: pg.handle.db,
+      overrides: {
+        secrets: new MockSecretsProvider(),
+        github: new MockGitHubClient(),
+        embedder: new MockEmbedder(),
+        git: new MockGitClient({ diff: DIFF, filesAtRef }),
+        llm: { openai: new MockLLMProvider('openai', { structured: REVIEW_FIXTURE }) },
+      },
+    });
+  }
+
+  async function runOnce(app: Awaited<ReturnType<typeof buildApp>>, prId: string, agentId: string) {
+    const res = await app.inject({ method: 'POST', url: `/pulls/${prId}/review`, payload: { agentId } });
+    expect(res.statusCode).toBe(200);
+    await waitForPrRuns(pg.handle.db, prId, { expected: 1 });
+    const runId = res.json().runs[0].run_id as string;
+    // The executor marks the run `done` (completeAgentRun) BEFORE it persists the
+    // trace (saveRunTrace), so the trace can 404 for a moment after waitForPrRuns.
+    let traceRes = await app.inject({ method: 'GET', url: `/runs/${runId}/trace` });
+    for (let i = 0; i < 50 && traceRes.statusCode === 404; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      traceRes = await app.inject({ method: 'GET', url: `/runs/${runId}/trace` });
+    }
+    expect(traceRes.statusCode).toBe(200);
+    return traceRes.json();
+  }
+
+  it('injects attached documents into the prompt and the trace; skips a missing one (AC-31, AC-34–AC-36, AC-50, AC-53, AC-54)', async () => {
+    const app = await appWithDocs({ 'specs/a.md': SPEC_A, 'docs/big.md': BIG });
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'CtxAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+    await pg.handle.db.insert(t.agentContextDocs).values([
+      { agentId: agent.id, repoId: repo.id, path: 'specs/a.md', order: 0 },
+      { agentId: agent.id, repoId: repo.id, path: 'docs/big.md', order: 1 },
+      { agentId: agent.id, repoId: repo.id, path: 'specs/gone.md', order: 2 },
+    ]);
+
+    const trace = await runOnce(app, pr.id, agent.id);
+
+    expect(trace.specs_read).toEqual(['specs/a.md', 'docs/big.md']);
+    const big = (trace.project_context ?? []).find((d: { path: string }) => d.path === 'docs/big.md');
+    expect(big?.status).toBe('truncated');
+    const a = (trace.project_context ?? []).find((d: { path: string }) => d.path === 'specs/a.md');
+    expect(a?.status).toBe('injected');
+    expect(a?.text).toBe(SPEC_A);
+
+    const user: string = trace.prompt_assembly.user;
+    expect(user).toContain('## Project context');
+    expect(user).toContain('<untrusted source="specs/a.md">');
+    expect(user).toContain('SENTINEL-SPEC-A');
+    expect(trace.prompt_assembly.specs).toEqual(expect.any(String));
+
+    const msgs: string[] = trace.log.map((l: { msg: string }) => l.msg);
+    expect(msgs.some((m) => m.includes('skipped') && m.includes('specs/gone.md'))).toBe(true);
+    // Live Log lines carry paths and counts, never document text
+    expect(msgs.some((m) => m.includes('SENTINEL-SPEC-A') || m.includes('SENTINEL-BIG'))).toBe(false);
+
+    await app.close();
+  });
+
+  it('no attachments: prompt_assembly.specs is null and specs_read is [] (AC-33)', async () => {
+    const app = await appWithDocs({ 'specs/a.md': SPEC_A });
+    const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'NoCtxAgent', provider: 'openai', model: 'gpt-4.1', system_prompt: 's' },
+      })
+    ).json();
+
+    const trace = await runOnce(app, pr.id, agent.id);
+
+    expect(trace.prompt_assembly.specs).toBeNull();
+    expect(trace.specs_read).toEqual([]);
+    expect(trace.prompt_assembly.user).not.toContain('## Project context');
+
+    await app.close();
+  });
 });
