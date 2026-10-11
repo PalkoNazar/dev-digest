@@ -26,6 +26,10 @@ so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
 Do drive the service from a `tsx` script (`.mts`, absolute imports into `server/src`, `new Container(loadConfig(env), db)`) against the dev DB.
 Why: `buildApp` reaps every `running` agent_run on boot (`src/app.ts:81`), so a second API on another port would fail the reviews of the user's server on :3001. Evidence: the L02 conventions live scan.
 
+### 2026-10-11 — a duplicate `file_edges` row can't be seeded
+NEVER seed a duplicate `(repoId, fromFile, toFile)` edge in a pg it-test; test edge dedupe in repo-intel facade methods with the in-memory repository fake (`test/repo-intel-blast.test.ts`).
+Why: `file_edges` has a composite PK, so the insert fails before the code under test runs. Evidence: `src/db/schema/repo-intel.ts:65`.
+
 ## What Doesn't Work
 
 ### 2026-10-11 — a bare `slice(0, N)` of user text can leave a lone surrogate
@@ -74,6 +78,14 @@ Why: `step()` logs `err.message` unredacted as an `error` event, mirrored to pin
 ### 2026-10-10 — fixed a baselined depcruise edge → delete that one baseline entry by hand
 When a diff removes a known violation, delete exactly its object from `.dependency-cruiser-known-violations.json` (filter by `from`+`to`); NEVER run `arch:baseline` in a hoisted worktree.
 Why: `arch:baseline` there would rewrite the 5 drizzle `to` paths from `.pnpm/…` to hoisted ones; the "N known violations ignored" count dropping (36→35) is the signal, not a regression. Evidence: blast R1 removed `repo-intel/service.ts → adapters/codeindex/extract.ts`.
+
+### 2026-10-11 — "PageRank × (1 + hotness)" is PageRank only
+Do treat `file_rank.hotness` as always 0; any rank formula that multiplies by `(1 + hotness)` is plain PageRank today.
+Why: the clone is depth 1 (Option B), so the pipeline hard-codes hotness = 0. Evidence: `src/modules/repo-intel/pipeline/rank.ts:4-6`, `src/db/schema/repo-intel.ts:95-98`.
+
+### 2026-10-11 — "exactly one LLM call" needs three request fields, not one
+ALWAYS send `transportRetries: 0` AND `maxRetries: 0` (and `reasoning: 'off'` on OpenRouter) when a feature promises one paid call.
+Why: `transportRetries` only caps `withRetry` + SDK retries; `maxRetries` caps the schema-repair loop (up to 3 more calls); OpenRouter also retries a reasoning-exhausted attempt unless reasoning is off from attempt 1. Evidence: `reviewer-core/src/llm/openrouter.ts:104-195`, `src/platform/resilience.ts:47-53`.
 
 ## Tool & Library Notes
 
@@ -131,6 +143,7 @@ Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/
 2026-09-28 — L02 homework Conventions Extractor (server+client, worktree feat/l02-conventions-extractor): 5 entries (script live-check, provider error redaction, rg binary, drizzle-kit rename prompt, arch:check green).
 2026-10-04 — Smart Diff (worktree feat/smart-diff): 1 entry (arch:check baseline vs hoisted linker; answers the 2026-09-27 open question).
 2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
+2026-10-11 — SPEC-02 Onboarding Tour R1 (feat/l05-onboarding-tour): 3 entries (file_edges PK, hotness=0, one-call fields).
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.

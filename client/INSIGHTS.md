@@ -56,6 +56,10 @@ Why: `["reviews", prId]` is invalidated after a run and after Accept/Dismiss, `[
 ALWAYS write counted labels as `{count, plural, one {<b>#</b> x} other {<b>#</b> xs}}` and call `t.rich(key, { count, b: (c) => <strong>{c}</strong> })`; NEVER render `{n} {t("label")}`.
 Why: a number outside the message can't be pluralised ("1 endpoints"). Evidence: `client/messages/en/blast.json` `stat.*`, `BlastRadiusCard.tsx` stats row; convention in `messages/en/runs.json`.
 
+### 2026-10-11 — `/onboarding` (add repo) lights up the "onboarding-tour" nav key
+NEVER rely on `activeKeyFor` for any path containing `/onboarding` without checking it; the add-repo page matches the tour key.
+Why: `activeKeyFor` uses `pathname.includes("/onboarding")`; and `src/vendor/ui/nav.test.ts` pins WORKSPACE order (pulls → context), so inserting a nav item must update it. Evidence: `src/components/app-shell/helpers.ts:29-33`.
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`

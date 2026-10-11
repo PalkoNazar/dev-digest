@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   primaryKey,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { workspaces } from './core';
 import { repos } from './repos';
 import { agents } from './agents';
@@ -127,6 +128,38 @@ export const onboarding = pgTable('onboarding', {
   json: jsonb('json').notNull(),
   generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * L05 Onboarding Tour (SPEC-02) — one row per tour generation run. The tour itself
+ * lives in `onboarding.json`; this table carries the run's status, whether its result
+ * was stored or the previous LLM tour was kept, and the skeleton reason. An
+ * interrupted run is stored as `failed` with `detail = 'Interrupted'`.
+ */
+export const onboardingGenerations = pgTable(
+  'onboarding_generations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
+    outcome: text('outcome', { enum: ['stored', 'kept_previous'] }),
+    reason: text('reason'),
+    detail: text('detail'),
+    startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => ({
+    repoIdx: index('onboarding_generations_ws_repo_idx').on(t.workspaceId, t.repoId),
+    // At most one running generation per repo: two concurrent POSTs must not start two paid jobs.
+    oneRunning: uniqueIndex('onboarding_generations_one_running_uq')
+      .on(t.workspaceId, t.repoId)
+      .where(sql`status = 'running'`),
+  }),
+);
 
 /**
  * L05 Project Context — repo Markdown documents attached to an agent or a skill,

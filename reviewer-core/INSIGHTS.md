@@ -20,6 +20,10 @@ us, why something broke, what the code doesn't say. Newest on top.
 
 ## Tool & Library Notes
 
+### 2026-10-11 — fast SDK-retry tests: answer 5xx with `retry-after-ms`
+Do send header `retry-after-ms: '1'` on 5xx replies in local-`http` tests that count OpenAI SDK retries.
+Why: the SDK honours it, so retried requests fire in milliseconds instead of the default backoff, and the retry count is unchanged. Evidence: `test/openrouter-timeout.test.ts` ("transportRetries: 0 …"), whole file ~1.1 s.
+
 ## Recurring Errors & Fixes
 
 ## Session Notes

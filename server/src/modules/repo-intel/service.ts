@@ -673,6 +673,20 @@ export class RepoIntelService implements RepoIntel {
     }
     return paths;
   }
+
+  /**
+   * Number of distinct files importing each path, from the existing `getImporters`
+   * read over `file_edges` (onboarding critical paths, SPEC-02 AC-70). Every requested
+   * path is a key; one nobody imports maps to 0.
+   */
+  async getImporterCounts(repoId: string, paths: string[]): Promise<Record<string, number>> {
+    if (!this.container.config.repoIntelEnabled || paths.length === 0) return {};
+    const unique = [...new Set(paths)];
+    const edges = await this.repo.getImporters(repoId, unique);
+    const importers = new Map<string, Set<string>>(unique.map((p) => [p, new Set<string>()]));
+    for (const e of edges) importers.get(e.toFile)?.add(e.fromFile);
+    return Object.fromEntries([...importers].map(([p, from]) => [p, from.size]));
+  }
 }
 
 /** How many top-ranked files seed `getCriticalPaths` dependency chains. */
