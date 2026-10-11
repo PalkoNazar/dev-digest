@@ -40,19 +40,10 @@ export class ProjectContextService {
   /** Every discovered document with token estimate (R2) and used-by count (AC-5, Q4). */
   async listDocs(workspaceId: string, repoId: string): Promise<SpecFile[]> {
     const repo = await this.requireRepo(workspaceId, repoId);
-    const docs = await this.discover(repo);
-    const [ids, ownByAgent] = await Promise.all([
-      this.deps.repo.agentIds(workspaceId),
-      this.deps.repo.agentDocsByRepo(workspaceId, repoId),
+    const [docs, usedBy] = await Promise.all([
+      this.discover(repo),
+      this.usedBy(workspaceId, repoId),
     ]);
-    const lists = await Promise.all(
-      ids.map(async (id) =>
-        (await this.effectiveFor(workspaceId, id, repoId, ownByAgent.get(id) ?? [])).map(
-          (e) => e.path,
-        ),
-      ),
-    );
-    const usedBy = usedByCounts(lists);
     return docs
       .map((d) => {
         const size = d.size ?? 0;
@@ -79,12 +70,13 @@ export class ProjectContextService {
       throw new ExternalServiceError(`Could not read ${path}: ${errMsg(err)}`);
     }
     if (content === null) throw new NotFoundError(`Document ${path} not found`);
+    const usedBy = await this.usedBy(workspaceId, repoId);
     return {
       path: doc.path,
       category: categoryOf(doc.path),
       size: content.length,
       tokens: estTokens(content.length),
-      used_by: 0,
+      used_by: usedBy.get(doc.path) ?? 0,
       content,
     };
   }
@@ -194,6 +186,22 @@ export class ProjectContextService {
   }
 
   /** The agent's effective list: own paths, then its effective skills' paths (AC-30). */
+  /** Path → number of agents with it in their effective list (AC-5, Q4); shared by list and read. */
+  private async usedBy(workspaceId: string, repoId: string): Promise<Map<string, number>> {
+    const [ids, ownByAgent] = await Promise.all([
+      this.deps.repo.agentIds(workspaceId),
+      this.deps.repo.agentDocsByRepo(workspaceId, repoId),
+    ]);
+    const lists = await Promise.all(
+      ids.map(async (id) =>
+        (await this.effectiveFor(workspaceId, id, repoId, ownByAgent.get(id) ?? [])).map(
+          (e) => e.path,
+        ),
+      ),
+    );
+    return usedByCounts(lists);
+  }
+
   private async effectiveFor(
     workspaceId: string,
     agentId: string,

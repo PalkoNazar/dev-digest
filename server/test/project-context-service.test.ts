@@ -260,3 +260,15 @@ describe('ProjectContextService — T after the limits (AC-17, AC-24, AC-36, AC-
     expect(view.attached).toBe(4);
   });
 });
+
+describe('ProjectContextService — readDoc used_by (Copilot gap)', () => {
+  it('readDoc reports the same used_by as listDocs for that path', async () => {
+    const { svc } = setup({ 'ag-1': ['specs/a.md'], 'ag-2': [], 'ag-3': ['specs/a.md'] });
+    const list = Object.fromEntries((await svc.listDocs(WS, REPO.id)).map((d) => [d.path, d.used_by]));
+    for (const path of ['specs/a.md', 'docs/b.md', 'docs/c.md', 'README.md']) {
+      expect((await svc.readDoc(WS, REPO.id, path)).used_by).toBe(list[path]);
+    }
+    expect((await svc.readDoc(WS, REPO.id, 'specs/a.md')).used_by).toBe(2);
+    expect((await svc.readDoc(WS, REPO.id, 'docs/b.md')).used_by).toBe(2);
+  });
+});

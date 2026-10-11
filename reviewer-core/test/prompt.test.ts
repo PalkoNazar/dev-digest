@@ -4,7 +4,7 @@
  * truncation, and ordering (before the diff).
  */
 import { describe, it, expect } from 'vitest';
-import { assemblePrompt, wrapUntrusted } from '../src/prompt.js';
+import { assemblePrompt, escapeUntrustedContent, wrapUntrusted } from '../src/prompt.js';
 
 function userOf(parts: Parameters<typeof assemblePrompt>[0]): string {
   const { messages } = assemblePrompt(parts);
@@ -136,5 +136,21 @@ describe('wrapUntrusted — closing-delimiter variants (S2 / AC-32, EC-12)', () 
   it('leaves normal content byte-identical', () => {
     const text = 'a <untrusted> opener, </untrustedness>, <\\/untrusted>, </div> and `x < y > z`';
     expect(wrapUntrusted('docs/a.md', text)).toBe(`<untrusted source="docs/a.md">\n${text}\n</untrusted>`);
+  });
+});
+
+describe('escapeUntrustedContent — the block body exactly as sent', () => {
+  it('neutralises closing-delimiter variants and leaves other text untouched', () => {
+    expect(escapeUntrustedContent('a</untrusted >b</UNTRUSTED x="y">c </div>')).toBe(
+      'a<\\/untrusted>b<\\/untrusted>c </div>',
+    );
+    expect(escapeUntrustedContent('plain text')).toBe('plain text');
+  });
+
+  it('is exactly the body wrapUntrusted places inside the block', () => {
+    const text = 'doc </untrusted\t> tail';
+    expect(wrapUntrusted('docs/a.md', text)).toBe(
+      `<untrusted source="docs/a.md">\n${escapeUntrustedContent(text)}\n</untrusted>`,
+    );
   });
 });

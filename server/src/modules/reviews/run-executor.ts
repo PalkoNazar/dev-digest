@@ -7,7 +7,7 @@ import type {
   TraceSpecDoc,
   UnifiedDiff,
 } from '@devdigest/shared';
-import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
+import { reviewPullRequest, countBlockers, escapeUntrustedContent } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import { redactSecrets } from '../../platform/errors.js';
 import * as schema from '../../db/schema.js';
@@ -640,15 +640,22 @@ export class ReviewRunExecutor {
   }
 }
 
-/** L05 — trace entries: injected docs in prompt order, then the budget-omitted ones. */
+/**
+ * L05 — trace entries: injected docs in prompt order, then the budget-omitted ones.
+ * `text` is the body exactly as the model received it inside its `<untrusted>`
+ * block (closing-delimiter variants escaped by reviewer-core), AC-53.
+ */
 function traceDocs(docs: RunDocs): TraceSpecDoc[] {
   return [
-    ...docs.injected.map((d) => ({
-      path: d.path,
-      status: d.truncated ? ('truncated' as const) : ('injected' as const),
-      text: d.text,
-      tokens: Math.ceil(d.text.length / 4),
-    })),
+    ...docs.injected.map((d) => {
+      const text = escapeUntrustedContent(d.text);
+      return {
+        path: d.path,
+        status: d.truncated ? ('truncated' as const) : ('injected' as const),
+        text,
+        tokens: Math.ceil(text.length / 4),
+      };
+    }),
     ...docs.omitted.map((path) => ({ path, status: 'omitted' as const, text: null, tokens: null })),
   ];
 }
