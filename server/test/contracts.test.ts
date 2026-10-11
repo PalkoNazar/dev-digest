@@ -20,6 +20,8 @@ import {
   PrIntentRecord,
   PrIntentResponse,
   FEATURE_MODELS,
+  ContextAttachInput,
+  ContextAttachments,
 } from '@devdigest/shared';
 
 /**
@@ -360,5 +362,67 @@ describe('intent layer contracts', () => {
     const def = FEATURE_MODELS.find((f) => f.id === 'review_intent');
     expect(def?.defaultProvider).toBe('openrouter');
     expect(def?.defaultModel).toBe('deepseek/deepseek-v4-flash');
+  });
+});
+
+describe('project context contracts (L05)', () => {
+  const baseTrace = {
+    config: { agent: 'a', version: 'v1', model: 'm', pr: 1, source: 'local' },
+    stats: { duration_ms: 1, tokens_in: 1, tokens_out: 1, findings: 0, grounding: '0/0' },
+    prompt_assembly: { system: 's', user: 'u' },
+    tool_calls: [],
+    raw_output: '{}',
+    memory_pulled: [],
+    specs_read: [],
+    log: [],
+  };
+  const repoId = '00000000-0000-4000-8000-000000000001';
+
+  it('a RunTrace without project_context still parses (AC-55)', () => {
+    expect(RunTrace.parse(baseTrace).project_context).toBeUndefined();
+  });
+
+  it('a RunTrace with injected, truncated and omitted entries parses', () => {
+    const trace = RunTrace.parse({
+      ...baseTrace,
+      specs_read: ['specs/a.md', 'docs/big.md'],
+      project_context: [
+        { path: 'specs/a.md', status: 'injected', text: 'a', tokens: 1 },
+        { path: 'docs/big.md', status: 'truncated', text: 'b', tokens: 1 },
+        { path: 'docs/late.md', status: 'omitted', text: null, tokens: null },
+      ],
+    });
+    expect(trace.project_context?.map((d) => d.status)).toEqual([
+      'injected',
+      'truncated',
+      'omitted',
+    ]);
+    expect(() =>
+      RunTrace.parse({ ...baseTrace, project_context: [{ path: 'x.md', status: 'other' }] }),
+    ).toThrow();
+  });
+
+  it('ContextAttachInput accepts paths and rejects bad input', () => {
+    expect(ContextAttachInput.parse({ repo_id: repoId, paths: ['a.md'] }).paths).toEqual(['a.md']);
+    expect(ContextAttachInput.safeParse({ repo_id: repoId, paths: [''] }).success).toBe(false);
+    expect(ContextAttachInput.safeParse({ repo_id: 'nope', paths: [] }).success).toBe(false);
+    const many = Array.from({ length: 501 }, (_, i) => `d${i}.md`);
+    expect(ContextAttachInput.safeParse({ repo_id: repoId, paths: many }).success).toBe(false);
+  });
+
+  it('ContextAttachments parses a view with every row state', () => {
+    const view = ContextAttachments.parse({
+      repo_id: repoId,
+      rows: [
+        { path: 'a.md', category: 'root', tokens: 3, state: 'attached', via: ['S'] },
+        { path: 'b.md', category: 'root', tokens: 3, state: 'inherited', via: ['S'] },
+        { path: 'c.md', category: 'root', tokens: 3, state: 'available', via: [] },
+        { path: 'd.md', category: 'root', tokens: 0, state: 'missing', via: [] },
+      ],
+      attached: 2,
+      total: 4,
+      tokens: 6,
+    });
+    expect(view.rows).toHaveLength(4);
   });
 });

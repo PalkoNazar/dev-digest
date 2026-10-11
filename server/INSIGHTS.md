@@ -91,6 +91,10 @@ Why: the engine is imported as source via a path alias outside `server/`, and th
 
 ## Recurring Errors & Fixes
 
+### 2026-10-11 — changing a reviewer-core prompt-slot type breaks server tests at run time, not at typecheck
+ALWAYS grep `server/test` for the slot name (e.g. `specs:`) when you change the shape of a `PromptParts`/`ReviewInput` field.
+Why: `server/test/prompt-{callers,structured}.test.ts` call `assemblePrompt` directly and server typecheck skips tests, so the old `string[]` crashed in `wrapUntrusted` ("reading 'replaceAll'") only under vitest. Evidence: L05 R1, `./scripts/check.sh --related server` → 5 failures in those files.
+
 ### 2026-09-28 — `drizzle-kit generate` hangs on "created or renamed from another column?"
 Split a schema change that adds AND drops columns of one table into two generates: add (keep old columns) → generate → drop → generate.
 Why: the rename prompt is interactive; `< /dev/null` just stops at it. Evidence: migrations `0014_safe_vivisector.sql` (add) + `0015_wild_psylocke.sql` (drop).

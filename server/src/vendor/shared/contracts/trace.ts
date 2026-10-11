@@ -69,6 +69,18 @@ export const SkillUsed = z.object({
 });
 export type SkillUsed = z.infer<typeof SkillUsed>;
 
+/**
+ * One project-context document of a run (L05). `text` is exactly what was
+ * injected (null when omitted); `tokens` ≈ ceil(text.length/4).
+ */
+export const TraceSpecDoc = z.object({
+  path: z.string(),
+  status: z.enum(['injected', 'truncated', 'omitted']),
+  text: z.string().nullish(),
+  tokens: z.number().int().nullish(),
+});
+export type TraceSpecDoc = z.infer<typeof TraceSpecDoc>;
+
 export const RunStats = z.object({
   duration_ms: z.number().int(),
   tokens_in: z.number().int(),
@@ -98,6 +110,9 @@ export const RunTrace = z.object({
   specs_read: z.array(z.string()),
   /** Skills rendered into the prompt, in order. Nullish: pre-L02 traces lack it. */
   skills_used: z.array(SkillUsed).nullish(),
+  /** Project-context documents: injected (in prompt order), then omitted.
+      Nullish: pre-L05 traces lack it. */
+  project_context: z.array(TraceSpecDoc).nullish(),
   log: z.array(RunLogLine),
 });
 export type RunTrace = z.infer<typeof RunTrace>;

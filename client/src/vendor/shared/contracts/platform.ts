@@ -253,13 +253,55 @@ export const PrCommentInput = z.object({
 export type PrCommentInput = z.infer<typeof PrCommentInput>;
 
 // ---- Project Context ----
+/**
+ * One Markdown document of a repo's default branch (L05 Project Context).
+ * `category` = top folder or 'root'; `tokens` ≈ ceil(chars/4); `used_by` = how
+ * many workspace agents have it in their effective list for this repo;
+ * `content` is set only when a single document is read.
+ */
 export const SpecFile = z.object({
   path: z.string(),
+  category: z.string(),
+  size: z.number().int(),
+  tokens: z.number().int(),
+  used_by: z.number().int(),
   content: z.string().nullish(),
-  size: z.number().int().nullish(),
-  updated_at: z.string().nullish(),
 });
 export type SpecFile = z.infer<typeof SpecFile>;
+
+/** How a document relates to an agent or skill on its Context tab. */
+export const ContextDocState = z.enum(['attached', 'inherited', 'available', 'missing']);
+export type ContextDocState = z.infer<typeof ContextDocState>;
+
+/** One row of a Context tab. `via` = names of skills that also carry the path. */
+export const ContextDocRow = z.object({
+  path: z.string(),
+  category: z.string(),
+  tokens: z.number().int(),
+  state: ContextDocState,
+  via: z.array(z.string()),
+});
+export type ContextDocRow = z.infer<typeof ContextDocRow>;
+
+/**
+ * The Context tab view of one agent or skill for one repo. `attached` counts own
+ * rows (missing included), `total` all rows, `tokens` the injected estimate T.
+ */
+export const ContextAttachments = z.object({
+  repo_id: z.string().uuid(),
+  rows: z.array(ContextDocRow),
+  attached: z.number().int(),
+  total: z.number().int(),
+  tokens: z.number().int(),
+});
+export type ContextAttachments = z.infer<typeof ContextAttachments>;
+
+/** PUT body: the full ordered list of own attached paths for one repo. */
+export const ContextAttachInput = z.object({
+  repo_id: z.string().uuid(),
+  paths: z.array(z.string().min(1).max(1024)).max(500),
+});
+export type ContextAttachInput = z.infer<typeof ContextAttachInput>;
 
 export const IndexStatus = z.object({
   status: z.enum(['idle', 'cloning', 'parsing', 'embedding', 'done', 'error']),
