@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PreToolUse hook (matcher: Bash) for the read-only agents: planner,
+// PreToolUse hook (matcher: Bash) for the read-only agents: implementation-planner,
 // architecture-reviewer, plan-verifier, researcher — and spec-creator, whose
 // Write/Edit go through spec-write-scope.mjs. Their prompts already forbid
 // Bash writes, but Bash can still write (`sed -i`, `>`, `git checkout`), so this hook

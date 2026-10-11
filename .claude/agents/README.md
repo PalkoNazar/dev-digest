@@ -12,7 +12,7 @@ after adding or editing one.
 |---|---|---|---|---|
 | [spec-creator](spec-creator.md) | Writes a draft feature spec (EARS AC with stable ids, edge cases, provenance, untrusted inputs), analyses design screenshots for gaps, and works in question/proposal rounds with the user | `opus`, effort `high` | specs only | feature (+ designs) → draft spec in `specs/` or `<pkg>/specs/` + questions/proposals |
 | [researcher](researcher.md) | Answers one concrete question with cited evidence — REPO (code, specs, INSIGHTS, git history) or EXTERNAL (docs, changelogs, issues) | `sonnet` | no | question → research report (or clarifying questions) |
-| [planner](planner.md) | Turns one task into a structured Development Plan grounded in module docs, INSIGHTS, specs, architecture rules and routed skills | `opus`, effort `high` | no | task (+ spec) → plan for `specs/plans/` (or clarifying questions) |
+| [implementation-planner](implementation-planner.md) | Turns an approved spec (or a fix/chore task) into an implementation plan grounded in module docs, INSIGHTS, architecture rules and routed skills; reviews the requirements first (questions + recommendations) and ends with the multi-agent / single-agent question. Never writes specs | `opus`, effort `high` | no | approved spec or task → plan for `specs/plans/` (or `needs-spec` / clarifying questions) |
 | [implementer](implementer.md) | Executes an approved plan (or one run of it) in client / server / reviewer-core, runs the package checks, self-checks only its own diff | `inherit` | yes | plan (+ run id) or gap list → code, tests, implementation report |
 | [test-writer](test-writer.md) | Writes and runs tests in three modes — TESTS-FIRST from a plan, COVER for existing code, REPRO for a bug — across client / server / reviewer-core | `inherit` | tests only | plan steps / targets / bug → test files + test report |
 | [architecture-reviewer](architecture-reviewer.md) | Two-tier layer review: dependency-cruiser as ground truth, judged skill rules on top; every finding with evidence | `opus`, effort `high` | no | diff or paths → architecture review |
@@ -32,9 +32,16 @@ main session ──(no approved spec)──► spec-creator ──► draft + Q/
      │
 main session ──(facts missing)──► researcher ──► report
      │
-     ├──► planner ──► plan ──► user approves ──► saved to specs/plans/YYYY-MM-DD-<slug>.plan.md
+     ├──► implementation-planner ──► requirements review + Q/R ──► user (AskUserQuestion)
+     │         ▲   (needs-spec ──► spec-creator)                            │
+     │         └──────────── SendMessage "Round N answers" ◄────────────────┘
+     │    ready plan + "multi-agent or single-agent?" ──► user picks ──► saved to
+     │    specs/plans/YYYY-MM-DD-<slug>.plan.md with Execution: <mode>
      │                                                   │
-     │    ┌──────────────── for each run R1, R2, … ◄─────┘
+     │    single-agent: one implementer pass over all runs ──► main session runs
+     │                  Verification ──► /engineering-insights → commit
+     │                                                   │
+     │    multi-agent: ┌──────── for each run R1, R2, … ◄┘
      │    ▼
      ├──► test-writer (optional, TESTS-FIRST) ──► red tests  (never committed alone)
      ├──► implementer ──► code + tests + report
@@ -51,7 +58,7 @@ main session ──(facts missing)──► researcher ──► report
 
 One file → skill map drives plan, implementation and review:
 [`../skills/pr-self-review/references/routing.md`](../skills/pr-self-review/references/routing.md).
-The planner assigns skills per step from it, the implementer and test-writer load
+The implementation-planner assigns skills per step from it, the implementer and test-writer load
 skills from it, `/pr-self-review` reviews with it. Change skill routing there, not in
 agent prompts. architecture-reviewer grades with the same
 [`severity.md`](../skills/pr-self-review/references/severity.md) as `/pr-self-review`.
@@ -62,7 +69,7 @@ agent prompts. architecture-reviewer grades with the same
 |---|---|---|---|---|
 | spec-creator | Read, Grep, Glob, Write, Edit, Bash | Agent, WebFetch, WebSearch, NotebookEdit | — | Write/Edit only `*.md` directly in `specs/`, `{client,server,reviewer-core,mcp}/specs/`, only `Status: draft` files, never writes a non-draft status (hook-enforced: `spec-write-scope.mjs`); read-only Bash (hook-enforced); approved specs change only via `Supersedes:`; WHAT not HOW; no future-lesson scope; `maxTurns: 60` |
 | researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | — (allowlist) | — | read-only Bash only (hook-enforced); no skills, no sub-agents; never reads secrets |
-| planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | read-only Bash only (hook-enforced); unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
+| implementation-planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no spec work (feature without approved spec → `needs-spec`); never asks the user directly (Q/R/execution mode go through the calling session); read-only Bash only (hook-enforced); unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no commit/push/stash/PR; no hand-edited migrations; never weakens `groundFindings`/`INJECTION_GUARD`; no secrets; no `INSIGHTS.md` edits; never edits test-writer's tests; `maxTurns: 120` |
 | test-writer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, react-testing-library | writes only test paths; never deletes/skips/weakens existing tests; no new deps; local pattern beats generic skill; no commit/push; `maxTurns: 80` |
 | architecture-reviewer | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture | read-only Bash (hook-enforced) + `pnpm arch:check`/`depcruise` only; never `arch:baseline`; evidence or drop; turn budget (Tier A first, write after ~40 calls; rest → "Not checked", `INCOMPLETE`); batched reads; `maxTurns: 60` |
@@ -76,8 +83,8 @@ path-scoped Write. plan-verifier's reverse scan and `git status --short` after e
 writing-agent run catch scope breaks. No `permissionMode` is set — it is ignored while
 the main session runs in auto / acceptEdits mode.
 
-The four read-only agents (researcher, planner, architecture-reviewer, plan-verifier)
-and spec-creator carry a frontmatter `PreToolUse` hook on Bash:
+The four read-only agents (researcher, implementation-planner, architecture-reviewer,
+plan-verifier) and spec-creator carry a frontmatter `PreToolUse` hook on Bash:
 [`.claude/hooks/readonly-bash.mjs`](../hooks/readonly-bash.mjs). It exits 2 on
 redirects into files, `sed -i`, `rm`/`mv`/`cp`/…, state-changing git, installs,
 `db:*`/`arch:baseline` scripts, snapshot updates, `docker`, repo scripts, and on
@@ -95,13 +102,13 @@ content sets no other status. Test: `node .claude/hooks/spec-write-scope.test.mj
 
 | Artifact | Produced by | Consumed by | Where |
 |---|---|---|---|
-| Spec (Spec ID, Status draft, problem, goals/non-goals, US/AC (EARS)/EC with stable ids, non-functional, inputs provenance, untrusted inputs, NEEDS CLARIFICATION) + spec report (questions, proposals, design analysis, self-check) | spec-creator | user (rounds, approval), planner, plan-verifier (via the plan's AC) | `specs/` or `<pkg>/specs/` — see [`specs/README.md`](../../specs/README.md); report in conversation |
-| Research report (TL;DR, findings + evidence, not-found list) | researcher | main session, planner (via "Needs research") | conversation |
-| Development Plan (Goal, Context read, Constraints, Affected modules, Steps with Skills / Tests / Done when, **Runs**, Verification, Acceptance criteria, Risks, Out of scope, Needs research, INSIGHTS discrepancies, Open questions) | planner | user (approval), implementer, test-writer, plan-verifier | `specs/plans/YYYY-MM-DD-<slug>.plan.md` — see [`specs/plans/README.md`](../../specs/plans/README.md) |
+| Spec (Spec ID, Status draft, problem, goals/non-goals, US/AC (EARS)/EC with stable ids, non-functional, inputs provenance, untrusted inputs, NEEDS CLARIFICATION) + spec report (questions, proposals, design analysis, self-check) | spec-creator | user (rounds, approval), implementation-planner, plan-verifier (via the plan's AC) | `specs/` or `<pkg>/specs/` — see [`specs/README.md`](../../specs/README.md); report in conversation |
+| Research report (TL;DR, findings + evidence, not-found list) | researcher | main session, implementation-planner (via "Needs research") | conversation |
+| Development Plan (Goal, Context read, **Requirements review**, **Recommendations**, Constraints, Affected modules, Steps with Skills / Tests / Done when, **Runs**, Verification, Acceptance criteria, Risks, Out of scope, Needs research, INSIGHTS discrepancies, Open questions, **Execution mode** question) | implementation-planner | user (approval, execution mode), implementer, test-writer, plan-verifier | `specs/plans/YYYY-MM-DD-<slug>.plan.md` — see [`specs/plans/README.md`](../../specs/plans/README.md) |
 | Implementation report (Status DONE / PARTIAL / BLOCKED, steps, files, skills applied, checks with exit codes, deviations, not done, for reviewers, insight candidates) | implementer | main session, reviewers | conversation |
 | Test report (Status GREEN / RED-BY-DESIGN / BUG-FOUND / BLOCKED, cases traced to plan items, checks, suspect tests, needs production change) | test-writer | main session, implementer | conversation |
 | Architecture review (Status CLEAN / FINDINGS / INCOMPLETE / NO-CHANGES, Tier A ground truth, findings with severity + evidence, pre-existing FYI) | architecture-reviewer | main session, implementer | conversation |
-| Verification report (Status VERIFIED / GAPS / CANNOT-VERIFY, traceability matrix, unplanned changes, gaps to fix, plan issues) | plan-verifier | main session, implementer, test-writer, planner (plan issues) | conversation |
+| Verification report (Status VERIFIED / GAPS / CANNOT-VERIFY, traceability matrix, unplanned changes, gaps to fix, plan issues) | plan-verifier | main session, implementer, test-writer, implementation-planner (plan issues) | conversation |
 | Docs + docs report (docs written, claims → evidence, diagrams rendered, not documented, stale docs) | doc-writer | user | `docs/`, `<pkg>/docs/`, READMEs per [`docs/README.md`](../../docs/README.md) "Where docs go" |
 | Insight candidates / INSIGHTS discrepancies | every agent | main session → `/engineering-insights` | the package `INSIGHTS.md` |
 
@@ -112,7 +119,7 @@ branches) come from `CLAUDE.md` and the package `AGENTS.md` files, not from thes
 
 | Rule in the agents | Source |
 |---|---|
-| Least-privilege tool allowlists; read-only planner, researcher and reviewers; `disallowedTools: Agent` | [Subagents](https://code.claude.com/docs/en/sub-agents) |
+| Least-privilege tool allowlists; read-only implementation-planner, researcher and reviewers; `disallowedTools: Agent` | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | A Bash specifier in `disallowedTools` removes the whole tool → command bans live in the prompt | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | `description` is the delegation trigger; "Use proactively …" | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | `skills:` injects full skill content → preload only 3 small skills, load the rest via `Skill`; skills with `disable-model-invocation` can't be preloaded | [Subagents](https://code.claude.com/docs/en/sub-agents), [Skills](https://code.claude.com/docs/en/skills) |
@@ -155,7 +162,10 @@ branches) come from `CLAUDE.md` and the package `AGENTS.md` files, not from thes
 | C4 levels 1–2 are enough; Mermaid C4 is experimental → draw them as flowcharts | [C4 model](https://c4model.com/), [Mermaid C4](https://mermaid.js.org/syntax/c4.html) |
 
 Our own decisions (no external source): model choices, the run-splitting threshold
-(> ~5 steps or > 1 package), the shared `routing.md`, insights recorded only by the
+(> ~5 steps or > 1 package), the spec / plan split (implementation-planner never
+writes specs and returns `needs-spec`), the execution-mode question at the end of
+every plan and its multi-agent heuristic (> 1 run, contract, schema, adapter, prompts
+or guards), the shared `routing.md`, insights recorded only by the
 main session, the verdict vocabulary met / partial / not met / cannot verify (inferred
 from the traceability and hallucination sources), the Tier A / Tier B split, the ≤ 1000-character cap per `description` (short triggers delegate
 better; all eight together are ~1.4k tokens), reuse of

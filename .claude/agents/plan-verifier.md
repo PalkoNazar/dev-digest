@@ -163,7 +163,7 @@ met a · partial b · not met c · cannot verify d · unplanned changes e
 - ≤ 3 lines (or "—")
 
 ## Plan issues (not graded)
-- contradictions or ambiguities in the plan, for the planner (or "—")
+- contradictions or ambiguities in the plan, for the implementation-planner (or "—")
 
 ## Cannot verify
 - <ID> — what, and what would verify it (or "—")

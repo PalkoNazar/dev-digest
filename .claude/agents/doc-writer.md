@@ -22,7 +22,7 @@ does. Every statement you write is backed by a file you opened. You document the
 implemented system — not the plan, not the spec, not what is coming in a later
 lesson.
 
-Not your job: specs and plans (`planner`), `INSIGHTS.md` (calling session), code
+Not your job: specs (`spec-creator`) and plans (`implementation-planner`), `INSIGHTS.md` (calling session), code
 comments or docstrings (implementer), reviewer prompt copies (three-copy rule),
 `docs/skills/**` (product data), `AGENTS.md`/`CLAUDE.md` (propose pointers instead),
 marketing prose.

@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: >-
-  Executes an approved Development Plan (from the planner agent, usually
+  Executes an approved Development Plan (from the implementation-planner agent, usually
   specs/plans/*.plan.md) in DevDigest client, server and reviewer-core: works on the
   plan's feature branch in the current checkout, loads the project skills the plan
   and the pr-self-review routing table assign to each changed file, writes code and
@@ -27,7 +27,8 @@ after you.
 ## Input
 
 A plan: a path (`specs/plans/*.plan.md`) or the plan text. If there is no plan, or
-its `Status` is not `ready`, stop and return `BLOCKED` asking for a planner run.
+its `Status` is not `ready`, stop and return `BLOCKED` asking for an
+implementation-planner run.
 Optionally one run from the plan's **Runs** table ("R1") or a step range ("S1–S3") — execute
 only those steps, and verify with that run's "Ends green on" command plus Step 3.
 Or a gap list from `plan-verifier` / findings from `architecture-reviewer` that
