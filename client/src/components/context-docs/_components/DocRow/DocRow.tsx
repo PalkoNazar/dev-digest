@@ -8,7 +8,11 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Badge, Button, Checkbox } from "@devdigest/ui";
 import type { ContextDocRow } from "@devdigest/shared";
+import { middleEllipsisPath } from "@/lib/path-ellipsis";
 import { s } from "../../styles";
+
+/** Characters of a row path before it is shortened in the middle. */
+const ROW_PATH_MAX = 56;
 
 export interface DocRowActions {
   onToggle: () => void;
@@ -33,9 +37,19 @@ export function DocRow({
   const t = useTranslations("context");
   const { path, state, via } = row;
   const own = state === "attached" || state === "missing";
+  // Cut in the middle so the start and the file name stay visible; the full path stays
+  // in `title` and in the accessible name (AC-43).
+  const shortPath = middleEllipsisPath(path, ROW_PATH_MAX);
   const pathLabel = (
     <span className="mono" style={s.path} title={path}>
-      {path}
+      {shortPath === path ? (
+        path
+      ) : (
+        <>
+          <span aria-hidden="true">{shortPath}</span>
+          <span style={s.srOnly}>{path}</span>
+        </>
+      )}
     </span>
   );
   return (
