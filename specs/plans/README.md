@@ -12,12 +12,15 @@ the implementer works on. Skills per step come from
 
 Flow: implementation-planner → user answers its questions / recommendations and picks
 the execution mode (the plan's `Execution:` line, set by the calling session) →
-- `multi-agent`, per run: (`test-writer`, tests-first) → `implementer` →
-  `plan-verifier` + `architecture-reviewer` → fixes → commit; after the last run
-  `doc-writer`;
+- `multi-agent`, per run (the `sdd-run` skill, `/sdd-run <plan>`): `test-writer`
+  TESTS-FIRST for steps marked `Tests-first: yes` → `implementer` → `plan-verifier` ∥
+  `architecture-reviewer` ∥ `correctness-reviewer` → fixes (≤ 2 rounds) →
+  `./scripts/check.sh` → commit `(R<n>)`; after the last run a whole-branch
+  `plan-verifier`, the plan's `Smoke:` check and `doc-writer`;
 - `single-agent`: one `implementer` call with `all runs` (each run's "Ends green on"
   before the next, full Verification at the end — the implementer owns the checks)
-  → the calling session reads the reported exit codes, `git status --short` → commit.
+  → the calling session runs `./scripts/check.sh`, `git status --short`, one
+  `correctness-reviewer` over the branch → commit.
 
 A plan whose `Execution:` isn't exactly `multi-agent` or `single-agent` (missing,
 `ask-user`, anything else) doesn't start: the implementer returns `BLOCKED`.

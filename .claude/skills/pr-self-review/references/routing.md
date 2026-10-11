@@ -31,7 +31,7 @@ every group that owns one of them.
 ## Never routed
 
 Reviewer skills only. These are not review skills and are never run:
-`mermaid-diagram`, `engineering-insights`, `pr-self-review`.
+`mermaid-diagram`, `engineering-insights`, `pr-self-review`, `sdd-run`.
 
 ## Excluded from review
 

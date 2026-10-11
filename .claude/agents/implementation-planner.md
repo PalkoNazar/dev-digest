@@ -225,15 +225,18 @@ in multi-agent or single-agent mode, with your recommendation. You never choose 
 the user: the header says `Execution: ask-user` and the calling session replaces it
 with the answer before the first run.
 
-- **multi-agent** — per run: `test-writer` (TESTS-FIRST, optional) → `implementer`
-  → `plan-verifier` ∥ `architecture-reviewer` → fixes → commit; `doc-writer` after
-  the last run. Independent checks, more tokens and time.
+- **multi-agent** — per run: `test-writer` (TESTS-FIRST for the steps marked
+  `Tests-first: yes`) → `implementer` → `plan-verifier` ∥ `architecture-reviewer` ∥
+  `correctness-reviewer` → fixes (≤ 2 rounds) → commit; after the last run a
+  whole-branch `plan-verifier`, a smoke run, then `doc-writer`. Independent checks,
+  more tokens and time. The calling session follows the `sdd-run` skill.
 - **single-agent** — one `implementer` call with `all runs`: it executes the runs in
   order, runs each run's "Ends green on" before starting the next, and the full
   Verification once at the end; it owns every check. The calling session doesn't
   re-run them: it reads the reported commands and exit codes, checks
-  `git status --short`, and commits. No separate reviewer agents. Cheaper and
-  faster, no independent review.
+  `git status --short`, and commits. One `correctness-reviewer` over the whole
+  branch at the end, no other reviewer agents. Cheaper and faster, little
+  independent review.
 
 Recommend multi-agent when the plan has more than one run, changes a
 `@devdigest/shared` contract, the DB schema, an adapter, reviewer prompts or the
@@ -285,6 +288,10 @@ spec's goals; don't restate or extend them).
 - Change: what exactly changes (names of functions, fields, routes)
 - Skills: onion-architecture, zod   ← from routing.md
 - Tests: add/extend `server/test/….test.ts` — cases: …
+- Tests-first: yes | no — yes when the step implements an `IF … THEN` AC, an `EC-n`,
+  a limit / budget / timeout or a state that must survive resync / retry (test-writer
+  writes these red before the implementer; the implementer must not grade its own
+  edge cases)
 - Done when: observable condition
 
 ### S2 — …
@@ -292,19 +299,22 @@ spec's goals; don't restate or extend them).
 ## Runs
 | Run | Steps | Ends green on |
 |---|---|---|
-| R1 | S1–S3 | `cd server && pnpm typecheck && pnpm exec vitest run --exclude '**/*.it.test.ts'` |
-| R2 | S4–S6 | `cd client && pnpm typecheck && pnpm test` |
+| R1 | S1–S3 | `./scripts/check.sh server` |
+| R2 | S4–S6 | `./scripts/check.sh client` |
 (or one row: "R1 | all | <Verification>")
 
 ## Contract changes
 Order: shared (server copy) → shared (client copy) → server → client. Or "none".
 
 ## Verification
-- server: `cd server && pnpm typecheck && pnpm exec vitest run --exclude '**/*.it.test.ts' && pnpm arch:check`
-- server (DB touched, Docker): `pnpm exec vitest run .it.test`
-- client: `cd client && pnpm typecheck && pnpm test`
-- reviewer-core: `cd reviewer-core && npm run typecheck && npm test`
-(only the packages this plan touches)
+- `./scripts/check.sh server client` — typecheck · unit tests · arch:check (server)
+  for the packages this plan touches, from the repo root (a reviewer-core change
+  typechecks the server too)
+- DB touched (Docker): `./scripts/check.sh --it server`
+- anything the set above doesn't cover (an e2e flow, a `node --test` file, a manual
+  smoke step) — one line each
+- Smoke: <one real-data check after the last run: page + action + what to look at,
+  or an MCP / curl call; "—" for pure refactors>  ← run by the calling session
 
 ## Acceptance criteria
 Traceability only — copied by id from the spec, never written here.
