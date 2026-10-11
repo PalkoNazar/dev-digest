@@ -23,6 +23,7 @@ import type {
   UnifiedDiff,
   BlameLine,
   GitCommit,
+  GitTreeEntry,
   CodeIndex,
   CodeMatch,
   CodeSymbol,
@@ -274,12 +275,17 @@ export interface MockGitOptions {
   syncedHead?: string;
   /** File text by path served by `showFile` (any ref); a missing path → null. */
   filesAtRef?: Record<string, string>;
+  /** Entries `listTree` returns; default = the `filesAtRef` keys (mode 100644, size = text length). */
+  tree?: GitTreeEntry[];
+  /** Make `listTree` return null (no local clone yet). */
+  noClone?: boolean;
 }
 
 export class MockGitClient implements GitClient {
   public cloned: { repo: RepoRef; url: string }[] = [];
   public syncs: { repo: RepoRef; branch: string }[] = [];
   public shown: { ref: string; path: string }[] = [];
+  public listed: { repo: RepoRef; ref: string }[] = [];
   private syncedHead?: string;
 
   constructor(private opts: MockGitOptions = {}) {}
@@ -322,6 +328,16 @@ export class MockGitClient implements GitClient {
   async showFile(_repo: RepoRef, ref: string, path: string): Promise<string | null> {
     this.shown.push({ ref, path });
     return this.opts.filesAtRef?.[path] ?? null;
+  }
+  async listTree(repo: RepoRef, ref: string): Promise<GitTreeEntry[] | null> {
+    this.listed.push({ repo, ref });
+    if (this.opts.noClone) return null;
+    if (this.opts.tree) return this.opts.tree;
+    return Object.entries(this.opts.filesAtRef ?? {}).map(([path, text]) => ({
+      path,
+      mode: '100644',
+      size: text.length,
+    }));
   }
 }
 

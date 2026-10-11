@@ -23,7 +23,7 @@ import { applyScopeFilter, type ScopeMode } from './scope.js';
  * (no DB, GitHub, fs, memory retrieval, intent, or persistence) — those stay in
  * the caller (server persists + streams SSE; runner posts + writes an artifact).
  *
- * Skill bodies / memory / specs are RESOLVED strings here: the caller turns
+ * Skill bodies / memory / repo documents are RESOLVED strings here: the caller turns
  * AgentManifest skill slugs into bodies (DB in the studio, fs in the runner).
  */
 
@@ -57,8 +57,8 @@ export interface ReviewInput {
   skills?: string[];
   /** Curated memory items. */
   memory?: string[];
-  /** Project-context spec chunks (untrusted; delimiter-wrapped downstream). */
-  specs?: string[];
+  /** Attached repo documents, in prompt order (untrusted; delimiter-wrapped downstream). */
+  specs?: { path: string; text: string }[];
   /**
    * Optional callers-of-changed-symbols digest (T1.3). Untrusted; rendered
    * before the diff section. Empty/undefined → section omitted.

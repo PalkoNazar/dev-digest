@@ -9,6 +9,7 @@ import type {
   UnifiedDiff,
   BlameLine,
   GitCommit,
+  GitTreeEntry,
 } from '@devdigest/shared';
 import { parseUnifiedDiff } from './diff-parser.js';
 
@@ -149,6 +150,37 @@ export class SimpleGitClient implements GitClient {
       return null;
     }
   }
+
+  /**
+   * `git ls-tree -r -l -z --full-tree <ref>` — committed blobs only (symlinks are
+   * blobs with mode 120000; submodules are `commit` entries and dropped). Reads
+   * git objects, never the working tree. Null when there is no clone or the ref
+   * is unsafe; a git error propagates.
+   */
+  async listTree(repo: RepoRef, ref: string): Promise<GitTreeEntry[] | null> {
+    if (!isSafeRef(ref)) return null;
+    if (!(await this.exists(join(this.clonePathFor(repo), '.git')))) return null;
+    const raw = await this.git(repo).raw(['ls-tree', '-r', '-l', '-z', '--full-tree', ref]);
+    return parseLsTree(raw);
+  }
+}
+
+/**
+ * Parse NUL-separated `ls-tree -l -z` records: `<mode> <type> <sha> <size>\t<path>`
+ * (size is right-padded with spaces, `-` for non-blobs). Keeps blobs only.
+ */
+export function parseLsTree(raw: string): GitTreeEntry[] {
+  const out: GitTreeEntry[] = [];
+  for (const record of raw.split('\0')) {
+    const tab = record.indexOf('\t');
+    if (tab < 0) continue;
+    const [mode, type, , size] = record.slice(0, tab).trim().split(/\s+/);
+    const path = record.slice(tab + 1);
+    if (type !== 'blob' || !mode || !path) continue;
+    const n = Number(size);
+    out.push({ path, mode, size: size && Number.isFinite(n) ? n : null });
+  }
+  return out;
 }
 
 /** A commit sha or branch-like ref; never starts with `-` (git option injection). */

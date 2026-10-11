@@ -254,7 +254,21 @@ export interface GitClient {
    * the working tree. Null when the clone, ref or path is missing/unsafe.
    */
   showFile(repo: RepoRef, ref: string, path: string): Promise<string | null>;
+  /**
+   * Every blob in the tree at `ref` (`git ls-tree -r -l -z --full-tree`), from git
+   * objects — the working tree and on-disk symlinks are never touched. Symlinks
+   * come back as blobs with mode `120000`; submodules are dropped. Null when the
+   * repo has no clone or the ref is unsafe; git errors propagate.
+   */
+  listTree(repo: RepoRef, ref: string): Promise<GitTreeEntry[] | null>;
   clonePathFor(repo: RepoRef): string;
+}
+
+/** One blob of a git tree. `size` is null when git reports none. */
+export interface GitTreeEntry {
+  path: string;
+  mode: string;
+  size: number | null;
 }
 
 // ---------- CodeIndex (ripgrep + tree-sitter) ----------
