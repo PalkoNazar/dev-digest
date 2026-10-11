@@ -1,4 +1,4 @@
-# Spec: Project Context | Spec ID: SPEC-01 | Status: approved
+# Spec: Project Context | Spec ID: SPEC-01 | Status: implemented
 Supersedes: —
 Lesson: L05 · Packages: server, client, reviewer-core · Designs: `designs/project-context/`
 
