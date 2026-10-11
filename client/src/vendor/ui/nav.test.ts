@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV, SETTINGS_ITEM, SHORTCUTS } from "./nav";
+import { NAV, SETTINGS_ITEM, SHORTCUTS, resolveHref } from "./nav";
 
 const allItems = [...NAV.flatMap((g) => g.items), SETTINGS_ITEM];
 
@@ -12,10 +12,14 @@ describe("NAV", () => {
     expect(sectionOf("pulls")).toBe("WORKSPACE");
   });
 
-  it("lists Project Context under WORKSPACE, right after Pull Requests (L05)", () => {
+  it("lists Onboarding Tour under WORKSPACE between Pull Requests and Project Context (L05, SPEC-02 AC-1)", () => {
     const workspace = NAV.find((g) => g.section === "WORKSPACE")!.items.map((it) => it.key);
-    expect(workspace.slice(0, 2)).toEqual(["pulls", "context"]);
-    expect(NAV.flatMap((g) => g.items).find((it) => it.key === "context")?.href).toBe("/repos/:repoId/context");
+    expect(workspace).toEqual(["pulls", "onboarding-tour", "context"]);
+    const items = NAV.flatMap((g) => g.items);
+    expect(items.find((it) => it.key === "context")?.href).toBe("/repos/:repoId/context");
+    const tour = items.find((it) => it.key === "onboarding-tour");
+    expect(tour?.label).toBe("Onboarding Tour");
+    expect(resolveHref(tour!.href, "r1")).toBe("/repos/r1/tour");
   });
 
   it("item keys are unique (the sidebar keys and highlights items by them)", () => {
