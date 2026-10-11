@@ -59,6 +59,9 @@ export function check(command) {
     }
     const [cmd, sub, ...rest] = words;
     if (!cmd) continue;
+    // A quoted word in command position is unknowable here (it became `Q`): it may be
+    // a command or an assignment like `env 'NODE_OPTIONS=--import=./w.mjs' node …`.
+    if (cmd === 'Q') return 'quoted command or assignment';
     const base = cmd.split('/').pop();
 
     // `node --test <files>` runs test files and nothing else (no -e/-p/--eval/--import).
