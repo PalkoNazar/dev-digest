@@ -1,5 +1,12 @@
 import type { Container } from '../../platform/container.js';
-import type { Provider, Review, RunTrace, SkillUsed, UnifiedDiff } from '@devdigest/shared';
+import type {
+  Provider,
+  Review,
+  RunTrace,
+  SkillUsed,
+  TraceSpecDoc,
+  UnifiedDiff,
+} from '@devdigest/shared';
 import { reviewPullRequest, countBlockers } from '@devdigest/reviewer-core';
 import { RunLogger } from '../../platform/run-logger.js';
 import { redactSecrets } from '../../platform/errors.js';
@@ -33,6 +40,11 @@ export type Logger = {
 // Review per file; we merge findings + take the worst verdict / mean score).
 /** The agent's skills as rendered into the prompt (L02). */
 type AgentSkills = { blocks: string[]; used: SkillUsed[]; tokens: number | null };
+/** L05 — the documents injected into this run, as returned by `projectContext.forRun`. */
+type RunDocs = {
+  injected: { path: string; text: string; truncated: boolean }[];
+  omitted: string[];
+};
 
 export type RunOutcome = {
   review: ReviewRow;
@@ -226,6 +238,10 @@ export class ReviewRunExecutor {
       // L02 — the agent's enabled skills, in order, as the prompt's skills block.
       const skills = await this.loadSkills(agent, runLog);
 
+      // L05 — attached repo documents (own + inherited from effective skills),
+      // resolved once here and passed by value (AC-39). Best-effort.
+      const docs = await this.loadProjectContext(workspaceId, agent, pull.repoId, runLog);
+
       // Intent layer — the derived intent as an untrusted block + the scope
       // filter mode (enforce only for a medium/high classifier intent).
       const intentBlock = intentCtx ? renderIntentForPrompt(intentCtx.record) : undefined;
@@ -250,6 +266,10 @@ export class ReviewRunExecutor {
         ...(repoMap ? { repoMap } : {}),
         // L02 — omitted when no skill is enabled, so the prompt keeps its pre-L02 shape.
         ...(skills.blocks.length > 0 ? { skills: skills.blocks } : {}),
+        // L05 — omitted when nothing is injected, so the prompt keeps its pre-L05 shape.
+        ...(docs.injected.length > 0
+          ? { specs: docs.injected.map((d) => ({ path: d.path, text: d.text })) }
+          : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -345,7 +365,8 @@ export class ReviewRunExecutor {
         ],
         raw_output: outcome.raw,
         memory_pulled: [],
-        specs_read: [],
+        specs_read: docs.injected.map((d) => d.path),
+        project_context: traceDocs(docs),
         skills_used: skills.used,
         // Persisted log = the run's FULL event buffer (incl. shared pre-work:
         // diff load + intent), not just events recorded inside this method.
@@ -470,6 +491,37 @@ export class ReviewRunExecutor {
   }
 
   /**
+   * L05 — the agent's project-context documents for this repo. Never fails the
+   * run: on error a redacted Live Log line, then the review runs without them.
+   * Log lines carry paths and counts only, never document text.
+   */
+  private async loadProjectContext(
+    workspaceId: string,
+    agent: AgentRow,
+    repoId: string,
+    runLog: RunLogger,
+  ): Promise<RunDocs> {
+    try {
+      const ctx = await this.container.projectContext.forRun(workspaceId, agent.id, repoId);
+      for (const path of ctx.skipped) runLog.info(`Project context: skipped ${path} (not readable)`);
+      for (const path of ctx.omitted) {
+        runLog.info(`Project context: omitted ${path} (over the 60,000-character budget)`);
+      }
+      if (ctx.injected.length + ctx.skipped.length + ctx.omitted.length === 0) {
+        runLog.info('Project context: none attached');
+      } else {
+        const tokens = ctx.injected.reduce((sum, d) => sum + Math.ceil(d.text.length / 4), 0);
+        runLog.info(`Project context: ${ctx.injected.length} doc(s) — +${tokens} tokens`);
+      }
+      return { injected: ctx.injected, omitted: ctx.omitted };
+    } catch (err) {
+      const msg = redactSecrets(err instanceof Error ? err.message : String(err));
+      runLog.info(`Project context unavailable (${msg}) — reviewing without it`);
+      return { injected: [], omitted: [] };
+    }
+  }
+
+  /**
    * Build a compact "Callers of changed symbols" digest for the prompt.
    *
    * Returns `undefined` when nothing should be added (flag off, no callers
@@ -586,4 +638,17 @@ export class ReviewRunExecutor {
       log: this.container.runBus.buffer(runId).map((e) => ({ t: e.t, kind: e.kind, msg: e.msg })),
     };
   }
+}
+
+/** L05 — trace entries: injected docs in prompt order, then the budget-omitted ones. */
+function traceDocs(docs: RunDocs): TraceSpecDoc[] {
+  return [
+    ...docs.injected.map((d) => ({
+      path: d.path,
+      status: d.truncated ? ('truncated' as const) : ('injected' as const),
+      text: d.text,
+      tokens: Math.ceil(d.text.length / 4),
+    })),
+    ...docs.omitted.map((path) => ({ path, status: 'omitted' as const, text: null, tokens: null })),
+  ];
 }

@@ -27,6 +27,8 @@ import { AgentsRepository } from '../modules/agents/repository.js';
 import { ReviewRepository } from '../modules/reviews/repository.js';
 import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
+import { ProjectContextService } from '../modules/project-context/service.js';
+import { ProjectContextRepository } from '../modules/project-context/repository.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 
@@ -73,6 +75,7 @@ export class Container {
   private _agentsRepo?: AgentsRepository;
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
+  private _projectContext?: ProjectContextService;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -115,6 +118,18 @@ export class Container {
     if (this.overrides.repoIntel) return this.overrides.repoIntel;
     this._repoIntel ??= new RepoIntelService(this);
     return this._repoIntel;
+  }
+
+  /**
+   * L05 Project Context — repo Markdown documents attached to agents/skills.
+   * Shared by its routes and the review run executor (which injects them).
+   */
+  get projectContext(): ProjectContextService {
+    return (this._projectContext ??= new ProjectContextService({
+      repo: new ProjectContextRepository(this.db),
+      skills: this.agentsRepo,
+      git: this.git,
+    }));
   }
 
   /** Import-graph builder (dependency-cruiser). T3 indexer pipeline only. */

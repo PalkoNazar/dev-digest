@@ -28,6 +28,14 @@ Why: `buildApp` reaps every `running` agent_run on boot (`src/app.ts:81`), so a 
 
 ## What Doesn't Work
 
+### 2026-10-11 — a bare `slice(0, N)` of user text can leave a lone surrogate
+NEVER cut prompt/trace text with a bare `slice(0, N)`; step back one code unit when index N-1 is a high surrogate (`codePointCut` in `modules/project-context/helpers.ts`).
+Why: an emoji at the boundary leaves a lone `\ud8xx`, which Postgres jsonb (the run trace) and LLM APIs reject — every run with that document would fail. Evidence: REPRO in `server/test/project-context-helpers.test.ts` (fitDocs, "never cuts an astral character in half"); same class at `reviewer-core/src/prompt.ts:141` (PR body, pre-existing).
+
+### 2026-10-11 — the run trace can 404 right after the run is marked done
+NEVER assert `GET /runs/:id/trace` == 200 once right after `waitForPrRuns`; retry until 200 (bounded).
+Why: `run-executor.ts` calls `completeAgentRun` (done) before `saveRunTrace`, so the trace is briefly missing (pre-existing; `useRunTrace` has `retry: false`, so the UI can hit it too). Evidence: `reviews.it.test` failed 1 of 3 with `expected 404 to be 200`; fixed in `runOnce`.
+
 ### 2026-09-28 — NEVER store or show a raw LLM provider error
 Pass provider error messages through `redactSecrets` (`src/platform/errors.ts`) before a DB write, log or UI.
 Why: OpenAI's 401 echoes the key ("Incorrect API key provided: sk-or-v1****…8443") — a conventions scan stored it in `convention_scans.error`.
