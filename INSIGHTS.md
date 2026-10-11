@@ -88,6 +88,10 @@ Supersedes: "plan-verifier can't run `node --test`; plans must say `Status: read
 Do let plan-verifier / correctness-reviewer verify with `./scripts/check.sh` and `node --test <files>`; any other `node …` is still blocked → "cannot verify".
 Why: `readonly-bash.mjs` now allows exactly those two (no flags after `--test`, no redirect); everything else stays a denylist. Evidence: `node .claude/hooks/readonly-bash.test.mjs` (23 allowed, 55 blocked).
 
+### 2026-10-11 — spec-creator can't edit specs inside a git worktree
+NEVER run spec work for spec-creator in a worktree; keep it in the main clone (or a session started inside the worktree).
+Why: `spec-write-scope.mjs` resolves allowed paths against `$CLAUDE_PROJECT_DIR`, so `/home/nazar/dev-digest-retro/specs/…` was blocked as "outside the repo" — this also answers the open question: the `Write|Edit` frontmatter hook does fire in a live spec-creator run. Evidence: L05 round 3 on PR #32 (edits applied by the main session, commit 520a8f3).
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
