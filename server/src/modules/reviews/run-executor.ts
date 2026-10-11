@@ -114,6 +114,14 @@ export class ReviewRunExecutor {
       await failAll(`Failed to load PR diff: ${(err as Error).message}`);
       return;
     }
+    // An empty diff is never a reviewable PR: reviewing it returns "approve, 100" with
+    // zero findings, which reads like a clean pass. Fail the runs with the reason instead.
+    if (diff.files.length === 0) {
+      const msg = `PR diff is empty — head ${pull.headSha.slice(0, 7)} could not be diffed against ${pull.base} (no clone, fetch failed or no stored file patches)`;
+      runLog.error(msg);
+      await failAll(msg);
+      return;
+    }
     runLog.info(`Diff ready — ${diff.files.length} changed file(s); starting ${jobs.length} agent run(s)`);
 
     // Intent layer — derived once for every queued run; best-effort (never fails a run).
