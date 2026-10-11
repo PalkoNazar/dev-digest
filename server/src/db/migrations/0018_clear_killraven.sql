@@ -1,0 +1,1 @@
+ALTER TABLE "pull_requests" ADD COLUMN "detail_head_sha" text;
