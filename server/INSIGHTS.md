@@ -53,6 +53,10 @@ Why: the extractor regex-matches `GET '/…'` strings, so `*.test.ts` yields fak
 NEVER plan on a lesson brief's description of a repo-intel facade method without reading it in `server/src/modules/repo-intel/service.ts`.
 Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DEPTH` and returned `index_partial`/`flag_off`; it capped globally, ignored `BFS_DEPTH`, re-parsed via ripgrep and always said `no_data` (fixed in R1 of feat/l04-blast-radius). Evidence: `git show f39d089 -- server/src/modules/repo-intel/service.ts`.
 
+### 2026-10-11 — "approve, 100, 0 findings" on a real PR meant an empty diff, not a clean PR
+NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
+Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.
+
 ## Codebase Patterns
 
 ### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
@@ -114,6 +118,7 @@ Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/
 2026-09-27 — whole-project review → docs/improvement-plan.md: 1 entry (withTimeout doesn't cancel).
 2026-09-28 — L02 homework Conventions Extractor (server+client, worktree feat/l02-conventions-extractor): 5 entries (script live-check, provider error redaction, rg binary, drizzle-kit rename prompt, arch:check green).
 2026-10-04 — Smart Diff (worktree feat/smart-diff): 1 entry (arch:check baseline vs hoisted linker; answers the 2026-09-27 open question).
+2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.
