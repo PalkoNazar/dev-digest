@@ -43,8 +43,9 @@ function escapeLabel(label: string): string {
 }
 
 export function wrapUntrusted(label: string, content: string): string {
-  // strip any attempt to close our own delimiter
-  const safe = content.replaceAll('</untrusted>', '<\\/untrusted>');
+  // Neutralise any attempt to close our own delimiter, including case and
+  // whitespace/attribute variants (`</UNTRUSTED>`, `</untrusted >`, `</untrusted x="y">`).
+  const safe = content.replace(/<\/\s*untrusted\b[^>]*>/gi, '<\\/untrusted>');
   return `<untrusted source="${escapeLabel(label)}">\n${safe}\n</untrusted>`;
 }
 

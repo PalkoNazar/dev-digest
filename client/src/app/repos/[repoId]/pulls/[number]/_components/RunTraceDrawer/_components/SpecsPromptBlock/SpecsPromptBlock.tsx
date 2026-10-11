@@ -15,12 +15,17 @@ export function SpecsPromptBlock({ docs, color }: { docs: TraceSpecDoc[]; color:
   const tokens = docs.reduce((sum, d) => sum + (d.tokens ?? 0), 0);
   return (
     <div style={s.promptRow}>
-      <div onClick={() => setOpen((o) => !o)} style={s.promptHead}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{ ...s.headButton, ...s.promptHead }}
+      >
         <span style={s.promptDot(color)} />
         <span style={s.promptLabel}>{t("trace.prompt.specs")}</span>
         <span style={s.promptMeta}>{t("trace.prompt.specsMeta", { count: docs.length, tokens })}</span>
         <span style={s.promptToggle}>{open ? t("trace.collapse") : t("trace.expand")}</span>
-      </div>
+      </button>
       {open && docs.map((doc) => <SpecDocRow key={doc.path} doc={doc} />)}
     </div>
   );
@@ -31,7 +36,12 @@ function SpecDocRow({ doc }: { doc: TraceSpecDoc }) {
   const [open, setOpen] = React.useState(false);
   return (
     <div style={s.specDocRow}>
-      <div onClick={() => setOpen((o) => !o)} style={s.specDocHead}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{ ...s.headButton, ...s.specDocHead }}
+      >
         <span className="mono" style={s.spec}>
           {doc.path}
         </span>
@@ -39,7 +49,7 @@ function SpecDocRow({ doc }: { doc: TraceSpecDoc }) {
         {doc.tokens != null && (
           <span style={s.promptToggle}>{t("trace.specs.tokens", { tokens: doc.tokens })}</span>
         )}
-      </div>
+      </button>
       {open && (
         <pre className="mono" style={s.promptPre}>
           {doc.text ?? ""}

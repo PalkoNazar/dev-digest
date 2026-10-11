@@ -69,6 +69,16 @@ export const s = {
   promptToggle: { marginLeft: "auto", fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
   // ---- SpecsPromptBlock rows (one per injected document) ----
   specDocRow: { borderTop: "1px solid var(--border)" } satisfies CSSProperties,
+  // Native <button> reset so the semantic expanders look like the old header rows.
+  headButton: {
+    width: "100%",
+    background: "none",
+    border: 0,
+    margin: 0,
+    font: "inherit",
+    color: "inherit",
+    textAlign: "left",
+  } satisfies CSSProperties,
   specDocHead: { display: "flex", alignItems: "center", gap: 8, padding: "6px 12px 6px 29px", cursor: "pointer" } satisfies CSSProperties,
   promptPre: {
     margin: 0,
