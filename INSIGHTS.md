@@ -75,6 +75,10 @@ Supersedes: "read-only agents: Bash writes are blocked by a hook, write scopes s
 Do enforce a writing agent's path scope with a frontmatter hook (matcher `Write|Edit`) that checks `tool_input.file_path`; pair it with `readonly-bash.mjs` on Bash, or Bash writes around it.
 Why: no path-scoped `Write` in `tools`, but the hook gets the target path and blocks with exit 2. It must resolve real paths, because a symlinked folder otherwise escapes. Evidence: `.claude/hooks/spec-write-scope.mjs`, `node .claude/hooks/spec-write-scope.test.mjs` (6 allowed, 15 blocked).
 
+### 2026-10-11 — subagents can't ask the user: choices go out in the report, the main session asks
+Do put every user decision a subagent needs (questions, recommendations, implementation-planner's multi-agent / single-agent choice) in its report as `### Qn · header: …` with 2–4 options, recommended first; the main session asks via AskUserQuestion and resumes it with `Round N answers:` via SendMessage.
+Why: subagents have no AskUserQuestion, and the plan's `Execution:` line stays `ask-user` until the main session fills it in. The agent formerly named `planner` is now `implementation-planner` (older entries cite `planner.md`). Evidence: `.claude/agents/implementation-planner.md` ("Execution mode", "Step 6"), `.claude/agents/spec-creator.md` ("Step 6").
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
@@ -136,6 +140,8 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-11 — PR #29 review fixes (Copilot + DevDigest): 1 entry (hook guards: resulting file, flag-writers, fail-open).
 2026-10-11 — PR #29 Copilot round 2: 1 entry (git allowlist, -c/GIT_* exec).
 2026-10-11 — PR #29 Copilot round 3: 0 entries (wrapper options `env -i`, anchored Status field — same class as the entries above).
+
+2026-10-11 — planner → implementation-planner (no spec work, requirements review, execution-mode question; feat/implementation-planner-agent): 1 entry (subagent choices via the main session).
 
 ## Open Questions
 
