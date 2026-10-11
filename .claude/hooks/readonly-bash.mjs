@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // PreToolUse hook (matcher: Bash) for the read-only agents: planner,
-// architecture-reviewer, plan-verifier, researcher. Their prompts already forbid
-// writes, but Bash can still write (`sed -i`, `>`, `git checkout`), so this hook
+// architecture-reviewer, plan-verifier, researcher — and spec-creator, whose
+// Write/Edit go through spec-write-scope.mjs. Their prompts already forbid
+// Bash writes, but Bash can still write (`sed -i`, `>`, `git checkout`), so this hook
 // enforces it. Exit 2 blocks the call and shows stderr to the agent.
 //
 // It is a denylist of file-changing commands, not a sandbox: it stops the usual

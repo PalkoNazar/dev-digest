@@ -10,6 +10,7 @@ after adding or editing one.
 
 | Agent | Responsibility | Model | Writes code? | Input → Output |
 |---|---|---|---|---|
+| [spec-creator](spec-creator.md) | Writes a draft feature spec (EARS AC with stable ids, edge cases, provenance, untrusted inputs), analyses design screenshots for gaps, and works in question/proposal rounds with the user | `opus`, effort `high` | specs only | feature (+ designs) → draft spec in `specs/` or `<pkg>/specs/` + questions/proposals |
 | [researcher](researcher.md) | Answers one concrete question with cited evidence — REPO (code, specs, INSIGHTS, git history) or EXTERNAL (docs, changelogs, issues) | `sonnet` | no | question → research report (or clarifying questions) |
 | [planner](planner.md) | Turns one task into a structured Development Plan grounded in module docs, INSIGHTS, specs, architecture rules and routed skills | `opus`, effort `high` | no | task (+ spec) → plan for `specs/plans/` (or clarifying questions) |
 | [implementer](implementer.md) | Executes an approved plan (or one run of it) in client / server / reviewer-core, runs the package checks, self-checks only its own diff | `inherit` | yes | plan (+ run id) or gap list → code, tests, implementation report |
@@ -24,6 +25,11 @@ session orchestrates, commits and runs `/engineering-insights`.
 ## Flow
 
 ```
+main session ──(no approved spec)──► spec-creator ──► draft + Q/P ──► user (AskUserQuestion)
+     │              ▲                                                        │
+     │              └──────────── SendMessage "Round N answers" ◄────────────┘
+     │         READY-FOR-APPROVAL ──► user approves ──► main session sets Status: approved
+     │
 main session ──(facts missing)──► researcher ──► report
      │
      ├──► planner ──► plan ──► user approves ──► saved to specs/plans/YYYY-MM-DD-<slug>.plan.md
@@ -54,6 +60,7 @@ agent prompts. architecture-reviewer grades with the same
 
 | Agent | Allowed tools | Denied tools | Preloaded skills | Also in the prompt |
 |---|---|---|---|---|
+| spec-creator | Read, Grep, Glob, Write, Edit, Bash | Agent, WebFetch, WebSearch, NotebookEdit | — | Write/Edit only `*.md` directly in `specs/`, `{client,server,reviewer-core,mcp}/specs/`, only `Status: draft` files, never writes a non-draft status (hook-enforced: `spec-write-scope.mjs`); read-only Bash (hook-enforced); approved specs change only via `Supersedes:`; WHAT not HOW; no future-lesson scope; `maxTurns: 60` |
 | researcher | Read, Grep, Glob, Bash, WebSearch, WebFetch | — (allowlist) | — | read-only Bash only (hook-enforced); no skills, no sub-agents; never reads secrets |
 | planner | Read, Grep, Glob, Bash, Skill | Write, Edit, NotebookEdit, Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | read-only Bash only (hook-enforced); unknown facts → "Needs research"; no `engineering-insights`; turn budget (~60% reading, then write; unchecked → `unverified`); batched reads; `maxTurns: 80` |
 | implementer | Read, Grep, Glob, Edit, Write, Bash, Skill | Agent, WebFetch, WebSearch | onion-architecture, frontend-ui-architecture, zod | no commit/push/stash/PR; no hand-edited migrations; never weakens `groundFindings`/`INJECTION_GUARD`; no secrets; no `INSIGHTS.md` edits; never edits test-writer's tests; `maxTurns: 120` |
@@ -70,17 +77,25 @@ writing-agent run catch scope breaks. No `permissionMode` is set — it is ignor
 the main session runs in auto / acceptEdits mode.
 
 The four read-only agents (researcher, planner, architecture-reviewer, plan-verifier)
-carry a frontmatter `PreToolUse` hook on Bash:
+and spec-creator carry a frontmatter `PreToolUse` hook on Bash:
 [`.claude/hooks/readonly-bash.mjs`](../hooks/readonly-bash.mjs). It exits 2 on
 redirects into files, `sed -i`, `rm`/`mv`/`cp`/…, state-changing git, installs,
 `db:*`/`arch:baseline` scripts, snapshot updates, `docker`, repo scripts, and on
 interpreters/`sh -c`/`xargs` that would get around it. It is a denylist, not a
 sandbox. Test it with `node .claude/hooks/readonly-bash.test.mjs`.
 
+spec-creator is the one writing agent whose write scope is enforced, not prompt-only:
+a second frontmatter `PreToolUse` hook on `Write|Edit`,
+[`.claude/hooks/spec-write-scope.mjs`](../hooks/spec-write-scope.mjs), resolves the
+real path (symlinks included) and exits 2 unless it is a non-README `*.md` directly
+in one of the five spec folders, the existing file says `Status: draft`, and the new
+content sets no other status. Test: `node .claude/hooks/spec-write-scope.test.mjs`.
+
 ## Artifacts
 
 | Artifact | Produced by | Consumed by | Where |
 |---|---|---|---|
+| Spec (Spec ID, Status draft, problem, goals/non-goals, US/AC (EARS)/EC with stable ids, non-functional, inputs provenance, untrusted inputs, NEEDS CLARIFICATION) + spec report (questions, proposals, design analysis, self-check) | spec-creator | user (rounds, approval), planner, plan-verifier (via the plan's AC) | `specs/` or `<pkg>/specs/` — see [`specs/README.md`](../../specs/README.md); report in conversation |
 | Research report (TL;DR, findings + evidence, not-found list) | researcher | main session, planner (via "Needs research") | conversation |
 | Development Plan (Goal, Context read, Constraints, Affected modules, Steps with Skills / Tests / Done when, **Runs**, Verification, Acceptance criteria, Risks, Out of scope, Needs research, INSIGHTS discrepancies, Open questions) | planner | user (approval), implementer, test-writer, plan-verifier | `specs/plans/YYYY-MM-DD-<slug>.plan.md` — see [`specs/plans/README.md`](../../specs/plans/README.md) |
 | Implementation report (Status DONE / PARTIAL / BLOCKED, steps, files, skills applied, checks with exit codes, deviations, not done, for reviewers, insight candidates) | implementer | main session, reviewers | conversation |
@@ -110,6 +125,9 @@ branches) come from `CLAUDE.md` and the package `AGENTS.md` files, not from thes
 | Orchestrator–workers: the main session delegates and synthesizes | [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) |
 | Stopping conditions → `maxTurns`, `BLOCKED` / `PARTIAL`, plans split into runs | [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) |
 | No path-scoped Write → write scopes are prompt rules; `disallowedTools` applied before `tools`; read-only = Read, Grep, Glob (+ read-only Bash, enforced by a frontmatter `PreToolUse` hook) | [Subagents](https://code.claude.com/docs/en/sub-agents) |
+| spec-creator: EARS patterns (ubiquitous, event, state, unwanted, optional, complex) | [Mavin et al., EARS, RE'09](https://ieeexplore.ieee.org/document/5328509), [alistairmavin.com/ears](https://alistairmavin.com/ears/) |
+| spec-creator: `[NEEDS CLARIFICATION]` markers instead of guessing; spec = what/why, plan = how | [GitHub Spec Kit](https://github.com/github/spec-kit) |
+| A frontmatter `PreToolUse` hook sees `tool_input.file_path` for Write/Edit and blocks with exit 2 → path-scoped writes | [Hooks](https://code.claude.com/docs/en/hooks) |
 | Combined agent descriptions stay well under ~15k tokens | [Subagents](https://code.claude.com/docs/en/sub-agents) |
 | Writer / reviewer separation; tests-first ("have one Claude write tests, then another write code to pass them") | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) |
 | plan-verifier's core loop ("review the diff against PLAN.md … Report gaps, not style preferences") | [Claude Code best practices](https://code.claude.com/docs/en/best-practices) |
@@ -140,7 +158,7 @@ Our own decisions (no external source): model choices, the run-splitting thresho
 (> ~5 steps or > 1 package), the shared `routing.md`, insights recorded only by the
 main session, the verdict vocabulary met / partial / not met / cannot verify (inferred
 from the traceability and hallucination sources), the Tier A / Tier B split, the ≤ 1000-character cap per `description` (short triggers delegate
-better; all seven together are ~1.2k tokens), reuse of
+better; all eight together are ~1.4k tokens), reuse of
 `severity.md` by architecture-reviewer, the "Where docs go" map in `docs/README.md`,
 and committing RED-BY-DESIGN tests only together with the implementer run that turns
 them green.
