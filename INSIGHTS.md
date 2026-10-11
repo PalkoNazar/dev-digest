@@ -35,6 +35,10 @@ single-quote ~100-col style. Evidence: `ls -a . server client` — no formatter 
 NEVER validate an Edit by its `new_string` alone, never trust a Bash denylist to cover "read" commands with output flags, never detect the hook entry point with `` `file://${argv[1]}` ``.
 Why: PR #29 review found that Edit `draft`→`approved` slipped past a `Status:` regex, `git diff --output=<file>` / `git format-patch -o` / `sort -o` wrote with no `>`, and the URL compare misses on paths with spaces, so the hook exited 0 for everything. Fix: apply the edit and check the result; use `pathToFileURL(realpathSync(argv[1]))`. Evidence: `.claude/hooks/*.test.mjs` fail 5 + 7 cases on the old code.
 
+### 2026-10-11 — git in a read-only guard must be an allowlist; `-c` and `GIT_*` env run commands
+NEVER denylist git subcommands in `readonly-bash.mjs`; allow known read subcommands only and block `-c`, `--config-env`, `--exec-path`, `GIT_*`/`*PAGER` env prefixes and `git grep -O`.
+Why: `git -c 'alias.x=!touch f' x` (and `-c core.pager=…`, `GIT_PAGER=…`) run a shell with no `>` and no denied word; `env FOO=1 rm x` also slipped past a single prefix shift. Test counts quoted in entries above are as of their commit (`1a653d1`: 6/15). Evidence: `node .claude/hooks/readonly-bash.test.mjs` (19 allowed, 42 blocked).
+
 ## Codebase Patterns
 
 ### 2026-09-27 — new fields on the stored trace contract must be nullish
@@ -130,6 +134,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-10 — L04 Blast Radius (server+client+mcp, feat/l04-blast-radius): 0 entries here; +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md, +1 in mcp/INSIGHTS.md.
 2026-10-11 — spec-creator agent + spec-write-scope hook (feat/spec-creator-agent): 1 entry (hook-enforced write scope) + 1 open question.
 2026-10-11 — PR #29 review fixes (Copilot + DevDigest): 1 entry (hook guards: resulting file, flag-writers, fail-open).
+2026-10-11 — PR #29 Copilot round 2: 1 entry (git allowlist, -c/GIT_* exec).
 
 ## Open Questions
 
