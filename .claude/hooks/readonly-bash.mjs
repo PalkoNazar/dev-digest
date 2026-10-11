@@ -62,7 +62,9 @@ export function check(command) {
     const base = cmd.split('/').pop();
 
     // `node --test <files>` runs test files and nothing else (no -e/-p/--eval/--import).
-    if (base === 'node' && sub === '--test' && rest.every((w) => !w.startsWith('-'))) continue;
+    // Quoted words were replaced by `Q` above, so `"--import=./x.mjs"` would look like
+    // a file — a quoted argument disqualifies the exception.
+    if (base === 'node' && sub === '--test' && rest.every((w) => !w.startsWith('-') && w !== 'Q')) continue;
     if (MUTATING_CMDS.has(base)) return `\`${base}\` can change files`;
     // scripts/check.sh only runs typecheck/tests/arch:check and writes nothing in the repo.
     if (/^(\.\/)?scripts\/check\.sh$/.test(cmd)) continue;
