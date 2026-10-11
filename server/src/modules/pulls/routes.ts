@@ -29,10 +29,15 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
    * read can refresh the same PR at once, and under READ COMMITTED two bare
    * delete+insert transactions would both insert (no unique (pr_id, path)).
    */
-  /** prId → head sha whose detail fetch failed (404 seeded PR, no access…); not
-   *  retried at that head until the process restarts, so it can't cost GitHub calls on
-   *  every list read. */
-  const detailFailedAt = new Map<string, string>();
+  /** prId → head + time of a failed detail fetch (404 seeded PR, no access, network
+   *  down…): not retried at that head for DETAIL_RETRY_MS, so it can't cost GitHub
+   *  calls on every list read, but a transient failure heals without a restart. */
+  const DETAIL_RETRY_MS = 15 * 60_000;
+  const detailFailedAt = new Map<string, { head: string; at: number }>();
+  const recentlyFailed = (prId: string, head: string): boolean => {
+    const f = detailFailedAt.get(prId);
+    return !!f && f.head === head && Date.now() - f.at < DETAIL_RETRY_MS;
+  };
 
   const persistDetail = async (prId: string, detail: PrDetail): Promise<void> => {
     await container.db.transaction(async (tx) => {
@@ -70,6 +75,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
           additions: detail.additions,
           deletions: detail.deletions,
           filesCount: detail.files_count,
+          // The detail is the newer source: the list payload is one page of 50, so
+          // a stored head can lag — keep both equal or the PR looks stale forever.
+          headSha: detail.head_sha,
           detailHeadSha: detail.head_sha,
         })
         .where(eq(t.pullRequests.id, prId));
@@ -93,6 +101,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
 
     // Local-first: sync from GitHub when a token is configured, but never
     // fail the read — already-imported/seeded PRs stay viewable offline.
+    // A failed list sync means GitHub is unreachable right now — skip the detail
+    // refresh below instead of failing (and remembering) up to 10 fetches.
+    let listSynced = false;
     if (gh) {
       try {
         const pulls = await gh.listPullRequests({ owner: repo.owner, name: repo.name });
@@ -126,6 +137,7 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
               },
             });
         }
+        listSynced = true;
       } catch (err) {
         app.log.warn({ err }, 'GitHub PR sync skipped (no token / offline); serving persisted PRs');
       }
@@ -145,9 +157,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
     // 250 commits — a big PR's head would never show up and refetch on every call).
     // Capped per request, open and recently updated first; the next read continues.
     const DETAIL_REFRESH_LIMIT = 10;
-    if (gh) {
+    if (gh && listSynced) {
       const stale = rows
-        .filter((r) => r.detailHeadSha !== r.headSha && detailFailedAt.get(r.id) !== r.headSha)
+        .filter((r) => r.detailHeadSha !== r.headSha && !recentlyFailed(r.id, r.headSha))
         .sort(
           (a, b) =>
             Number(b.status === 'open') - Number(a.status === 'open') ||
@@ -161,8 +173,9 @@ export default async function pullsRoutes(appBase: FastifyInstance) {
           r.additions = detail.additions;
           r.deletions = detail.deletions;
           r.filesCount = detail.files_count;
+          r.headSha = detail.head_sha;
         } catch (err) {
-          detailFailedAt.set(r.id, r.headSha);
+          detailFailedAt.set(r.id, { head: r.headSha, at: Date.now() });
           app.log.warn({ err, number: r.number }, 'PR detail refresh skipped');
         }
       }
