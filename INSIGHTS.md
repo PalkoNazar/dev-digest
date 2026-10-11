@@ -62,6 +62,11 @@ Why: it exits 2 on redirects, `sed -i`, rm/mv/cp, state-changing git, installs, 
 Do run a run's `node …` green-check (pr-self-review self-tests) in the calling session; set a plan's header to `Status: ready`, not `approved`.
 Why: `readonly-bash.mjs` blocks every interpreter call, so plan-verifier reports such checks as "cannot verify"; planner/implementer/plan-verifier key on the literal `ready` (`.claude/agents/planner.md:146`). Evidence: R0 of `specs/plans/2026-10-07-l04-mcp-server.plan.md`.
 
+### 2026-10-11 — a writer's path scope CAN be enforced: `PreToolUse` hook on `Write|Edit`
+Supersedes: "read-only agents: Bash writes are blocked by a hook, write scopes still aren't" (2026-09-30) — for spec-creator only.
+Do enforce a writing agent's path scope with a frontmatter hook (matcher `Write|Edit`) that checks `tool_input.file_path`; pair it with `readonly-bash.mjs` on Bash, or Bash writes around it.
+Why: no path-scoped `Write` in `tools`, but the hook gets the target path and blocks with exit 2. It must resolve real paths, because a symlinked folder otherwise escapes. Evidence: `.claude/hooks/spec-write-scope.mjs`, `node .claude/hooks/spec-write-scope.test.mjs` (6 allowed, 15 blocked).
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash
@@ -119,5 +124,9 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-07 — L04 devdigest-mcp research + spec (feat/l04-mcp-server): 0 entries (MCP token findings live in specs/L04-mcp-server.md).
 2026-10-07 — L04 R0: pr-self-review/agents learn the mcp package (feat/l04-mcp-server): 1 entry (verifier can't run node; plan Status ready).
 2026-10-10 — L04 Blast Radius (server+client+mcp, feat/l04-blast-radius): 0 entries here; +3 in server/INSIGHTS.md, +1 in client/INSIGHTS.md, +1 in mcp/INSIGHTS.md.
+2026-10-11 — spec-creator agent + spec-write-scope hook (feat/spec-creator-agent): 1 entry (hook-enforced write scope) + 1 open question.
 
 ## Open Questions
+
+### 2026-10-11 — does the `Write|Edit` frontmatter hook fire inside a live spec-creator run?
+Only unit + stdin tests prove `spec-write-scope.mjs`; the agent was added mid-session and never ran. First live run: ask it to write `server/src/x.md` and confirm "Blocked by spec write scope". Evidence pending.
