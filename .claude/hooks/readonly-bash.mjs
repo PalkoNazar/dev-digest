@@ -7,7 +7,8 @@
 //
 // It is a denylist of file-changing commands, not a sandbox: it stops the usual
 // ways an agent changes the tree, and it blocks interpreters and `sh -c` so the
-// usual ways around it are closed too. Test: node .claude/hooks/readonly-bash.test.mjs
+// usual ways around it are closed too. Two exceptions: `node --test <files>` and
+// `scripts/check.sh` (read-only checks). Test: node .claude/hooks/readonly-bash.test.mjs
 
 import { readFileSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -57,7 +58,11 @@ export function check(command) {
     if (!cmd) continue;
     const base = cmd.split('/').pop();
 
+    // `node --test <files>` runs test files and nothing else (no -e/-p/--eval/--import).
+    if (base === 'node' && sub === '--test' && rest.every((w) => !w.startsWith('-'))) continue;
     if (MUTATING_CMDS.has(base)) return `\`${base}\` can change files`;
+    // scripts/check.sh only runs typecheck/tests/arch:check and writes nothing in the repo.
+    if (/^(\.\/)?scripts\/check\.sh$/.test(cmd)) continue;
     if (cmd.startsWith('./') || cmd.startsWith('scripts/')) return 'running repo scripts';
     if (base === 'sort' && words.some((w) => /^-[a-zA-Z]*o|^--output/.test(w))) return '`sort -o`';
     if (base === 'sed' && words.some((w) => /^-[a-zA-Z]*i|^--in-place/.test(w))) return '`sed -i`';

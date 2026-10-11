@@ -26,6 +26,10 @@ const allowed = [
   'git branch -a --contains HEAD',
   'git remote -v',
   'git rev-parse --abbrev-ref HEAD',
+  './scripts/check.sh',
+  './scripts/check.sh --related server client',
+  'scripts/check.sh --it --base origin/main server 2>&1 | tail -20',
+  'node --test .claude/skills/pr-self-review/scripts/test/self-review.test.mjs',
 ];
 
 const blocked = [
@@ -54,6 +58,14 @@ const blocked = [
   'cat $(rm x)',
   'echo "$(touch x)"',
   './scripts/dev.sh',
+  './scripts/e2e.sh',
+  './scripts/check.sh > out.txt',
+  './scripts/check.sh.bak',
+  'scripts/check.sh; rm x',
+  'node --test --import ./x.mjs t.test.mjs',
+  "node --test -e 'require(\"fs\").writeFileSync(\"x\",\"\")'",
+  'node x.mjs',
+  'node -e "1"',
   'FOO=1 mv a b',
   'git diff --output=server/src/x.ts',
   'git log -p --output specs/x.md',
