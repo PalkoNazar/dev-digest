@@ -22,6 +22,10 @@ const allowed = [
   'jq .scripts server/package.json',
   'git ls-files -o --exclude-standard',
   'sort -u specs/a.md | head',
+  'git -C server log --oneline -3',
+  'git branch -a --contains HEAD',
+  'git remote -v',
+  'git rev-parse --abbrev-ref HEAD',
 ];
 
 const blocked = [
@@ -57,6 +61,16 @@ const blocked = [
   'git archive -o x.tar HEAD',
   'sort -o server/src/x.ts a',
   'tar xf a.tar',
+  "git -c 'alias.foo=!touch /tmp/x' foo",
+  "git -c core.pager='touch x' log",
+  'git --config-env=core.pager=X log',
+  'git foo',
+  "GIT_PAGER='touch x' git log",
+  "env GIT_EXTERNAL_DIFF=x git diff",
+  'env FOO=1 rm x',
+  'git grep -O vim foo',
+  'git branch feat/new',
+  'git remote add evil x',
 ];
 
 let failed = 0;

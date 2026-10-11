@@ -21,7 +21,11 @@ const MUTATING_CMDS = new Set([
   'sh', 'bash', 'zsh', 'eval', 'exec', 'source', '.', 'python', 'python3',
   'node', 'perl', 'ruby', 'php', 'awk', 'gawk', 'xargs',
 ]);
-const GIT_MUTATING = /^(add|am|apply|checkout|cherry-pick|clean|commit|fetch|gc|init|merge|mv|pull|push|rebase|reset|restore|revert|rm|stash|switch|tag|worktree|update-ref|config|submodule|format-patch|archive|bundle|notes|replace|symbolic-ref|filter-branch|prune|repack|maintenance)$/;
+// Git is an allowlist: anything else — including aliases, which can run `!shell` — is blocked.
+const GIT_READ = /^(log|show|diff|status|branch|grep|blame|rev-parse|ls-files|ls-tree|merge-base|cat-file|describe|shortlog|rev-list|name-rev|remote|for-each-ref|show-ref|diff-tree|range-diff|version|help)$/;
+const BRANCH_LIST = /^(-[alrv]+|--(list|all|remotes|show-current|contains|no-contains|merged|no-merged|points-at|sort|format|verbose)(=.*)?)$/;
+// Env vars that make git (or a pager) run a command.
+const EXEC_ENV = /^(GIT_\w*|\w*PAGER|LESSOPEN|LESSCLOSE|EDITOR|VISUAL)=/;
 const PKG_MUTATING = /^(i|install|add|remove|rm|uninstall|update|up|upgrade|ci|link|unlink|dlx|prune|dedupe|publish|patch)$/;
 const SCRIPT_MUTATING = /(^|:)(db:(migrate|generate|push|seed)|arch:baseline|seed|format|fix)$|^lint:fix$/;
 
@@ -40,8 +44,11 @@ export function check(command) {
   const flat = unquoted.replace(/\$\(|<\(|[()`]/g, ' ; ');
   for (const raw of flat.split(/&&|\|\||[;|&\n]/)) {
     const words = raw.trim().split(/\s+/).filter(Boolean);
-    while (words[0] && /^\w+=/.test(words[0])) words.shift(); // FOO=1 cmd
-    if (words[0] === 'env' || words[0] === 'command' || words[0] === 'time') words.shift();
+    // FOO=1 cmd, env FOO=1 cmd, command cmd, time cmd — in any order.
+    while (words[0] && (/^\w+=/.test(words[0]) || /^(env|command|time)$/.test(words[0]))) {
+      if (EXEC_ENV.test(words[0])) return `\`${words[0].split('=')[0]}\` can make a command run another`;
+      words.shift();
+    }
     const [cmd, sub, ...rest] = words;
     if (!cmd) continue;
     const base = cmd.split('/').pop();
@@ -55,15 +62,24 @@ export function check(command) {
     }
     if (base === 'git') {
       // Skip global options, including the ones that take a value (`-C dir`).
+      // `-c`/`--config-env` can define aliases or pagers that run shell commands.
       const gitArgs = words.slice(1);
       let i = 0;
-      while (gitArgs[i]?.startsWith('-')) i += /^-(C|c)$|^--(git-dir|work-tree|namespace)$/.test(gitArgs[i]) ? 2 : 1;
+      while (gitArgs[i]?.startsWith('-')) {
+        if (/^-c$|^--(config-env|exec-path)/.test(gitArgs[i])) return `\`git ${gitArgs[i]}\` can run commands`;
+        i += /^-C$|^--(git-dir|work-tree|namespace)$/.test(gitArgs[i]) ? 2 : 1;
+      }
       const gitSub = gitArgs[i];
-      if (gitSub && GIT_MUTATING.test(gitSub)) return `\`git ${gitSub}\` changes repo state`;
+      const subArgs = gitArgs.slice(i + 1);
+      if (gitSub && !GIT_READ.test(gitSub)) return `\`git ${gitSub}\` is not a read-only git command`;
       // `git diff/log/show --output=<file>` writes without any shell redirect.
-      if (gitArgs.some((w) => /^--output(=|$)/.test(w))) return '`git --output` writes a file';
-      if (gitSub === 'branch' && words.some((w) => /^-[dDmMcC]$|^--(delete|move|copy)$/.test(w))) {
-        return '`git branch` with delete/move';
+      if (subArgs.some((w) => /^--output(=|$)/.test(w))) return '`git --output` writes a file';
+      if (gitSub === 'grep' && subArgs.some((w) => /^-O|^--open-files-in-pager/.test(w))) return '`git grep -O` runs a command';
+      if (gitSub === 'branch' && subArgs.length && !subArgs.some((w) => BRANCH_LIST.test(w))) {
+        return '`git branch` without a list option creates, moves or deletes a branch';
+      }
+      if (gitSub === 'remote' && subArgs[0] && !/^(-v|--verbose|show|get-url)$/.test(subArgs[0])) {
+        return '`git remote` that changes remotes';
       }
     }
     if (base === 'pnpm' || base === 'npm' || base === 'yarn') {
