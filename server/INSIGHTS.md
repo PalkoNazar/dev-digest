@@ -77,6 +77,14 @@ Why: regexes missed paren titles, nested brackets, `<…>` targets, definitions 
 NEVER treat a Markdown target as external because it matches a URL-scheme regex; `server.ts:42` matches, and react-markdown renders it with `href=""`.
 Why: react-markdown's `defaultUrlTransform` allows only http(s)/irc(s)/mailto/xmpp (`client/node_modules/react-markdown/lib/index.js:113`). Known open issue B9 in `src/modules/onboarding/helpers/grounding.ts:19`.
 
+### 2026-10-12 — `git.listTree` rejects on a missing ref; null only means "no clone"
+ALWAYS `.catch(() => null)` a `listTree(repo, ref)` used as a readability check (HEAD fallback, clone-ready check); test fakes must THROW for unknown refs.
+Why: `adapters/git/simple-git.ts:157-163` returns null only for no `.git` or an unsafe ref; `git ls-tree <pruned sha>` and `ls-tree HEAD` on an empty repo reject. A null-only fallback was dead code and a null-returning fake hid it. Evidence: B1/B2 tests (`FakeGit.listTreeRejects`) in `test/onboarding-service.test.ts`.
+
+### 2026-10-12 — close a stale `running` row BEFORE inserting under a partial unique "one running" index
+ALWAYS fail the stale generation (`detail='Interrupted'`) before `createGeneration` when the table has `UNIQUE … WHERE status='running'`.
+Why: inserting first hits 23505 and turns a legitimate restart into a 409. Evidence: `onboarding-service.test.ts` asserts ops order `['fail:gen-old:Interrupted','create']`; `migrations/0020_aromatic_ares.sql`.
+
 ## Codebase Patterns
 
 ### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
@@ -98,6 +106,10 @@ Why: `transportRetries` only caps `withRetry` + SDK retries; `maxRetries` caps t
 ### 2026-10-11 — `check.sh --related` skips untracked test files
 NEVER trust `./scripts/check.sh --related server` to run new, untracked tests; run them with `pnpm exec vitest run <files>` or use plain `./scripts/check.sh server`.
 Why: in onboarding R2, `--related` ran 282 tests and none of the 82 new ones; the plain run ran 412.
+
+### 2026-10-12 — openai `APIConnectionTimeoutError` has `name === 'Error'`
+Classify LLM timeouts by message (`/timed out|timeout/i`) as well as by name; NEVER rely on `err.name === 'APIConnectionTimeoutError'` (better: map it to `TimeoutError` inside `adapters/llm/*`, which they don't do yet).
+Why: openai 4.104 `new APIConnectionTimeoutError()` → name `Error`, message `Request timed out.`; only `onboarding/service.ts` `classifyLlmError` sniffs it today (arch-review A1, open).
 
 ## Tool & Library Notes
 
@@ -161,6 +173,7 @@ Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/
 2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
 2026-10-11 — SPEC-02 Onboarding Tour R1 (feat/l05-onboarding-tour): 3 entries (file_edges PK, hotness=0, one-call fields).
 2026-10-11 — SPEC-02 Onboarding Tour R2: 4 entries (Markdown grounding, scheme regex, pnpm add store, --related skips untracked).
+2026-10-12 — SPEC-02 Onboarding Tour R3: 3 entries (listTree rejects, stale-row order, APIConnectionTimeoutError name).
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.
