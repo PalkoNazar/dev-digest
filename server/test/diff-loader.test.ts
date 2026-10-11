@@ -5,10 +5,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { loadDiff } from '../src/modules/reviews/diff-loader.js';
+import { ReviewRunExecutor } from '../src/modules/reviews/run-executor.js';
+import { RunBus } from '../src/platform/sse.js';
 import { parseUnifiedDiff } from '../src/adapters/git/diff-parser.js';
 import type { Container } from '../src/platform/container.js';
 import type { ReviewRepository } from '../src/modules/reviews/repository.js';
-import type { PullRow } from '../src/db/rows.js';
+import type { AgentRow, PullRow } from '../src/db/rows.js';
 import type * as schema from '../src/db/schema.js';
 import type { RepoRef, UnifiedDiff } from '@devdigest/shared';
 
@@ -72,5 +74,41 @@ describe('loadDiff', () => {
     const { container } = fakeGit({ fetchFails: true });
     const diff = await loadDiff(container, fakeRepo(), 'ws', pull, repoRow);
     expect(diff).toEqual(EMPTY);
+  });
+});
+
+describe('ReviewRunExecutor — empty diff', () => {
+  it('fails every queued run with the reason instead of reviewing 0 files', async () => {
+    const { container: base } = fakeGit({ fetchFails: true });
+    const bus = new RunBus();
+    const container = { ...base, runBus: bus } as unknown as Container;
+    const completed: { runId: string; status: string; error?: string | null }[] = [];
+    const traces: string[] = [];
+    const repo = {
+      async getPrFiles() {
+        return [];
+      },
+      async completeAgentRun(runId: string, v: { status: string; error?: string | null }) {
+        completed.push({ runId, status: v.status, error: v.error });
+      },
+      async saveRunTrace(runId: string) {
+        traces.push(runId);
+      },
+    } as unknown as ReviewRepository;
+    const agent = { name: 'General', version: 1, provider: 'openrouter', model: 'm', systemPrompt: '' } as AgentRow;
+    const executor = new ReviewRunExecutor(container, repo, {} as Container['agentsRepo']);
+
+    await executor.executeRuns('ws', pull, repoRow, [
+      { agent, runId: 'run-a' },
+      { agent, runId: 'run-b' },
+    ]);
+
+    expect(completed.map((c) => [c.runId, c.status])).toEqual([
+      ['run-a', 'failed'],
+      ['run-b', 'failed'],
+    ]);
+    expect(completed[0]?.error).toMatch(/^PR diff is empty — head e3096a7 could not be diffed against main/);
+    expect(traces).toEqual(['run-a', 'run-b']);
+    expect(bus.buffer('run-a').some((e) => e.msg.startsWith('PR diff is empty'))).toBe(true);
   });
 });
