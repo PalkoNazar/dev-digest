@@ -49,19 +49,25 @@
       "skills": "Skills (dynamic)",
       "memory": "Memory (dynamic)",
       "repoMap": "Repo skeleton — repo-intel (dynamic)",
-      "specs": "Project context (dynamic)",
+      "specs": "Project context — attached specs (untrusted)",
       "callers": "Callers of changed symbols — repo-intel (dynamic)",
       "user": "User / diff (dynamic)",
       "copy": "Copy",
       "fullscreen": "Open fullscreen",
       "search": "Search in this block…",
       "noMatches": "No matches for “{q}”.",
-      "skillsMeta": "{count, plural, one {# skill} other {# skills}} · +{tokens} tok"
+      "skillsMeta": "{count, plural, one {# skill} other {# skills}} · +{tokens} tok",
+      "specsMeta": "{count, plural, one {# doc} other {# docs}} · +{tokens} tok"
     },
     "tools": {
       "args": "args",
       "result": "result",
       "previewTruncated": "(preview truncated)"
+    },
+    "specs": {
+      "truncated": "truncated",
+      "omitted": "omitted",
+      "tokens": "≈ {tokens} tok"
     }
   },
   "drawer": {

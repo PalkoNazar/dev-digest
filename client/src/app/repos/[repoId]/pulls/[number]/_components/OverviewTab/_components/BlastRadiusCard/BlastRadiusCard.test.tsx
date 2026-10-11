@@ -26,7 +26,7 @@ vi.mock("@/lib/hooks/repo-intel", () => ({
 }));
 
 import { BlastRadiusCard } from "./BlastRadiusCard";
-import { RESYNC_TIMEOUT_MS } from "./constants";
+import { RESYNC_TIMEOUT_MS } from "@/lib/repo-resync";
 
 const MAP: BlastRadius = {
   changed_symbols: [

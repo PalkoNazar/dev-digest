@@ -1,5 +1,4 @@
 import type { BlastRadius, ChangedSymbol } from "@devdigest/shared";
-import type { RepoIntelState } from "@/lib/hooks/repo-intel";
 
 /** Symbol kinds rendered with a call suffix, e.g. `buildPrompt()`. */
 const CALLABLE_KINDS = new Set(["function", "method"]);
@@ -29,15 +28,4 @@ export function duplicateSymbols(downstream: BlastRadius["downstream"]): Set<str
     seen.add(d.symbol);
   }
   return dup;
-}
-
-/**
- * A resync whose baseline index state had `updatedAt === startedAt` is finished once
- * the state reports a different `updatedAt` (a new index row).
- */
-export function resyncFinished(
-  startedAt: string,
-  state: Pick<RepoIntelState, "updatedAt"> | undefined,
-): boolean {
-  return !!state && state.updatedAt !== startedAt;
 }

@@ -4,6 +4,7 @@ import type { IconName } from "@devdigest/ui";
     (mockup) arrives with a later lesson. */
 export const DETAIL_TABS: readonly { key: string; labelKey: string; icon: IconName }[] = [
   { key: "config", labelKey: "detail.tabs.config", icon: "Settings" },
+  { key: "context", labelKey: "detail.tabs.context", icon: "FileText" },
   { key: "preview", labelKey: "detail.tabs.preview", icon: "Eye" },
   { key: "stats", labelKey: "detail.tabs.stats", icon: "BarChart" },
   { key: "versions", labelKey: "detail.tabs.versions", icon: "History" },

@@ -11,8 +11,9 @@ import type { BlastRadius, BlastStats } from "@devdigest/shared";
 import { usePrBlast } from "@/lib/hooks/blast";
 import { useRepoIntelStatus, useResyncRepoIntel } from "@/lib/hooks/repo-intel";
 import { BlastSymbolImpact } from "../BlastSymbolImpact";
-import { RESYNC_TIMEOUT_MS, STAT_ICONS, STAT_KEYS } from "./constants";
-import { duplicateSymbols, linkSha, resyncFinished, symbolLabel } from "./helpers";
+import { RESYNC_TIMEOUT_MS, resyncFinished } from "@/lib/repo-resync";
+import { STAT_ICONS, STAT_KEYS } from "./constants";
+import { duplicateSymbols, linkSha, symbolLabel } from "./helpers";
 import { s } from "./styles";
 
 interface BlastRadiusCardProps {

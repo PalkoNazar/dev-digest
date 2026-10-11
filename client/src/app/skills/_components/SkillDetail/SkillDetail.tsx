@@ -1,6 +1,6 @@
 /* SkillDetail — right pane of /skills/:id: header (name, type, version, vetting
-   badge) + tabs Config (editor) / Preview (rendered skill) / Versions (history).
-   Tab lives in ?tab=. */
+   badge) + tabs Config (editor) / Context (L05 project documents) / Preview
+   (rendered skill) / Versions (history). Tab lives in ?tab=. */
 "use client";
 
 import React from "react";
@@ -12,6 +12,7 @@ import { useDeleteSkill, useSkill } from "@/lib/hooks/skills";
 import { useToast } from "@/lib/toast";
 import { SKILL_TYPE_COLOR } from "@/lib/skill-types";
 import { SkillEditor } from "../SkillEditor";
+import { SkillContextTab } from "../SkillContextTab";
 import { SkillStatsTab } from "../SkillStatsTab";
 import { SkillVersions } from "../SkillVersions";
 import { DETAIL_TABS } from "./constants";
@@ -87,6 +88,7 @@ export function SkillDetail({ id, tab }: { id: string; tab: string }) {
       </div>
       <div style={s.body}>
         {active === "config" && <SkillEditor skill={skill} onDelete={remove} />}
+        {active === "context" && <SkillContextTab skillId={skill.id} />}
         {active === "preview" && (
           <div style={s.preview}>
             {skill.source !== "manual" && (

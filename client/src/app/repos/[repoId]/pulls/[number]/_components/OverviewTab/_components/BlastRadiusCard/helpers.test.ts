@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { duplicateSymbols, linkSha, resyncFinished, symbolLabel } from "./helpers";
+import { duplicateSymbols, linkSha, symbolLabel } from "./helpers";
 
 describe("linkSha", () => {
   it("prefers the index SHA and falls back to the PR head", () => {
@@ -18,14 +18,6 @@ describe("symbolLabel", () => {
     expect(symbolLabel("build", changed)).toBe("build()");
     expect(symbolLabel("Repo", changed)).toBe("Repo");
     expect(symbolLabel("unknown", changed)).toBe("unknown");
-  });
-});
-
-describe("resyncFinished", () => {
-  it("is finished only when the index state moved past a known baseline", () => {
-    expect(resyncFinished("t1", undefined)).toBe(false);
-    expect(resyncFinished("t1", { updatedAt: "t1" })).toBe(false);
-    expect(resyncFinished("t1", { updatedAt: "t2" })).toBe(true);
   });
 });
 
