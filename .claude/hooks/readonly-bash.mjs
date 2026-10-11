@@ -17,6 +17,8 @@ const MUTATING_CMDS = new Set([
   'dd', 'truncate', 'tee', 'install', 'patch', 'shred', 'unlink', 'rsync',
   'curl', 'wget', 'docker', 'docker-compose', 'sudo', 'npx',
   'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'split', 'csplit',
+  // wrappers that run another command with their own options
+  'nice', 'nohup', 'timeout', 'stdbuf', 'setsid', 'chroot', 'ionice', 'script', 'watch', 'flock',
   // interpreters and shells can write anything
   'sh', 'bash', 'zsh', 'eval', 'exec', 'source', '.', 'python', 'python3',
   'node', 'perl', 'ruby', 'php', 'awk', 'gawk', 'xargs',
@@ -45,9 +47,11 @@ export function check(command) {
   for (const raw of flat.split(/&&|\|\||[;|&\n]/)) {
     const words = raw.trim().split(/\s+/).filter(Boolean);
     // FOO=1 cmd, env FOO=1 cmd, command cmd, time cmd — in any order.
-    while (words[0] && (/^\w+=/.test(words[0]) || /^(env|command|time)$/.test(words[0]))) {
+    // A wrapper option (`env -i`, `command -p`) would otherwise be taken for the command.
+    while (words[0] && (/^\w+=/.test(words[0]) || /^(env|command|time)$/.test(words[0].split('/').pop()))) {
       if (EXEC_ENV.test(words[0])) return `\`${words[0].split('=')[0]}\` can make a command run another`;
-      words.shift();
+      const wrapper = words.shift();
+      if (!wrapper.includes('=') && words[0]?.startsWith('-')) return `\`${wrapper} ${words[0]}\` — wrapper options are not allowed`;
     }
     const [cmd, sub, ...rest] = words;
     if (!cmd) continue;

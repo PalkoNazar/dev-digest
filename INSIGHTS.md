@@ -135,6 +135,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-11 — spec-creator agent + spec-write-scope hook (feat/spec-creator-agent): 1 entry (hook-enforced write scope) + 1 open question.
 2026-10-11 — PR #29 review fixes (Copilot + DevDigest): 1 entry (hook guards: resulting file, flag-writers, fail-open).
 2026-10-11 — PR #29 Copilot round 2: 1 entry (git allowlist, -c/GIT_* exec).
+2026-10-11 — PR #29 Copilot round 3: 0 entries (wrapper options `env -i`, anchored Status field — same class as the entries above).
 
 ## Open Questions
 

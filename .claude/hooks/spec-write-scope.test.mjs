@@ -58,6 +58,8 @@ const blocked = [
   w('specs/2026-10-11-new.md', '# Spec: Z | Spec ID: SPEC-03\n'), // no status at all
   w('specs/2026-10-11-new.md', '# Spec: Z | Status: draft\nStatus: approved\n'),
   e('specs/2026-10-11-draft.md', 'Status: draft\nStatus: approved', 'Status: draft'),
+  w('specs/2026-10-11-new.md', '# Spec: Z | Spec ID: SPEC-03 | NotStatus: draft\n'),
+  w('specs/2026-10-11-new.md', '# Spec: Z | BuildStatus: draft\n'),
   { tool_name: 'Write', tool_input: {} },
 ];
 
