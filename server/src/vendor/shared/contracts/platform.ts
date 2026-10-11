@@ -134,6 +134,7 @@ export type SecretsStatus = z.infer<typeof SecretsStatus>;
 // ---- Repos ----
 export const RepoInput = z.object({
   url: z.string().url(),
+  branch: z.string().min(1),
 });
 export type RepoInput = z.infer<typeof RepoInput>;
 
@@ -142,10 +143,12 @@ export const Repo = z.object({
   workspace_id: z.string(),
   owner: z.string(),
   name: z.string(),
-  full_name: z.string(),
-  default_branch: z.string(),
+  slug: z.string(),
+  default_branch: z.string().nullable(),
+  /** @deprecated */
   clone_path: z.string().nullable(),
-  last_polled_at: z.string().nullable(),
+  /** Epoch milliseconds of the last poll. */
+  last_polled_at: z.number().nullable(),
   created_by: z.string().nullable(),
 });
 export type Repo = z.infer<typeof Repo>;
