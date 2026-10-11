@@ -83,6 +83,11 @@ Why: no path-scoped `Write` in `tools`, but the hook gets the target path and bl
 Do put every user decision a subagent needs (questions, recommendations, implementation-planner's multi-agent / single-agent choice) in its report as `### Qn · header: …` with 2–4 options, recommended first; the main session asks via AskUserQuestion and resumes it with `Round N answers:` via SendMessage.
 Why: subagents have no AskUserQuestion, and the plan's `Execution:` line stays `ask-user` until the main session fills it in. The agent formerly named `planner` is now `implementation-planner` (older entries cite `planner.md`). Evidence: `.claude/agents/implementation-planner.md` ("Execution mode", "Step 6"), `.claude/agents/spec-creator.md` ("Step 6").
 
+### 2026-10-11 — read-only agents may run `scripts/check.sh` and `node --test <files>`
+Supersedes: "plan-verifier can't run `node --test`; plans must say `Status: ready`" (2026-10-07) — the `node --test` part only; `Status: ready` still holds.
+Do let plan-verifier / correctness-reviewer verify with `./scripts/check.sh` and `node --test <files>`; any other `node …` is still blocked → "cannot verify".
+Why: `readonly-bash.mjs` now allows exactly those two (no flags after `--test`, no redirect); everything else stays a denylist. Evidence: `node .claude/hooks/readonly-bash.test.mjs` (23 allowed, 55 blocked).
+
 ## Tool & Library Notes
 
 ### 2026-09-29 — subagent `disallowedTools: Bash(git push *)` removes ALL of Bash

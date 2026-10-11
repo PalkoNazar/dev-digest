@@ -97,8 +97,9 @@ correctness-reviewer, plan-verifier) and spec-creator carry a frontmatter `PreTo
 [`.claude/hooks/readonly-bash.mjs`](../hooks/readonly-bash.mjs). It exits 2 on
 redirects into files, `sed -i`, `rm`/`mv`/`cp`/…, state-changing git, installs,
 `db:*`/`arch:baseline` scripts, snapshot updates, `docker`, repo scripts, and on
-interpreters/`sh -c`/`xargs` that would get around it. It is a denylist, not a
-sandbox. Test it with `node .claude/hooks/readonly-bash.test.mjs`.
+interpreters/`sh -c`/`xargs` that would get around it. Two exceptions: `scripts/check.sh`
+(typecheck/tests/arch:check, writes nothing in the repo) and `node --test <files>` with no
+flags. It is a denylist, not a sandbox. Test it with `node .claude/hooks/readonly-bash.test.mjs`.
 
 spec-creator is the one writing agent whose write scope is enforced, not prompt-only:
 a second frontmatter `PreToolUse` hook on `Write|Edit`,
