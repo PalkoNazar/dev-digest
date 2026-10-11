@@ -1,6 +1,6 @@
 # Plan: SPEC-01 Project Context (L05)
 Status: ready · Date: 2026-10-11 · Branch: feat/l05-project-context · Packages: reviewer-core, server, client
-Spec: `specs/L05-project-context.md` (SPEC-01, approved) · Execution: ask-user · Round: 1
+Spec: `specs/L05-project-context.md` (SPEC-01, approved) · Execution: multi-agent · Round: 1
 
 ## Goal
 When the plan is done, the user can see and read every Markdown document of the active repo on a new Project Context page. They can attach documents to an agent (in order, with token estimates and inherited skill documents) and to a skill on new Context tabs. Every review run injects the full text of the effective document list as untrusted blocks under `## Project context`, with the 20k per-document and 60k total limits. The run trace lists the injected documents and shows each one's injected text. This covers the spec's Goals 1–5; the Non-goals (onboarding, PR brief, editing, RAG, conformance, head-branch versions, MCP tools, CI runner) stay out.
@@ -472,7 +472,7 @@ Traceability only, by id from the spec.
 ## Open questions
 - Blocking: none.
 - Non-blocking (assumption taken):
-  - **Q1** (symlinked docs) → assumed A in S5.
+  - **Q1** (symlinked docs) → A, confirmed by the user (2026-10-11); R1–R5 accepted.
   - **Q2** (marker vs budget) → assumed "the marker doesn't count" in S5.
   - **Q3** (skill T applies the limits) → assumed yes in S6.
   - **Q4** (used_by counts disabled agents) → assumed yes in S6.
