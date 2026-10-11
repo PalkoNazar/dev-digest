@@ -23,12 +23,15 @@ const MUTATING_CMDS = new Set([
   // interpreters and shells can write anything
   'sh', 'bash', 'zsh', 'eval', 'exec', 'source', '.', 'python', 'python3',
   'node', 'perl', 'ruby', 'php', 'awk', 'gawk', 'xargs',
+  // set env vars for every later command in the same call (`export NODE_OPTIONS=…; node --test`)
+  'export', 'declare', 'typeset', 'alias',
 ]);
 // Git is an allowlist: anything else — including aliases, which can run `!shell` — is blocked.
 const GIT_READ = /^(log|show|diff|status|branch|grep|blame|rev-parse|ls-files|ls-tree|merge-base|cat-file|describe|shortlog|rev-list|name-rev|remote|for-each-ref|show-ref|diff-tree|range-diff|version|help)$/;
 const BRANCH_LIST = /^(-[alrv]+|--(list|all|remotes|show-current|contains|no-contains|merged|no-merged|points-at|sort|format|verbose)(=.*)?)$/;
-// Env vars that make git (or a pager) run a command.
-const EXEC_ENV = /^(GIT_\w*|\w*PAGER|LESSOPEN|LESSCLOSE|EDITOR|VISUAL)=/;
+// Env vars that make git, a pager, node, bash or the loader run code — `node --test`
+// and `scripts/check.sh` are allowed, so NODE_OPTIONS / BASH_ENV would get around them.
+const EXEC_ENV = /^(GIT_\w*|\w*PAGER|LESSOPEN|LESSCLOSE|EDITOR|VISUAL|NODE_OPTIONS|NODE_PATH|BASH_ENV|ENV|LD_PRELOAD|LD_LIBRARY_PATH|DYLD_\w*)=/;
 const PKG_MUTATING = /^(i|install|add|remove|rm|uninstall|update|up|upgrade|ci|link|unlink|dlx|prune|dedupe|publish|patch)$/;
 const SCRIPT_MUTATING = /(^|:)(db:(migrate|generate|push|seed)|arch:baseline|seed|format|fix)$|^lint:fix$/;
 

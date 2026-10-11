@@ -105,7 +105,9 @@ for p in "${PKGS[@]}"; do
   runner="$m exec vitest"
   [[ "$m" == npm ]] && runner="npx --no-install vitest"
   if [[ $RELATED -eq 1 ]]; then
-    files="$(pkg_changed "$p" | tr '\n' ' ')"
+    # Jobs run through `eval`: quote every path, so a file named `a;rm -rf x.ts` stays a
+    # file name and never becomes a command.
+    files="$(pkg_changed "$p" | while IFS= read -r f; do printf '%q ' "$f"; done)"
     if [[ -n "${files// }" ]]; then
       add "$p" "tests (related)" "$runner related --run --passWithNoTests --reporter=dot $excl $files"
     else
