@@ -1,5 +1,8 @@
 // Run: node .claude/hooks/readonly-bash.test.mjs
 import { spawnSync } from 'node:child_process';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { check } from './readonly-bash.mjs';
 
@@ -17,6 +20,8 @@ const allowed = [
   'diff -r server/src/vendor/shared client/src/vendor/shared',
   'find server/src -name "*.ts" | wc -l',
   'jq .scripts server/package.json',
+  'git ls-files -o --exclude-standard',
+  'sort -u specs/a.md | head',
 ];
 
 const blocked = [
@@ -46,6 +51,12 @@ const blocked = [
   'echo "$(touch x)"',
   './scripts/dev.sh',
   'FOO=1 mv a b',
+  'git diff --output=server/src/x.ts',
+  'git log -p --output specs/x.md',
+  'git format-patch -o out HEAD~1',
+  'git archive -o x.tar HEAD',
+  'sort -o server/src/x.ts a',
+  'tar xf a.tar',
 ];
 
 let failed = 0;
@@ -63,6 +74,15 @@ const run = (command) =>
   spawnSync(process.execPath, [script], { input: JSON.stringify({ tool_input: { command } }) });
 if (run('sed -i s/a/b/ x').status !== 2) { failed++; console.error('FAIL e2e: write not blocked with exit 2'); }
 if (run('cat README.md').status !== 0) { failed++; console.error('FAIL e2e: read blocked'); }
+
+// A path with a space must still be recognised as the entry point (no fail-open).
+const spaced = mkdtempSync(path.join(tmpdir(), 'hook with space-'));
+copyFileSync(script, path.join(spaced, 'readonly-bash.mjs'));
+const spacedRun = spawnSync(process.execPath, [path.join(spaced, 'readonly-bash.mjs')], {
+  input: JSON.stringify({ tool_input: { command: 'rm x' } }),
+});
+if (spacedRun.status !== 2) { failed++; console.error('FAIL e2e: hook fails open on a path with a space'); }
+rmSync(spaced, { recursive: true, force: true });
 
 console.log(failed ? `${failed} failed` : `ok: ${allowed.length} allowed, ${blocked.length} blocked, e2e ok`);
 process.exit(failed ? 1 : 0);
