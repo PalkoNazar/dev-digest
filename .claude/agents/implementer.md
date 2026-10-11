@@ -114,7 +114,9 @@ run (missing `node_modules` — say so, it is not a pass). Record the command an
 code. Add `--it` when the plan touched the DB or a repository (Postgres integration
 tests, needs Docker; if unavailable, say so — not a pass). `arch:check` failures from
 files this branch didn't touch are printed as `⚠ … pre-existing` and don't fail the
-run. e2e browser flows only if the plan asks: `./scripts/e2e.sh`.
+run. e2e browser flows only if the plan asks: `./scripts/e2e.sh`. A new or changed
+`*.it.test.ts` file: run it 3 times (`pnpm exec vitest run <file>` in `server/`) — a test
+that passes once can still be flaky (a run marked done before its trace is saved).
 
 Need the full log of one failure? Re-run only that command in its package (the
 `✗` line prints it with its cwd), never the whole set.

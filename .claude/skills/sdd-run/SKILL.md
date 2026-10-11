@@ -112,7 +112,10 @@ in PR review; route its findings as in Step 1.5–1.6. Insights → commit.
    then finish it like a run: Step 1.7 (`./scripts/check.sh`), 1.8 (insights) and
    1.9 (its own commit, `fix(<scope>): close whole-branch verification gaps`) —
    before the smoke check, so a code fix never rides along in the docs commit.
-2. **Smoke.** The plan's `Smoke:` line under Verification (older plans: the spec's
+2. **Smoke.** If the branch changed `reviewer-core/src`, first ask the user to restart the
+   dev server: `tsx watch` doesn't reload reviewer-core, and a server running new server
+   code with old reviewer-core can break reviews (L05: every agent with attachments).
+   Then the plan's `Smoke:` line under Verification (older plans: the spec's
    main user story). If the API is up (`curl -s localhost:3001/health`), do it via the
    API / the devdigest MCP tools / the `run` skill on real data; otherwise give the
    user the exact steps and wait. Never start, stop or reset Docker or the dev DB.

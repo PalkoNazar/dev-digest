@@ -186,6 +186,16 @@ const userPrompts = main.ev
   .filter((e) => !contentOf(e).some((c) => c.type === 'tool_result'))
   .map((e) => ({ ts: e.timestamp, head: head(typeof e.message?.content === 'string' ? e.message.content : contentOf(e), 120) }))
   .filter((p) => p.head && !/^(<|## Context Usage|Base directory for this skill)/.test(p.head));
+// Messages typed while Claude was working are queued (`queue-operation: enqueue`), not
+// logged as user entries — that's where most corrections are. Agent hand-backs and task
+// notifications are queued too; keep only plain human text.
+for (const e of main.ev) {
+  if (e.type !== 'queue-operation' || e.operation !== 'enqueue' || typeof e.content !== 'string') continue;
+  const h = head(e.content, 120);
+  if (!h || /^(<|Another Claude session|\[SYSTEM)/.test(h)) continue;
+  userPrompts.push({ ts: e.timestamp, head: `${h} (mid-turn)` });
+}
+userPrompts.sort((a, b) => Date.parse(a.ts ?? '') - Date.parse(b.ts ?? ''));
 
 const subDir = join(sessionFile.replace(/\.jsonl$/, ''), 'subagents');
 const agents = [];
@@ -293,6 +303,7 @@ agents.forEach((a, i) =>
 );
 if (!agents.length) out.push('| — | | no subagents in this window | | | | | | | | | |');
 out.push('', 'Same group (P<n>) = active windows overlapped (ran in parallel).');
+out.push('Subagent `out` is NOT reliable: their transcripts log usage while streaming, so output tokens are undercounted (input and cache numbers are fine).');
 out.push('', '## Main session');
 out.push(`Tools: ${tools(main.tools)}`);
 out.push(`Errors: ${main.errors.length} (blocked by hook/permission: ${report.main.blocked})`);

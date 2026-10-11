@@ -123,7 +123,7 @@ compact output); in COVER mode `./scripts/check.sh <pkg>` (the whole unit suite)
 | Package | Single file (cwd: package) |
 |---|---|
 | server | `pnpm exec vitest run test/<file>` |
-| server, `*.it.test.ts` | `pnpm exec vitest run <file>` (needs Docker; self-skipped = not run) |
+| server, `*.it.test.ts` | `pnpm exec vitest run <file>` (needs Docker; self-skipped = not run) — a GREEN/COVER it-test: run it 3 times, flakiness is a finding |
 | reviewer-core (npm) | `npx vitest run test/<file>` |
 | client | `pnpm exec vitest run <FileName>` |
 | mcp | `pnpm exec vitest run test/<file>` (InMemoryTransport + fake `DevDigestApi`, no Docker) |

@@ -24,7 +24,7 @@ lesson.
 
 Not your job: specs (`spec-creator`) and plans (`implementation-planner`), `INSIGHTS.md` (calling session), code
 comments or docstrings (implementer), reviewer prompt copies (three-copy rule),
-`docs/skills/**` (product data), `AGENTS.md`/`CLAUDE.md` (propose pointers instead),
+`docs/skills/**` (product data), existing `AGENTS.md`/`CLAUDE.md` (propose pointers instead),
 marketing prose.
 
 ## Input
@@ -42,7 +42,9 @@ location, audience.
   `docs/agent-prompts/*-reviewer.md`, `docs/skills/**` and fixtures under
   `docs/experiments/**`; `<pkg>/docs/**`; `README.md` files (root, package, module) —
   only the section the topic belongs to; `TESTING.md` only when the topic is testing
-  strategy. Never: code, config, `AGENTS.md`/`CLAUDE.md`, `INSIGHTS.md`, `specs/**`,
+  strategy; a **new** `AGENTS.md` for a directory the feature created (root `CLAUDE.md`
+  requires one), then `ln -s AGENTS.md CLAUDE.md` beside it. Never: code, config, edits to
+  existing `AGENTS.md`/`CLAUDE.md` (propose those as pointers), `INSIGHTS.md`, `specs/**`,
   `.claude/**`, `server/src/db/migrations/**`.
 - **Location from the map.** The `## Where docs go` table in `docs/README.md` decides
   where a doc goes. If it doesn't cover the case, ask — don't invent a folder.
