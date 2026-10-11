@@ -9,17 +9,19 @@
 // ways an agent changes the tree, and it blocks interpreters and `sh -c` so the
 // usual ways around it are closed too. Test: node .claude/hooks/readonly-bash.test.mjs
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const MUTATING_CMDS = new Set([
   'rm', 'rmdir', 'mv', 'cp', 'mkdir', 'touch', 'chmod', 'chown', 'chgrp', 'ln',
   'dd', 'truncate', 'tee', 'install', 'patch', 'shred', 'unlink', 'rsync',
   'curl', 'wget', 'docker', 'docker-compose', 'sudo', 'npx',
+  'tar', 'zip', 'unzip', 'gzip', 'gunzip', 'split', 'csplit',
   // interpreters and shells can write anything
   'sh', 'bash', 'zsh', 'eval', 'exec', 'source', '.', 'python', 'python3',
   'node', 'perl', 'ruby', 'php', 'awk', 'gawk', 'xargs',
 ]);
-const GIT_MUTATING = /^(add|am|apply|checkout|cherry-pick|clean|commit|fetch|gc|init|merge|mv|pull|push|rebase|reset|restore|revert|rm|stash|switch|tag|worktree|update-ref|config|submodule)$/;
+const GIT_MUTATING = /^(add|am|apply|checkout|cherry-pick|clean|commit|fetch|gc|init|merge|mv|pull|push|rebase|reset|restore|revert|rm|stash|switch|tag|worktree|update-ref|config|submodule|format-patch|archive|bundle|notes|replace|symbolic-ref|filter-branch|prune|repack|maintenance)$/;
 const PKG_MUTATING = /^(i|install|add|remove|rm|uninstall|update|up|upgrade|ci|link|unlink|dlx|prune|dedupe|publish|patch)$/;
 const SCRIPT_MUTATING = /(^|:)(db:(migrate|generate|push|seed)|arch:baseline|seed|format|fix)$|^lint:fix$/;
 
@@ -46,6 +48,7 @@ export function check(command) {
 
     if (MUTATING_CMDS.has(base)) return `\`${base}\` can change files`;
     if (cmd.startsWith('./') || cmd.startsWith('scripts/')) return 'running repo scripts';
+    if (base === 'sort' && words.some((w) => /^-[a-zA-Z]*o|^--output/.test(w))) return '`sort -o`';
     if (base === 'sed' && words.some((w) => /^-[a-zA-Z]*i|^--in-place/.test(w))) return '`sed -i`';
     if (base === 'find' && words.some((w) => /^-(delete|exec|execdir|ok|okdir|fprint\w*|fls)$/.test(w))) {
       return '`find` with -delete/-exec';
@@ -57,6 +60,8 @@ export function check(command) {
       while (gitArgs[i]?.startsWith('-')) i += /^-(C|c)$|^--(git-dir|work-tree|namespace)$/.test(gitArgs[i]) ? 2 : 1;
       const gitSub = gitArgs[i];
       if (gitSub && GIT_MUTATING.test(gitSub)) return `\`git ${gitSub}\` changes repo state`;
+      // `git diff/log/show --output=<file>` writes without any shell redirect.
+      if (gitArgs.some((w) => /^--output(=|$)/.test(w))) return '`git --output` writes a file';
       if (gitSub === 'branch' && words.some((w) => /^-[dDmMcC]$|^--(delete|move|copy)$/.test(w))) {
         return '`git branch` with delete/move';
       }
@@ -74,7 +79,17 @@ export function check(command) {
   return null;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare real file URLs: a raw `file://${argv[1]}` misses on paths with spaces or on
+// Windows, and a missed check here would let every command through.
+const isMain = () => {
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1] ?? '')).href;
+  } catch {
+    return false;
+  }
+};
+
+if (isMain()) {
   let command = '';
   try {
     command = JSON.parse(readFileSync(0, 'utf8')).tool_input?.command ?? '';

@@ -3,16 +3,16 @@
 // path-scoped Write, so this hook is the write scope: a spec file directly inside one
 // of SPEC_DIRS, `*.md`, not a README, and — if it already exists — still a draft.
 // Sub-folders (`specs/plans/`, `<pkg>/specs/designs/`) and `e2e/specs/` are outside.
-// The agent may never write a status other than `draft`: approval is the user's call.
-// Exit 2 blocks the call and shows stderr to the agent.
+// The file the call produces must still say `Status: draft` (once, in its header):
+// approval is the user's call. Exit 2 blocks the call and shows stderr to the agent.
 // Test: node .claude/hooks/spec-write-scope.test.mjs
 
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const SPEC_DIRS = ['specs', 'client/specs', 'server/specs', 'reviewer-core/specs', 'mcp/specs'];
-const NON_DRAFT_STATUS = /Status:\s*(approved|implemented|done|in-progress)\b/i;
-const DRAFT_HEADER = /Status:\s*draft\b/i;
+const HEADER_LINES = 5;
 
 // Resolves symlinks of the deepest existing ancestor, so a linked folder can't
 // smuggle a write out of the repo.
@@ -26,6 +26,21 @@ function realish(p) {
     head = up;
   }
   return path.join(realpathSync(head), ...tail);
+}
+
+// The header must carry exactly one Status field, and it must be `draft`.
+function isDraft(text) {
+  const head = text.split('\n').slice(0, HEADER_LINES).join('\n');
+  const statuses = [...head.matchAll(/Status:\s*([^\s|·]*)/gi)].map((m) => m[1].toLowerCase());
+  return statuses.length === 1 && statuses[0] === 'draft';
+}
+
+// Content of the file after the call, the way the Edit tool would produce it.
+function resultingContent(ti, current) {
+  if (typeof ti.content === 'string') return ti.content;
+  if (typeof ti.old_string !== 'string' || typeof ti.new_string !== 'string') return null;
+  if (current === null || !current.includes(ti.old_string)) return current;
+  return ti.replace_all ? current.split(ti.old_string).join(ti.new_string) : current.replace(ti.old_string, () => ti.new_string);
 }
 
 /**
@@ -49,19 +64,27 @@ export function check(input, root) {
   if (!base.endsWith('.md')) return `${rel} is not a .md file`;
   if (base.toLowerCase() === 'readme.md') return 'spec folder READMEs are not specs';
 
-  if (existsSync(target)) {
-    const head = readFileSync(target, 'utf8').split('\n').slice(0, 5).join('\n');
-    if (!DRAFT_HEADER.test(head)) {
-      return `${rel} is not a draft — write a new spec with "Supersedes:" instead of editing it`;
-    }
+  const current = existsSync(target) ? readFileSync(target, 'utf8') : null;
+  if (current !== null && !isDraft(current)) {
+    return `${rel} is not a draft — write a new spec with "Supersedes:" instead of editing it`;
   }
-
-  const written = [ti.content, ti.new_string].filter((s) => typeof s === 'string').join('\n');
-  if (NON_DRAFT_STATUS.test(written)) return 'only the user moves a spec past `Status: draft`';
+  const next = resultingContent(ti, current);
+  if (next === null) return 'cannot tell what the file will contain';
+  if (!isDraft(next)) return 'the spec header must keep exactly one `Status: draft` — only the user approves';
   return null;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare real file URLs: a raw `file://${argv[1]}` misses on paths with spaces or on
+// Windows, and a missed check here would let every write through.
+const isMain = () => {
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1] ?? '')).href;
+  } catch {
+    return false;
+  }
+};
+
+if (isMain()) {
   let input;
   try {
     input = JSON.parse(readFileSync(0, 'utf8'));
