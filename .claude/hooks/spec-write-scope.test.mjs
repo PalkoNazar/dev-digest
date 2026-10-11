@@ -18,6 +18,8 @@ writeFileSync(
 writeFileSync(path.join(root, 'specs/L04-blast-radius.md'), '# Blast Radius\nStatus: done · Lesson: L04\n');
 writeFileSync(path.join(root, 'specs/2026-10-11-approved.md'), '# Spec: Y | Spec ID: SPEC-02 | Status: approved\n');
 symlinkSync(outside, path.join(root, 'specs/linked'));
+symlinkSync(path.join(outside, 'escape.md'), path.join(root, 'specs/escape.md')); // dangling
+symlinkSync(path.join(outside, 'gone'), path.join(root, 'specs/gone')); // dangling dir
 
 const draft = '# Spec: Z | Spec ID: SPEC-03 | Status: draft\n## Проблема й навіщо\n';
 const w = (file_path, content = draft) => ({ tool_name: 'Write', tool_input: { file_path, content } });
@@ -48,6 +50,8 @@ const blocked = [
   w('../elsewhere/specs/x.md'),
   w('/etc/specs/x.md'),
   w('specs/linked/x.md'), // symlink out of the repo
+  w('specs/escape.md'), // dangling file symlink → would create a file outside
+  w('specs/gone/x.md'), // dangling dir symlink
   w('specs/../server/src/x.md'),
   e('specs/L04-blast-radius.md'), // old-format, done
   e('specs/2026-10-11-approved.md'),
