@@ -122,6 +122,8 @@ in PR review; route its findings as in Step 1.5–1.6. Insights → commit.
 5. Hand-off: branch name, commits, open known issues, and next steps for the user:
    `/pr-self-review`, then push and the PR themselves. If you worked in a worktree,
    offer to remove it (clean, committed) and check the branch out in the main clone.
+6. Offer `/workflow-retro --since <time of the prompt that started this run>`: tokens,
+   agent order, what each agent missed, proposed prompt/skill changes.
 
 ## Stop and ask the user when
 
