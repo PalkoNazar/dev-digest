@@ -71,6 +71,11 @@ const blocked = [
   'git grep -O vim foo',
   'git branch feat/new',
   'git remote add evil x',
+  "env -i sh -c 'touch server/src/x.ts'",
+  '/usr/bin/env -i bash -c x',
+  'command -p rm x',
+  'timeout 5 rm x',
+  'nohup touch x',
 ];
 
 let failed = 0;

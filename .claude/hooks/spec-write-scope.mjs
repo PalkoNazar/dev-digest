@@ -31,7 +31,8 @@ function realish(p) {
 // The header must carry exactly one Status field, and it must be `draft`.
 function isDraft(text) {
   const head = text.split('\n').slice(0, HEADER_LINES).join('\n');
-  const statuses = [...head.matchAll(/Status:\s*([^\s|·]*)/gi)].map((m) => m[1].toLowerCase());
+  // A field starts a line or follows a `|`/`·` separator — `NotStatus:` is not one.
+  const statuses = [...head.matchAll(/(?:^|[|·])[ \t]*Status:[ \t]*([^\s|·]*)/gim)].map((m) => m[1].toLowerCase());
   return statuses.length === 1 && statuses[0] === 'draft';
 }
 
