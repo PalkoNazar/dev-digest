@@ -10,6 +10,7 @@ Cross-page app components (not the design system — that is `src/vendor/ui`).
   `formatUsd` (unknown → `—`, never `$0.00`); used by PR list, run timeline, trace drawer
 - `mermaid-diagram/` — lazy client-only mermaid; validates with `mermaid.parse`
   before render (otherwise mermaid injects a "Syntax error" graphic)
+- `context-docs/` — `ContextDocsPanel`, the doc list shared by the agent and skill Context tabs (filter, reorder, preview); the caller saves and passes the server's view back (L05)
 - `showcase/` — renders every UI component for visual checks (dev-only, no i18n)
 
 ## Rules

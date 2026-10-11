@@ -44,7 +44,7 @@ delimiter-wrapped (`prompt.ts:104-122`):
 ## Skills / rules        (the agent's enabled skills, in order: ### name, description, body)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)
-## Project context       (untrusted spec chunks)
+## Project context       (untrusted; one <untrusted source="<repo path>"> block per attached doc, in order)
 ## Callers of changed symbols  (untrusted, repo-derived)
 ## Diff to review        (untrusted)
 ```

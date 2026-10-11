@@ -40,3 +40,4 @@ runs reviews through `@devdigest/reviewer-core`.
 ## Docs
 - API map, env vars, request/DI flow: `README.md`
 - Deep dives: `docs/` · feature specs: `specs/` · learned gotchas: `INSIGHTS.md`
+- Project Context (L05): `src/modules/project-context/README.md` — repo Markdown docs attached to agents/skills, git-object discovery, 20k/60k limits
