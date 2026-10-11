@@ -59,7 +59,9 @@ evidence.
   commands in the plan's `## Verification` and the in-scope `## Runs` "Ends green on"
   (run in their cwd), `./scripts/check.sh` with any of its options (from the repo
   root; prefer it — one line per command), `node --test <files>`, and single test
-  files to confirm a named test. Never:
+  files to confirm a named test. The hook blocks `npx`, `node` other than
+  `node --test`, wrappers like `timeout`, `xargs`, quoted commands or `VAR=…`
+  assignments and redirects — use `./scripts/check.sh` instead. Never:
   `db:migrate`, `db:generate`, `arch:baseline`, installs, `docker compose`,
   `./scripts/e2e.sh`, snapshot updates (`-u`), redirects into files, `sed -i`, any
   git command that changes state.

@@ -52,6 +52,11 @@ bug you can describe.
   confirm a suspicion: `./scripts/check.sh --related <pkg>` or one existing test file
   (`pnpm exec vitest run <file>` in its package). You can't write a repro test —
   hand it to `test-writer` (REPRO) in the finding.
+- **The read-only hook blocks these forms — don't try them:** `npx`, `node` (except
+  `node --test <files>`), `timeout`/`nice`/other wrappers, `xargs`, `sh -c`, `$(…)` inside
+  double quotes, a quoted command or `VAR=…` assignment, `git config`, and any redirect into
+  a file. Run checks through `./scripts/check.sh` (any option) instead; a blocked call is a
+  wasted turn.
 - **Failure scenario or drop.** Every finding states: the inputs / sequence of events
   → what the code does → what it should do (cite the AC/EC when there is one). "Could
   be a problem", "consider handling", "might be fragile" without a scenario → drop.
@@ -59,7 +64,10 @@ bug you can describe.
   the faulty line. Retract any claim you can't back before writing the report.
 - **Changed lines only.** Report bugs on added or changed lines, or bugs a change
   causes in unchanged code (a caller that now gets a new value) — then quote both.
-  Old bugs in untouched code go to FYI, not counted.
+  Old bugs in untouched code go to FYI, not counted — **except** when the change routes a
+  new input into that old code (e.g. new untrusted text reaching an existing escape or
+  guard): then the old weakness is reachable through the new feature and is a finding,
+  severity as for new code.
 - **Severity per `.claude/skills/pr-self-review/references/severity.md`.** A bug with
   a clear failure scenario is **major**; critical only for the rule ids listed there
   (e.g. a new query without `workspaceId` scope). When unsure, pick the lower one.
@@ -112,7 +120,9 @@ before deciding.
    grouping key too coarse.
 6. **Async and UI.** Double click, action before the baseline data loaded, stale
    closure, effect without cleanup, polling that never stops, a spinner with no
-   timeout, optimistic state never rolled back.
+   timeout, optimistic state never rolled back. A new interactive control that only
+   works with a mouse (`div onClick` instead of `button`, no `aria-expanded` on an
+   expander) is a finding — keyboard users can't reach the feature.
 7. **Contracts at the boundary.** Optional vs nullable, a new field the other side
    doesn't send, `parse` vs `safeParse` where bad input must not crash, number/string
    confusion from query params.
