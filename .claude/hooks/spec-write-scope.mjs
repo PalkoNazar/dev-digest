@@ -7,19 +7,29 @@
 // approval is the user's call. Exit 2 blocks the call and shows stderr to the agent.
 // Test: node .claude/hooks/spec-write-scope.test.mjs
 
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const SPEC_DIRS = ['specs', 'client/specs', 'server/specs', 'reviewer-core/specs', 'mcp/specs'];
 const HEADER_LINES = 5;
 
+const lexists = (p) => {
+  try {
+    lstatSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Resolves symlinks of the deepest existing ancestor, so a linked folder can't
-// smuggle a write out of the repo.
+// smuggle a write out of the repo. `lstat`, not `exists`: a dangling link is an
+// existing entry, and realpathSync throws on it instead of pretending it's new.
 function realish(p) {
   let head = p;
   const tail = [];
-  while (!existsSync(head)) {
+  while (!lexists(head)) {
     tail.unshift(path.basename(head));
     const up = path.dirname(head);
     if (up === head) return p;
@@ -55,7 +65,14 @@ export function check(input, root) {
   if (!filePath) return 'no file_path';
 
   const realRoot = realish(path.resolve(root));
-  const target = realish(path.resolve(realRoot, filePath));
+  const given = path.resolve(realRoot, filePath);
+  if (lexists(given) && lstatSync(given).isSymbolicLink()) return `${filePath} is a symlink — specs are regular files`;
+  let target;
+  try {
+    target = realish(given);
+  } catch {
+    return `${filePath} goes through a broken symlink`;
+  }
   const rel = path.relative(realRoot, target);
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return `${filePath} is outside the repo`;
 
