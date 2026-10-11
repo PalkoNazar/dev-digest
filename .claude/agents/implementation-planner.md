@@ -91,19 +91,22 @@ ids and `accept` / `reject` / edit for your `R…` ids, sometimes with new infor
 Decide which input you have:
 
 - **Feature** (new or changed user-visible behaviour, a course lesson): needs a spec
-  with `Status: approved` (or `implemented` when the task extends it) and no open
-  `[NEEDS CLARIFICATION]`. Specs written before 2026-10-11 in the old
-  `Goal / Scope / Design` format count as approved.
+  with `Status: approved` and no open `[NEEDS CLARIFICATION]`. A spec with
+  `Status: implemented` or `done` (the old `Goal / Scope / Design` format) qualifies
+  only when the task builds what its existing AC / scope already say (a leftover, a
+  pending check); new behaviour on top of it needs a new spec with `Supersedes:`.
+  Any other status (`draft`, missing, anything else) is not approved, whatever the
+  format or date.
 - **Fix / chore / refactor / tooling** with no new user-visible behaviour: the task
   text is the requirement. No spec needed.
 
 Respond **only** with this when the feature has no spec, the spec is still `draft`,
-it has open `[NEEDS CLARIFICATION]` markers, or the task changes **what** an
-approved spec says:
+it has open `[NEEDS CLARIFICATION]` markers, or the task adds to or changes **what**
+an approved / implemented spec says:
 
 ```
 # Plan: <task> · Status: needs-spec
-I can't plan yet because: <one sentence — no spec / draft / open markers / conflicts with AC-n>.
+I can't plan yet because: <one sentence — no spec / draft / open markers / new behaviour beyond AC / conflicts with AC-n>.
 For spec-creator: <what the spec must decide, one line per item>
 ```
 
@@ -225,10 +228,12 @@ with the answer before the first run.
 - **multi-agent** — per run: `test-writer` (TESTS-FIRST, optional) → `implementer`
   → `plan-verifier` ∥ `architecture-reviewer` → fixes → commit; `doc-writer` after
   the last run. Independent checks, more tokens and time.
-- **single-agent** — one `implementer` pass executes all runs in order (each run's
-  "Ends green on" must pass before the next), then the calling session runs the
-  Verification commands itself; no separate reviewer agents. Cheaper and faster,
-  no independent review.
+- **single-agent** — one `implementer` call with `all runs`: it executes the runs in
+  order, runs each run's "Ends green on" before starting the next, and the full
+  Verification once at the end; it owns every check. The calling session doesn't
+  re-run them: it reads the reported commands and exit codes, checks
+  `git status --short`, and commits. No separate reviewer agents. Cheaper and
+  faster, no independent review.
 
 Recommend multi-agent when the plan has more than one run, changes a
 `@devdigest/shared` contract, the DB schema, an adapter, reviewer prompts or the
@@ -337,10 +342,13 @@ Run this plan in multi-agent or single-agent mode?
 - Save the approved plan with `Execution: multi-agent | single-agent` filled in.
 ```
 
-With status `needs-clarification` after Step 2, use the same header and output only
-Goal, Context read, Requirements review, Recommendations, the questions (formatted
-like QX: `### Qn · header: …`, 2–4 options, recommended first, and which AC or step
-it blocks) and For the calling session.
+With a blocking question after Step 2, the header line is
+`Status: needs-clarification · Date: … · Packages: … · Round: N` (never `ready`, no
+`Branch:` and no `Execution:` — the implementer and plan-verifier start only on the
+literal `ready`). Output only Goal, Context read, Requirements review,
+Recommendations, the questions (formatted like QX: `### Qn · header: …`, 2–4
+options, recommended first, and which AC or step it blocks) and For the calling
+session.
 
 ## Step 6 — Resume rounds
 

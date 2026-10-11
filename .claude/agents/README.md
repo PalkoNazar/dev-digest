@@ -38,8 +38,8 @@ main session ──(facts missing)──► researcher ──► report
      │    ready plan + "multi-agent or single-agent?" ──► user picks ──► saved to
      │    specs/plans/YYYY-MM-DD-<slug>.plan.md with Execution: <mode>
      │                                                   │
-     │    single-agent: one implementer pass over all runs ──► main session runs
-     │                  Verification ──► /engineering-insights → commit
+     │    single-agent: implementer "all runs" (green per run + Verification, owns
+     │                  checks) ──► main session reads exit codes ──► /engineering-insights → commit
      │                                                   │
      │    multi-agent: ┌──────── for each run R1, R2, … ◄┘
      │    ▼
