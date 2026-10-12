@@ -1,17 +1,81 @@
 {
-  "title": "Onboarding Tour",
-  "sections": "Sections",
-  "sectionCount": "{count} sections",
-  "regenerate": "Regenerate",
-  "regenerating": "Regenerating…",
-  "unknownError": "Unknown error",
-  "generate": {
-    "title": "Generate onboarding tour",
-    "body": "DevDigest indexes the repo and specs, then writes a 5-section guided tour: overview, architecture, key modules, getting started, and conventions & gotchas.",
-    "cta": "Generate onboarding tour",
-    "generating": "Generating…"
+  "page": {
+    "crumb": "Onboarding Tour",
+    "title": "Onboarding for <repo>{name}</repo>",
+    "repoFallback": "this repo",
+    "loadError": "Couldn’t load the onboarding tour"
   },
-  "loadError": {
-    "title": "Couldn’t load the onboarding tour"
+  "actions": {
+    "generate": "Generate tour",
+    "regenerate": "Regenerate",
+    "generating": "Generating…",
+    "resync": "Resync repository",
+    "collapse": "Collapse {section}",
+    "expand": "Expand {section}"
+  },
+  "sections": {
+    "architecture": "Architecture overview",
+    "critical_paths": "Critical paths",
+    "run_locally": "How to run locally",
+    "reading_path": "Guided reading path",
+    "first_tasks": "First tasks"
+  },
+  "onThisPage": "On this page",
+  "empty": {
+    "title": "No onboarding tour yet",
+    "body": "Generate a tour of this repo built from its index. It has five sections:"
+  },
+  "header": {
+    "meta": "Generated from index of {count, plural, one {<b>#</b> file} other {<b>#</b> files}} · {sha} · {when}",
+    "partialCount": "<b>{indexed}</b> of <b>{total}</b> source files indexed"
+  },
+  "state": {
+    "indexing": "Indexing in progress — Generate is available once the clone and index are ready.",
+    "noClone": "The repository has no local clone yet, so a tour can’t be generated. Resync it first."
+  },
+  "reasons": {
+    "no_llm_key": "No LLM key",
+    "llm_error": "LLM error",
+    "llm_timeout": "LLM timed out",
+    "invalid_output": "Invalid LLM output",
+    "index_degraded": "Index is degraded",
+    "index_failed": "Index has failed",
+    "index_off": "Repo index is switched off",
+    "unknown": "Unknown error"
+  },
+  "banners": {
+    "skeleton": "Skeleton tour built from repo facts only — {reason}.",
+    "addKey": "Add a key in Settings",
+    "partial": "Built from a partial index: {reason}",
+    "partialNoReason": "Built from a partial index.",
+    "languages": "Languages not indexed — reading path and critical paths are empty.",
+    "removed": "{count, plural, one {<b>#</b> ungrounded item removed} other {<b>#</b> ungrounded items removed}} from the LLM output.",
+    "keptPrevious": "Last regeneration failed: {reason}. Showing the previous tour.",
+    "failed": "Generation failed",
+    "interrupted": "The last generation was interrupted. Start it again.",
+    "stale": "Stale: this tour describes <code>{tourSha}</code>, the index is at <code>{indexSha}</code>.",
+    "failedDetail": "Generation failed: {detail}"
+  },
+  "architecture": {
+    "stack": "Stack",
+    "folders": "Top-level folders",
+    "folderFiles": "{count, plural, one {# indexed file} other {# indexed files}}"
+  },
+  "criticalPaths": {
+    "importers": "{count, plural, one {<b>#</b> importer} other {<b>#</b> importers}}",
+    "empty": "No import chains found."
+  },
+  "runLocally": {
+    "copy": "Copy command: {command}",
+    "copied": "Copied",
+    "deterministic": "Steps derived from the repo’s lockfile, scripts and compose file.",
+    "empty": "No run steps found."
+  },
+  "readingPath": {
+    "note": "Ordered by import-graph importance (PageRank).",
+    "empty": "No files to read yet."
+  },
+  "firstTasks": {
+    "needsLlm": "First tasks need the LLM. Regenerate once an LLM key is configured."
   }
 }

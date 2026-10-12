@@ -184,4 +184,9 @@ export interface RepoIntel {
     opts?: { exclude?: string[] },
   ): Promise<string[]>;
   getCriticalPaths(repoId: string): Promise<string[][]>;
+  /**
+   * Distinct indexed files importing each of `paths` (`file_edges`); a path nobody
+   * imports maps to 0. `{}` with the flag off (onboarding critical paths, SPEC-02 AC-70).
+   */
+  getImporterCounts(repoId: string, paths: string[]): Promise<Record<string, number>>;
 }

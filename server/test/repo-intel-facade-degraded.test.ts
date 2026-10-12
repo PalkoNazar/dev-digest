@@ -96,6 +96,14 @@ describe('RepoIntel facade — degraded contract (flag off)', () => {
     await expect(svc.getCriticalPaths('r1')).resolves.toEqual([]);
   });
 
+  it('getImporterCounts → {} when repoIntelEnabled=false (SPEC-02 AC-70, Q7-A)', async () => {
+    const svc = buildDegradedService({ flag: false });
+    (svc as unknown as { repo: Record<string, unknown> }).repo.getImporters = async () => {
+      throw new Error('getImporters must not be called with the flag off');
+    };
+    await expect(svc.getImporterCounts('r1', ['c.ts'])).resolves.toEqual({});
+  });
+
   it('indexRepo / refreshIndex → degraded T1 skeleton (never throws)', async () => {
     const svc = buildDegradedService({ flag: false });
     const a = await svc.indexRepo('r1');

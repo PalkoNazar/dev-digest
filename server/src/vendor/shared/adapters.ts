@@ -72,6 +72,19 @@ export interface StructuredRequest<T> {
    * (`provider.require_parameters`), so `json_schema` is honoured. Ignored elsewhere.
    */
   requireParameters?: boolean;
+  /**
+   * Transport-level retries for THIS request (HTTP 429/5xx/timeouts), overriding the
+   * adapter default (SDK `maxRetries` / `withRetry`). `0` = exactly one HTTP request,
+   * so "one LLM call" really is one (SPEC-02 AC-31/AC-88). Unset = adapter default.
+   * Independent of `maxRetries`, which counts schema-repair attempts.
+   */
+  transportRetries?: number;
+  /**
+   * `'off'` asks a reasoning model to answer without hidden reasoning from the first
+   * attempt, so the output cap is spent on the answer (SPEC-02 AC-87). Honoured by
+   * the OpenRouter adapter only (`reasoning: {enabled:false}`); ignored elsewhere.
+   */
+  reasoning?: 'off';
 }
 
 export interface StructuredResult<T> {

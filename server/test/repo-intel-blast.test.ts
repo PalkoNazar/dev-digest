@@ -298,3 +298,30 @@ describe('repo-intel helpers', () => {
     expect(toDegradedReason(undefined)).toBe('index_failed');
   });
 });
+
+/**
+ * SPEC-02 AC-70 (Q7-A) — `getImporterCounts`: distinct importing files per path,
+ * from the existing `getImporters` read. A path nobody imports maps to 0.
+ */
+describe('RepoIntel facade — getImporterCounts', () => {
+  it('counts DISTINCT importers per path (duplicate edges count once) and maps unimported paths to 0', async () => {
+    const { svc, calls } = build({
+      index: {
+        state: state('full'),
+        edges: [
+          { fromFile: 'a.ts', toFile: 'c.ts' },
+          { fromFile: 'b.ts', toFile: 'c.ts' },
+          { fromFile: 'a.ts', toFile: 'c.ts' },
+          { fromFile: 'c.ts', toFile: 'd.ts' },
+        ],
+      },
+    });
+    await expect(svc.getImporterCounts('r1', ['c.ts', 'a.ts'])).resolves.toEqual({ 'c.ts': 2, 'a.ts': 0 });
+    expect(calls).toContain('importers');
+  });
+
+  it('no paths → {}', async () => {
+    const { svc } = build({ index: { state: state('full') } });
+    await expect(svc.getImporterCounts('r1', [])).resolves.toEqual({});
+  });
+});

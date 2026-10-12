@@ -93,6 +93,9 @@ export class OpenAIProvider implements LLMProvider {
     let tokensOut = 0;
     let lastRaw = '';
 
+    // `transportRetries` (SPEC-02 AC-88) caps BOTH retry layers for this request:
+    // our `withRetry` and the SDK's own per-request `maxRetries`. Unset = defaults.
+    const sdkOpts = req.transportRetries !== undefined ? { maxRetries: req.transportRetries } : undefined;
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const res = await withRetry(() =>
         withTimeout(
@@ -104,9 +107,10 @@ export class OpenAIProvider implements LLMProvider {
               type: 'json_schema',
               json_schema: { name: req.schemaName, schema: jsonSchema.schema, strict: true },
             },
-          }),
+          }, sdkOpts),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        { retries: req.transportRetries ?? 3 },
       );
       lastRaw = res.choices?.[0]?.message?.content ?? '';
       tokensIn += res.usage?.prompt_tokens ?? 0;

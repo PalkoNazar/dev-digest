@@ -26,6 +26,10 @@ so `pnpm build && pnpm start` would miss `dist/prompts`. Dev (`tsx`) is fine.
 Do drive the service from a `tsx` script (`.mts`, absolute imports into `server/src`, `new Container(loadConfig(env), db)`) against the dev DB.
 Why: `buildApp` reaps every `running` agent_run on boot (`src/app.ts:81`), so a second API on another port would fail the reviews of the user's server on :3001. Evidence: the L02 conventions live scan.
 
+### 2026-10-11 — a duplicate `file_edges` row can't be seeded
+NEVER seed a duplicate `(repoId, fromFile, toFile)` edge in a pg it-test; test edge dedupe in repo-intel facade methods with the in-memory repository fake (`test/repo-intel-blast.test.ts`).
+Why: `file_edges` has a composite PK, so the insert fails before the code under test runs. Evidence: `src/db/schema/repo-intel.ts:65`.
+
 ## What Doesn't Work
 
 ### 2026-10-11 — a bare `slice(0, N)` of user text can leave a lone surrogate
@@ -65,6 +69,22 @@ Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DE
 NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
 Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.
 
+### 2026-10-11 — NEVER ground LLM Markdown links with regexes or text-node offsets
+ALWAYS parse with the client's grammar (mdast `fromMarkdown` + GFM), splice by node offsets, escape leftover `[`/`]` in the RAW source between kept spans, re-parse the output and fail closed.
+Why: regexes missed paren titles, nested brackets, `<…>` targets, definitions in quotes/lists; GFM autolink literals create text nodes with no `position`; micromark skips a leading U+FEFF (offsets shift by 1); removing a link can turn a paragraph into a GFM table and free a link from a code span. Evidence: `src/modules/onboarding/helpers/grounding.ts`, REPRO tests in `test/onboarding-grounding.test.ts`.
+
+### 2026-10-11 — `/^[a-z][a-z0-9+.-]*:/` is not "external link"
+NEVER treat a Markdown target as external because it matches a URL-scheme regex; `server.ts:42` matches, and react-markdown renders it with `href=""`.
+Why: react-markdown's `defaultUrlTransform` allows only http(s)/irc(s)/mailto/xmpp (`client/node_modules/react-markdown/lib/index.js:113`). Known open issue B9 in `src/modules/onboarding/helpers/grounding.ts:19`.
+
+### 2026-10-12 — `git.listTree` rejects on a missing ref; null only means "no clone"
+ALWAYS `.catch(() => null)` a `listTree(repo, ref)` used as a readability check (HEAD fallback, clone-ready check); test fakes must THROW for unknown refs.
+Why: `adapters/git/simple-git.ts:157-163` returns null only for no `.git` or an unsafe ref; `git ls-tree <pruned sha>` and `ls-tree HEAD` on an empty repo reject. A null-only fallback was dead code and a null-returning fake hid it. Evidence: B1/B2 tests (`FakeGit.listTreeRejects`) in `test/onboarding-service.test.ts`.
+
+### 2026-10-12 — close a stale `running` row BEFORE inserting under a partial unique "one running" index
+ALWAYS fail the stale generation (`detail='Interrupted'`) before `createGeneration` when the table has `UNIQUE … WHERE status='running'`.
+Why: inserting first hits 23505 and turns a legitimate restart into a 409. Evidence: `onboarding-service.test.ts` asserts ops order `['fail:gen-old:Interrupted','create']`; `migrations/0020_aromatic_ares.sql`.
+
 ## Codebase Patterns
 
 ### 2026-09-30 — don't wrap best-effort pre-work in `RunLogger.step`
@@ -74,6 +94,22 @@ Why: `step()` logs `err.message` unredacted as an `error` event, mirrored to pin
 ### 2026-10-10 — fixed a baselined depcruise edge → delete that one baseline entry by hand
 When a diff removes a known violation, delete exactly its object from `.dependency-cruiser-known-violations.json` (filter by `from`+`to`); NEVER run `arch:baseline` in a hoisted worktree.
 Why: `arch:baseline` there would rewrite the 5 drizzle `to` paths from `.pnpm/…` to hoisted ones; the "N known violations ignored" count dropping (36→35) is the signal, not a regression. Evidence: blast R1 removed `repo-intel/service.ts → adapters/codeindex/extract.ts`.
+
+### 2026-10-11 — "PageRank × (1 + hotness)" is PageRank only
+Do treat `file_rank.hotness` as always 0; any rank formula that multiplies by `(1 + hotness)` is plain PageRank today.
+Why: the clone is depth 1 (Option B), so the pipeline hard-codes hotness = 0. Evidence: `src/modules/repo-intel/pipeline/rank.ts:4-6`, `src/db/schema/repo-intel.ts:95-98`.
+
+### 2026-10-11 — "exactly one LLM call" needs three request fields, not one
+ALWAYS send `transportRetries: 0` AND `maxRetries: 0` (and `reasoning: 'off'` on OpenRouter) when a feature promises one paid call.
+Why: `transportRetries` only caps `withRetry` + SDK retries; `maxRetries` caps the schema-repair loop (up to 3 more calls); OpenRouter also retries a reasoning-exhausted attempt unless reasoning is off from attempt 1. Evidence: `reviewer-core/src/llm/openrouter.ts:104-195`, `src/platform/resilience.ts:47-53`.
+
+### 2026-10-11 — `check.sh --related` skips untracked test files
+NEVER trust `./scripts/check.sh --related server` to run new, untracked tests; run them with `pnpm exec vitest run <files>` or use plain `./scripts/check.sh server`.
+Why: in onboarding R2, `--related` ran 282 tests and none of the 82 new ones; the plain run ran 412.
+
+### 2026-10-12 — openai `APIConnectionTimeoutError` has `name === 'Error'`
+Classify LLM timeouts by message (`/timed out|timeout/i`) as well as by name; NEVER rely on `err.name === 'APIConnectionTimeoutError'` (better: map it to `TimeoutError` inside `adapters/llm/*`, which they don't do yet).
+Why: openai 4.104 `new APIConnectionTimeoutError()` → name `Error`, message `Request timed out.`; only `onboarding/service.ts` `classifyLlmError` sniffs it today (arch-review A1, open).
 
 ## Tool & Library Notes
 
@@ -96,6 +132,14 @@ Why: Postgres "already exists, skipping" notices for the drizzle schema, vector 
 ### 2026-10-05 — `tsx watch` does not restart on `reviewer-core` edits
 ALWAYS restart the dev server (`./scripts/dev.sh` or `pnpm dev` in server) after changing `../reviewer-core/src`.
 Why: the engine is imported as source via a path alias outside `server/`, and the watcher didn't pick it up — a review at 23:53 still ran the pre-fix OpenRouter provider (server process started 23:08, fix committed 23:52). Evidence: `ps -o lstart -p <server pid>` vs `git log -1 --format=%ci`.
+
+### 2026-10-11 — `pnpm add` in server/ needs the pnpm that built node_modules
+Do run the pnpm version from `node_modules/.modules.yaml` (`packageManager`, e.g. `node ~/.cache/node/corepack/v1/pnpm/12.6.0/bin/pnpm.mjs add <pkg>`) and delete the `server/pnpm-workspace.yaml` it creates.
+Why: global pnpm 10.x fails with `ERR_PNPM_UNEXPECTED_STORE` (store v11); pnpm 12 links, then exits `ERR_PNPM_IGNORED_BUILDS` and writes an `allowBuilds:` placeholder (the repo is not a workspace).
+
+### 2026-10-12 — `repos.clone_path` set does not mean the clone is readable
+NEVER derive "clone ready" from `clone_path != null` alone; also require `git.currentHead(repo)` to resolve (a cheap `rev-parse`).
+Why: with the clone folder gone or an empty repo, the onboarding view said ready while `start` answered 409 `clone_not_ready`, so the page never offered Resync. Evidence: `src/adapters/git/simple-git.ts:162`, `src/modules/onboarding/service.ts` `view`.
 
 ## Recurring Errors & Fixes
 
@@ -131,6 +175,9 @@ Why: `.dependency-cruiser-known-violations.json` stores `to: node_modules/.pnpm/
 2026-09-28 — L02 homework Conventions Extractor (server+client, worktree feat/l02-conventions-extractor): 5 entries (script live-check, provider error redaction, rg binary, drizzle-kit rename prompt, arch:check green).
 2026-10-04 — Smart Diff (worktree feat/smart-diff): 1 entry (arch:check baseline vs hoisted linker; answers the 2026-09-27 open question).
 2026-10-11 — loadDiff fetches the PR head; empty diff fails the run (chore/sdd-workflow, PR #31): 1 entry.
+2026-10-11 — SPEC-02 Onboarding Tour R1 (feat/l05-onboarding-tour): 3 entries (file_edges PK, hotness=0, one-call fields).
+2026-10-11 — SPEC-02 Onboarding Tour R2: 4 entries (Markdown grounding, scheme regex, pnpm add store, --related skips untracked).
+2026-10-12 — SPEC-02 Onboarding Tour R3: 3 entries (listTree rejects, stale-row order, APIConnectionTimeoutError name).
 
 ## Open Questions
 - 2026-09-27 — why do the 5 routes/feature-models drizzle imports sit outside the known-violations baseline? The baseline (41 → 36 known) was generated in e63c0f4; unverified whether P0-2/P0-3 or the baseline regen dropped them. Fix = move the queries into repositories, never `arch:baseline` to hide them.

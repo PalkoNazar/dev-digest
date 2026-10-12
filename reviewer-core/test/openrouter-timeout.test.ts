@@ -174,3 +174,103 @@ describe('OpenRouterProvider reasoning time slice', () => {
     expect(bodies[1]!.reasoning).toEqual({ enabled: false });
   });
 });
+
+/**
+ * SPEC-02 (L05 onboarding tour) — per-request transport controls (S2, R2/R3, A12).
+ * One generation = at most one LLM call (AC-31, AC-88): `transportRetries` overrides
+ * the SDK's constructor-level `maxRetries` for that request. A reasoning model must not
+ * spend the 4,000-token output cap thinking (AC-87): `reasoning: 'off'` disables it from
+ * attempt 1 — on OpenRouter only.
+ */
+describe('OpenRouterProvider per-request transport controls', () => {
+  let server: Server | undefined;
+  afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
+
+  type Mode = 'error500' | 'ok';
+  function recording(mode: Mode): Promise<{ baseURL: string; bodies: Record<string, unknown>[] }> {
+    const bodies: Record<string, unknown>[] = [];
+    return new Promise((resolve) => {
+      server = createServer((req, res) => {
+        let raw = '';
+        req.on('data', (c) => (raw += c));
+        req.on('end', () => {
+          bodies.push(JSON.parse(raw) as Record<string, unknown>);
+          if (mode === 'error500') {
+            // `retry-after-ms` keeps SDK retries (if any) fast; it doesn't change their count.
+            res.writeHead(500, { 'content-type': 'application/json', 'retry-after-ms': '1' });
+            res.end(JSON.stringify({ error: { message: 'upstream exploded' } }));
+            return;
+          }
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              id: 'x', object: 'chat.completion', created: 0, model: 'm',
+              choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: '{"ok":true}' } }],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            }),
+          );
+        });
+      });
+      server.listen(0, '127.0.0.1', () => {
+        resolve({ baseURL: `http://127.0.0.1:${(server!.address() as AddressInfo).port}/v1`, bodies });
+      });
+    });
+  }
+
+  const probe = {
+    model: 'm',
+    schema: z.object({ ok: z.boolean() }),
+    schemaName: 'Probe',
+    messages: [{ role: 'user' as const, content: 'x' }],
+  };
+
+  it('transportRetries: 0 makes exactly one HTTP request on a 500, even with the SDK default retries', async () => {
+    const { baseURL, bodies } = await recording('error500');
+    // No constructor maxRetries: the SDK default (2) applies unless the request overrides it.
+    const llm = new OpenRouterProvider('test-key', { baseURL });
+    await expect(
+      llm.completeStructured({ ...probe, maxRetries: 0, transportRetries: 0, timeoutMs: 10_000 }),
+    ).rejects.toThrow();
+    expect(bodies).toHaveLength(1);
+  });
+
+  it('without transportRetries the constructor-level SDK retries still apply (request unchanged)', async () => {
+    const { baseURL, bodies } = await recording('error500');
+    const llm = new OpenRouterProvider('test-key', { baseURL, maxRetries: 1 });
+    await expect(llm.completeStructured({ ...probe, maxRetries: 0, timeoutMs: 10_000 })).rejects.toThrow();
+    expect(bodies).toHaveLength(2);
+  });
+
+  it("reasoning: 'off' sends reasoning {enabled:false} on the FIRST request", async () => {
+    const { baseURL, bodies } = await recording('ok');
+    const out = await new OpenRouterProvider('test-key', { baseURL, maxRetries: 0 }).completeStructured({
+      ...probe,
+      maxRetries: 0,
+      reasoning: 'off',
+    });
+    expect(out.data).toEqual({ ok: true });
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]!.reasoning).toEqual({ enabled: false });
+  });
+
+  it('without reasoning/transportRetries the first body has no reasoning key', async () => {
+    const { baseURL, bodies } = await recording('ok');
+    await new OpenRouterProvider('test-key', { baseURL, maxRetries: 0 }).completeStructured({
+      ...probe,
+      maxRetries: 0,
+    });
+    expect(bodies).toHaveLength(1);
+    expect('reasoning' in bodies[0]!).toBe(false);
+  });
+
+  it("reasoning: 'off' is not sent to a non-OpenRouter endpoint (id 'openai')", async () => {
+    const { baseURL, bodies } = await recording('ok');
+    await new OpenRouterProvider('test-key', { baseURL, id: 'openai', maxRetries: 0 }).completeStructured({
+      ...probe,
+      maxRetries: 0,
+      reasoning: 'off',
+    });
+    expect(bodies).toHaveLength(1);
+    expect('reasoning' in bodies[0]!).toBe(false);
+  });
+});

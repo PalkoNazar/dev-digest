@@ -99,8 +99,9 @@ export class OpenRouterProvider implements LLMProvider {
     const deadline = Date.now() + budgetMs;
     const maxTokens = req.maxTokens ?? (this.id === 'openrouter' ? DEFAULT_MAX_TOKENS : undefined);
     // Set once a reasoning model spent the whole cap thinking: the next attempt
-    // asks for the answer without reasoning instead of thinking again.
-    let reasoningOff = false;
+    // asks for the answer without reasoning instead of thinking again. A request
+    // with `reasoning: 'off'` starts that way (OpenRouter only).
+    let reasoningOff = req.reasoning === 'off' && this.id === 'openrouter';
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const remaining = deadline - Date.now();
@@ -144,7 +145,11 @@ export class OpenRouterProvider implements LLMProvider {
           // OpenRouter usage accounting — ask it to return the REAL generation
           // cost (USD) in `usage.cost`, instead of estimating from a price book.
           ...(this.id === 'openrouter' ? { usage: { include: true } } : {}),
-        }, { signal: controller.signal });
+        }, {
+          signal: controller.signal,
+          // Per-request transport retries override the constructor's SDK `maxRetries`.
+          ...(req.transportRetries !== undefined ? { maxRetries: req.transportRetries } : {}),
+        });
       } catch (err) {
         if (controller.signal.aborted && slice < remaining) {
           reasoningOff = true;

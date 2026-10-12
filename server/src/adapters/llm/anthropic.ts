@@ -96,6 +96,9 @@ export class AnthropicProvider implements LLMProvider {
     let tokensOut = 0;
     let lastRaw = '';
 
+    // `transportRetries` (SPEC-02 AC-88) caps BOTH retry layers for this request:
+    // our `withRetry` and the SDK's own per-request `maxRetries`. Unset = defaults.
+    const sdkOpts = req.transportRetries !== undefined ? { maxRetries: req.transportRetries } : undefined;
     for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
       const res = await withRetry(() =>
         withTimeout(
@@ -113,9 +116,10 @@ export class AnthropicProvider implements LLMProvider {
               },
             ],
             tool_choice: { type: 'tool', name: toolName },
-          }),
+          }, sdkOpts),
           req.timeoutMs ?? DEFAULT_TIMEOUT,
         ),
+        { retries: req.transportRetries ?? 3 },
       );
       tokensIn += res.usage.input_tokens;
       tokensOut += res.usage.output_tokens;
