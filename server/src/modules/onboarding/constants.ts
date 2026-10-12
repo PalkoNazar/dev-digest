@@ -100,6 +100,9 @@ export const READING_PATH_EXCLUDE_PATTERNS = [
 // ---- run steps (AC-62, AC-81, AC-83) ----
 /** Programs a run step may start with, besides `docker compose` and the package manager. */
 export const BASE_PROGRAMS = ['node', 'npx', 'make', 'cp'] as const;
+/** Shell control operators that chain, pipe, substitute or redirect (PR #37, EC-14):
+ * `&` (also `&&`), `|` (also `||`), `;`, backtick, `$(`, `>`, `<`. */
+export const SHELL_CONTROL = /[&|;`<>]|\$\(/;
 /** Root lockfile → package manager, in lookup order. */
 export const LOCKFILES = {
   'pnpm-lock.yaml': 'pnpm',
