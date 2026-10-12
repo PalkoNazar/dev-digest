@@ -1,7 +1,7 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
 import { gfm } from 'micromark-extension-gfm';
-import { BASE_PROGRAMS, MAKEFILES } from '../constants.js';
+import { BASE_PROGRAMS, MAKEFILES, SHELL_CONTROL } from '../constants.js';
 import type { PackageManager, ScriptsByDir } from '../types.js';
 
 /**
@@ -453,6 +453,13 @@ function validPmCommand(pm: PackageManager, args: readonly string[], ctx: RunSte
  * and the rest of the line are a comment.
  */
 export function validateRunStep(cmd: string, ctx: RunStepContext): boolean {
+  // The step is pasted into a shell verbatim: a newline/CR always starts a new command
+  // (it also ends a comment), and a control operator before the comment chains one.
+  if (/[\n\r]/.test(cmd)) return false;
+  const commentAt = cmd.search(/(^|\s)#/);
+  const code = commentAt < 0 ? cmd : cmd.slice(0, commentAt);
+  if (SHELL_CONTROL.test(code)) return false;
+
   // A `#` starts a comment only at the start of a token (`a.js#x` is one argument).
   const all = cmd.trim().split(/\s+/).filter(Boolean);
   const comment = all.findIndex((t) => t.startsWith('#'));

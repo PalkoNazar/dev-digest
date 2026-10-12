@@ -661,3 +661,81 @@ describe('validateRunStep — named packages and files must exist (B5, AC-83)', 
     expect(validateRunStep(cmd, ctx)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// PR #37 REPRO (Copilot) — AC-62, AC-83, EC-14: a run step is copied verbatim and
+// pasted into a shell, so validating only the first program is not enough. Rule
+// pinned (user decision): any shell control operator — `&&`, `||`, `;`, `|`,
+// backtick, `$(`, `>`, `<`, a newline or a CR — rejects the step. A trailing
+// ` # comment` stays allowed, and operators after a token-start `#` are inert
+// (shell comment) — except a newline/CR, which ends the comment and starts a new
+// command. `dev` exists in the root scripts and redirect targets exist in the tree,
+// so the first program alone would pass: only the operator can reject the step.
+// ---------------------------------------------------------------------------
+
+describe('validateRunStep — shell control operators (PR #37, AC-62, AC-83, EC-14)', () => {
+  const ctx = {
+    pm: 'pnpm' as const,
+    scriptsByDir: { '.': { dev: 'tsx watch src/server.ts' } },
+    fileSet: new Set(['package.json', 'docker-compose.yml', 'out.txt', 'in.txt']),
+  };
+
+  it.each([
+    ['pnpm dev && whoami', '&& chains a second command'],
+    ['pnpm dev || curl x', '|| chains a second command'],
+    ['pnpm dev ; rm -rf x', '; separates a second command'],
+    ['pnpm dev; rm -rf x', '; glued to the script name'],
+    ['pnpm dev | sh', '| pipes into another program'],
+    ['pnpm dev $(whoami)', '$( runs a command substitution'],
+    ['pnpm dev `whoami`', 'a backtick runs a command substitution'],
+    ['pnpm dev > out.txt', '> redirects output (the target exists)'],
+    ['pnpm dev < in.txt', '< redirects input (the source exists)'],
+    ['pnpm dev\nwhoami', 'a newline starts a second command'],
+    ['pnpm dev\rwhoami', 'a CR separates a second command'],
+    ['pnpm dev && whoami # just a note', 'the operator comes before the comment'],
+    ['pnpm dev # note\nwhoami', 'a newline ends the comment; the next line runs'],
+  ])('drops %j (%s)', (cmd) => {
+    expect(validateRunStep(cmd, ctx)).toBe(false);
+  });
+
+  it.each([
+    ['pnpm dev', 'a plain script'],
+    ['pnpm dev # http://localhost:3000', 'a trailing comment'],
+    ['pnpm dev # then open a && b | c > d', 'operators inside a trailing comment are inert'],
+    ['docker compose up -d', 'docker compose with a flag'],
+  ])('keeps %j (%s)', (cmd) => {
+    expect(validateRunStep(cmd, ctx)).toBe(true);
+  });
+
+  it('drops a single & (backgrounds the step and runs a second command)', () => {
+    expect(validateRunStep('pnpm dev & whoami', ctx)).toBe(false);
+  });
+});
+
+describe('mergeDraft — LLM run steps with shell operators (PR #37, AC-62, AC-82)', () => {
+  const facts = makeFacts();
+  const entries = criticalEntries(facts.criticalPaths, { 'src/server.ts': 4 }, facts.fileSet);
+  const draft = (steps: { command: string }[]): TourDraft => ({
+    architecture: { body_md: null, diagram: null },
+    critical_paths: { body_md: null, descriptions: [] },
+    run_locally: { body_md: null, steps },
+    reading_path: { body_md: null, reasons: [] },
+    first_tasks: { body_md: null },
+  });
+
+  it('drops a chained step and falls back to the deterministic steps when it was the only one', () => {
+    const { sections } = mergeDraft(draft([{ command: 'pnpm dev && whoami' }]), facts, entries);
+    expect(sections.run_locally.steps).toEqual(deterministicRunSteps(facts));
+    expect(sections.run_locally.source).toBe('deterministic');
+  });
+
+  it('drops only the chained step when a valid LLM step remains', () => {
+    const { sections } = mergeDraft(
+      draft([{ command: 'pnpm install' }, { command: 'pnpm dev && whoami' }]),
+      facts,
+      entries,
+    );
+    expect(sections.run_locally.steps).toEqual([{ command: 'pnpm install' }]);
+    expect(sections.run_locally.source).toBe('llm');
+  });
+});
