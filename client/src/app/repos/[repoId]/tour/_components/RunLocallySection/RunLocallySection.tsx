@@ -13,9 +13,12 @@ import { s } from "./styles";
 
 type RunLocally = OnboardingTour["sections"]["run_locally"];
 
+/** The copied step, plus a per-copy counter so a repeated copy is announced again. */
+type Copied = { index: number; seq: number };
+
 export function RunLocallySection({ section }: { section: RunLocally }) {
   const t = useTranslations("onboarding.runLocally");
-  const [copied, setCopied] = React.useState<number | null>(null);
+  const [copied, setCopied] = React.useState<Copied | null>(null);
 
   // Clear the "Copied" mark (and the live-region text) after a moment.
   React.useEffect(() => {
@@ -25,7 +28,13 @@ export function RunLocallySection({ section }: { section: RunLocally }) {
   }, [copied]);
 
   const copy = (command: string, index: number) => {
-    void navigator.clipboard?.writeText(command).then(() => setCopied(index));
+    void navigator.clipboard
+      ?.writeText(command)
+      .then(
+        () => setCopied((prev) => ({ index, seq: (prev?.seq ?? 0) + 1 })),
+        // a refused clipboard announces nothing (and leaves no unhandled rejection)
+        () => setCopied(null),
+      );
   };
 
   return (
@@ -45,7 +54,7 @@ export function RunLocallySection({ section }: { section: RunLocally }) {
                 {step.command}
               </code>
               <IconBtn
-                icon={copied === i ? "Check" : "Copy"}
+                icon={copied?.index === i ? "Check" : "Copy"}
                 label={t("copy", { command: step.command })}
                 onClick={() => copy(step.command, i)}
               />
@@ -55,7 +64,8 @@ export function RunLocallySection({ section }: { section: RunLocally }) {
       )}
       {section.source === "deterministic" && <p style={s.note}>{t("deterministic")}</p>}
       <div aria-live="polite" style={s.srOnly}>
-        {copied !== null ? t("copied") : ""}
+        {/* a new key per copy re-inserts the text, so screen readers announce it again */}
+        {copied !== null && <span key={copied.seq}>{t("copied")}</span>}
       </div>
     </div>
   );

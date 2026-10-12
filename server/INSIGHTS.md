@@ -137,6 +137,10 @@ Why: the engine is imported as source via a path alias outside `server/`, and th
 Do run the pnpm version from `node_modules/.modules.yaml` (`packageManager`, e.g. `node ~/.cache/node/corepack/v1/pnpm/12.6.0/bin/pnpm.mjs add <pkg>`) and delete the `server/pnpm-workspace.yaml` it creates.
 Why: global pnpm 10.x fails with `ERR_PNPM_UNEXPECTED_STORE` (store v11); pnpm 12 links, then exits `ERR_PNPM_IGNORED_BUILDS` and writes an `allowBuilds:` placeholder (the repo is not a workspace).
 
+### 2026-10-12 — `repos.clone_path` set does not mean the clone is readable
+NEVER derive "clone ready" from `clone_path != null` alone; also require `git.currentHead(repo)` to resolve (a cheap `rev-parse`).
+Why: with the clone folder gone or an empty repo, the onboarding view said ready while `start` answered 409 `clone_not_ready`, so the page never offered Resync. Evidence: `src/adapters/git/simple-git.ts:162`, `src/modules/onboarding/service.ts` `view`.
+
 ## Recurring Errors & Fixes
 
 ### 2026-10-11 — changing a reviewer-core prompt-slot type breaks server tests at run time, not at typecheck

@@ -90,3 +90,33 @@ describe("useGenerateOnboardingTour", () => {
     expect(qc.getQueryData<OnboardingView>(KEY)?.generation?.status).toBe("running");
   });
 });
+
+// Whole-branch verification (plan G4, AC-84, AC-51): a generate refused with 409
+// clone_not_ready must re-read the view, so the page (OnboardingTourView → tourActionState)
+// swaps Generate for Resync once the server reports clone_ready: false.
+describe("useGenerateOnboardingTour — 409 clone_not_ready", () => {
+  it("re-reads the view after the server refuses with clone_not_ready (AC-84, AC-51)", async () => {
+    get.mockResolvedValueOnce(view({ clone_ready: true })).mockResolvedValue(view({ clone_ready: false }));
+    // Shaped like lib/api's ApiError (that module is mocked here).
+    post.mockRejectedValue(
+      Object.assign(new Error("The repository clone is not ready"), {
+        name: "ApiError",
+        status: 409,
+        code: "clone_not_ready",
+      }),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const { result } = renderHook(
+      () => ({ tour: useOnboardingTour("r1"), generate: useGenerateOnboardingTour("r1") }),
+      { wrapper: wrapperFor(qc) },
+    );
+    await waitFor(() => expect(result.current.tour.data?.clone_ready).toBe(true));
+
+    await act(async () => {
+      await result.current.generate.mutateAsync().catch(() => undefined);
+    });
+    expect(post).toHaveBeenCalledWith("/repos/r1/onboarding/generate");
+    await waitFor(() => expect(result.current.tour.data?.clone_ready).toBe(false));
+    expect(get.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+});

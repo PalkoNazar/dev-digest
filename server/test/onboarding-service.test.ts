@@ -543,6 +543,33 @@ describe('OnboardingService.view', () => {
     const { service } = build();
     await expect(service.view(WS, '99999999-9999-4999-8999-999999999999')).rejects.toBeInstanceOf(NotFoundError);
   });
+
+  // Whole-branch REPRO (plan G4, AC-84, AC-51): a clone path is set but the clone can't
+  // be read. Signal pinned: `git.currentHead()` (a cheap `rev-parse HEAD`) rejects — it
+  // does for a missing/broken clone and for an empty repo with no commit. view stays a
+  // read: no tree listing, no file reads, no fact collection, no LLM (AC-32).
+  it('reports clone_ready false when the clone path is set but HEAD cannot be read (AC-84, AC-51, AC-32)', async () => {
+    const git = new FakeGit();
+    let headCalls = 0;
+    git.currentHead = async () => {
+      headCalls++;
+      throw new Error('fatal: not a git repository (or any of the parent directories): .git');
+    };
+    const { service, intel, providers, llm } = build({ git });
+    const view = await service.view(WS, REPO_ID);
+    expect(view.clone_ready).toBe(false);
+    expect(headCalls).toBeGreaterThan(0);
+    expect(providers).toEqual([]);
+    expect(llm.calls).toEqual([]);
+    expect(git.listed).toEqual([]);
+    expect(git.shown).toEqual([]);
+    expect(new Set(intel.methods())).toEqual(new Set(['getIndexState']));
+  });
+
+  it('still reports clone_ready true when HEAD of a set clone path resolves (control)', async () => {
+    const { service } = build();
+    expect((await service.view(WS, REPO_ID)).clone_ready).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
