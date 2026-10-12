@@ -19,6 +19,8 @@ Reviewer: independent model (Fable 5.1), verdict APPROVE-WITH-CHANGES. Each step
 - **A11 (S12, AC-21):** add an it-test: generation A's row is already `failed` (job timeout), user starts B, A's handler completes → `completeGeneration` returns `discarded`, `onboarding` untouched.
 - **A12 (nits):** Constraints wording → "never repo content or prompt text" (AC-34 needs `repo: fullName`). S12 it-test needs no `MockSecretsProvider` key: `container.llm` returns `overrides.llm[id]` first (`conventions.it.test.ts:101,110`). S2: the per-request-override test builds the provider WITHOUT constructor `maxRetries`; send `reasoning:{enabled:false}` only when `this.id === 'openrouter'`. AC table: AC-22 also maps to S4 (second cascade); AC-32 is server-side (S11), S14 only displays it.
 
+- **A13 (user-accepted deviation, after R2 review):** S8 `groundMarkdown` runs on a real CommonMark+GFM parser. New server dependencies `mdast-util-from-markdown`, `mdast-util-gfm`, `micromark-extension-gfm` (`server/package.json`, `pnpm-lock.yaml`), the same grammar the client renders with (react-markdown + remark-gfm). Accepted by the user 2026-10-12.
+
 ## Goal
 When the plan is done, the active repo has a tour page at `/repos/<id>/tour`, opened from a new "Onboarding Tour" sidebar item. The page shows five sections in a fixed order: Architecture overview, Critical paths, How to run locally, Guided reading path, First tasks.
 

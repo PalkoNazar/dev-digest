@@ -551,3 +551,113 @@ describe('groundMarkdown — output re-parsed as CommonMark + GFM (R2 round 2)',
     expect(liveRepoLinks(groundMarkdown(md, FILE_SET).md)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Whole-branch REPRO — B9 (plan G1): a `file:line` target is not a URI scheme.
+// Rule pinned here: the part before the last `:<digits>` is the repo path; when it is
+// a file the link becomes inline code of that path WITHOUT the line suffix (like a
+// `#L10` fragment); when it is not, the link is removed and counted.
+// ---------------------------------------------------------------------------
+
+/** URL schemes react-markdown's `defaultUrlTransform` keeps (everything else → ''). */
+const SAFE_SCHEME_RE = /^(https?|ircs?|mailto|xmpp):/i;
+
+/** Links, images and definitions in `md` whose url has a scheme the client would blank. */
+function unsafeSchemeLinks(md: string): string[] {
+  const root = fromMarkdown(md, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  }) as unknown as ParsedNode;
+  const urls: string[] = [];
+  const visit = (node: ParsedNode): void => {
+    if ((node.type === 'link' || node.type === 'image' || node.type === 'definition') && node.url !== undefined) {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(node.url) && !SAFE_SCHEME_RE.test(node.url)) urls.push(node.url);
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  visit(root);
+  return urls;
+}
+
+describe('groundMarkdown — file:line targets are paths, not schemes (B9, AC-57, AC-79, AC-58)', () => {
+  const files = new Set([...FILE_SET, 'server.ts', 'README.md']);
+
+  it('turns [x](server.ts:42) into inline code of the grounded path', () => {
+    const out = groundMarkdown('See [x](server.ts:42).', files);
+    expect(out).toEqual({ md: 'See `server.ts`.', removed: 0 });
+    expect(unsafeSchemeLinks(out.md)).toEqual([]);
+  });
+
+  it('turns [README.md:10](README.md:10) into inline code of the grounded path', () => {
+    const out = groundMarkdown('Read [README.md:10](README.md:10) first.', files);
+    expect(out).toEqual({ md: 'Read `README.md` first.', removed: 0 });
+    expect(unsafeSchemeLinks(out.md)).toEqual([]);
+  });
+
+  it('removes and counts [x](nope.ts:3) when the file part is not in the tree', () => {
+    const out = groundMarkdown('See [x](nope.ts:3) now.', files);
+    expect(out.removed).toBe(1);
+    expect(out.md).not.toContain('nope.ts');
+    expect(out.md).not.toContain('](');
+    expect(unsafeSchemeLinks(out.md)).toEqual([]);
+    expect(liveRepoLinks(out.md, files)).toEqual([]);
+  });
+
+  it('counts a removed file:line link together with other ungrounded links', () => {
+    const out = groundMarkdown('[a](nope.ts:3) and [b](src/nope.ts) and [c](src/a.ts:7)', files);
+    expect(out.removed).toBe(2);
+    expect(out.md).toContain('`src/a.ts`');
+    expect(unsafeSchemeLinks(out.md)).toEqual([]);
+  });
+
+  it('still keeps http, https and mailto links as written', () => {
+    const md = 'See [a](http://example.com), [b](https://example.com/x) and [c](mailto:dev@example.com).';
+    expect(groundMarkdown(md, files)).toEqual({ md, removed: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Whole-branch REPRO — B5 (plan G2, AC-83): every package and file a run step names
+// must exist. Rule pinned for `--filter <v>`: `v` must equal a key of `scriptsByDir`
+// (the package directory, e.g. `server`) — TourFacts carries no package names — and
+// the script must exist in THAT package, not in any package.
+// For `node`: the first operand is the entry script and must be a file of the tree;
+// a flag's inline value that names a path (`--require=./x.js`) must exist too.
+// A quoted operand is checked by the path between the quotes.
+// ---------------------------------------------------------------------------
+
+describe('validateRunStep — named packages and files must exist (B5, AC-83)', () => {
+  const ctx = {
+    pm: 'pnpm' as const,
+    scriptsByDir: {
+      '.': { dev: 'tsx watch src/server.ts' },
+      server: { dev: 'node index.js' },
+      web: { build: 'next build' },
+    },
+    fileSet: new Set([
+      'package.json',
+      'server/package.json',
+      'web/package.json',
+      'server/index.js',
+      'src/a.js',
+      '.env.example',
+    ]),
+  };
+
+  it.each([
+    ['pnpm --filter nosuch dev', 'no package dir named nosuch'],
+    ['pnpm --filter web dev', 'web has no dev script (only the root and server do)'],
+    ['node --require=./missing.js src/a.js', 'the required module is not in the tree'],
+    ['node missingdir', 'the entry script is not a file of the tree'],
+    ['cp "nope.example" .env', 'the quoted source is not in the tree'],
+  ])('drops %j (%s)', (cmd) => {
+    expect(validateRunStep(cmd, ctx)).toBe(false);
+  });
+
+  it.each([
+    ['pnpm --filter server dev', 'server/package.json has dev'],
+    ['node src/a.js', 'the entry script is a file'],
+  ])('keeps %j (%s)', (cmd) => {
+    expect(validateRunStep(cmd, ctx)).toBe(true);
+  });
+});

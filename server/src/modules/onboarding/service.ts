@@ -121,20 +121,27 @@ export class OnboardingService {
 
   // ---------------------------------------------------------------- view
 
-  /** Reads only: no LLM, no tree, no fact collection (AC-32). */
+  /** Reads only: no LLM, no tree, no fact collection (AC-32) — just a `rev-parse HEAD`. */
   async view(workspaceId: string, repoId: string): Promise<OnboardingView> {
     const target = await this.target(workspaceId, repoId);
-    const [tour, latest, indexing, state] = await Promise.all([
+    const [tour, latest, indexing, state, cloneReady] = await Promise.all([
       this.deps.repo.getTour(workspaceId, repoId),
       this.deps.repo.latestGeneration(workspaceId, repoId),
       this.deps.repo.indexingInProgress(workspaceId, repoId),
       this.deps.intel.getIndexState(repoId),
+      // a set path isn't enough: a missing/broken clone or an empty repo has no HEAD (AC-51, AC-84)
+      target.clonePath != null
+        ? this.deps.git.currentHead(target).then(
+            () => true,
+            () => false,
+          )
+        : Promise.resolve(false),
     ]);
     return {
       repo_id: repoId,
       tour,
       generation: latest ? this.shown(latest) : null,
-      clone_ready: target.clonePath != null,
+      clone_ready: cloneReady,
       indexing,
       current_commit_sha: state.lastIndexedSha || null,
     };

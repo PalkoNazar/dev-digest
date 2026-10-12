@@ -71,6 +71,10 @@ Why: `useRefreshRepo` invalidates only `["repos"]`/`["pulls", id]`, so the tour 
 ### 2026-10-12 — resolved: `/onboarding` no longer lights up the tour nav key
 The 2026-10-11 entry about `activeKeyFor` matching `includes("/onboarding")` is fixed: it now matches `/^\/repos\/[^/]+\/tour(\/|$)/`, and `nav.test.ts` pins WORKSPACE `["pulls","onboarding-tour","context"]`. Evidence: `src/components/app-shell/helpers.ts:30`, `src/components/app-shell/helpers.test.ts`.
 
+### 2026-10-12 — re-announce the same live-region text with a keyed child
+Do render `<span key={seq}>` inside `aria-live` and bump `seq` on every action; setting the same string again is a React no-op, so screen readers hear nothing.
+Why: the second identical "Copied" produced no DOM mutation. Evidence: `src/app/repos/[repoId]/tour/_components/RunLocallySection/RunLocallySection.test.tsx` "announces Copied again…".
+
 ## Tool & Library Notes
 
 ### 2026-09-27 — vitest can't filter by a path with `[repoId]`/`[number]`
