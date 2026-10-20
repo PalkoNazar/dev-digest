@@ -3,7 +3,8 @@
  * repository returns these shapes; rows never leave it.
  */
 import { z } from 'zod';
-import type { IntentSourceKind, PrIntentRecord, RepoRef } from '@devdigest/shared';
+import type { PrIntentRecord, RepoRef } from '@devdigest/shared';
+import type { IssueRef } from '../../_shared/pr-refs.js';
 
 /** The PR fields the intent classifier reads, plus its repo (null if the repo row is gone). */
 export interface IntentPull {
@@ -50,19 +51,6 @@ export interface FileSummary {
   additions: number;
   deletions: number;
   hunks: string[];
-}
-
-/** An issue of the PR's own repo to fetch (`ref` is display text such as `#12`). */
-export interface IssueRef {
-  number: number;
-  ref: string;
-  kind: Extract<IntentSourceKind, 'linked_issue' | 'mentioned_issue'>;
-}
-
-/** A plan/spec doc of the PR's own repo, read at the head SHA. */
-export interface DocRef {
-  /** Repo-relative path (leading `./` removed). */
-  path: string;
 }
 
 /** A source text as it goes into the prompt, after the per-source and total caps. */

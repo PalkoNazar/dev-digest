@@ -20,7 +20,7 @@ import {
   type EffectiveDoc,
   type FittedDoc,
 } from './helpers.js';
-import type { ContextRepoRef, ProjectContextDeps } from './ports.js';
+import type { ContextRepoRef, ProjectContextDeps, RepoDocs } from './ports.js';
 
 /** What a review run injects (plan S7): fitted docs, budget-omitted and unreadable paths. */
 export interface RunProjectContext {
@@ -162,6 +162,29 @@ export class ProjectContextService {
     const read = await this.readAll(repo, docs, effective);
     const { injected, omitted } = fitDocs(read.texts);
     return { injected, omitted, skipped: read.skipped };
+  }
+
+  /**
+   * The union of documents attached to any agent or skill for the repo, read at
+   * `DOC_REF` (PR Brief, AC-86, AC-87). Best-effort like `forRun`: an unknown
+   * repo or no attachments → empty without touching git; no clone → every path
+   * skipped with `clone: false`; an undiscovered or unreadable path → skipped.
+   * No limits are applied here — the caller budgets the texts.
+   */
+  async repoDocs(workspaceId: string, repoId: string): Promise<RepoDocs> {
+    const empty: RepoDocs = { attached: [], docs: [], skipped: [], clone: true };
+    const repo = await this.deps.repo.findRepo(workspaceId, repoId);
+    if (!repo) return empty;
+    const attached = await this.deps.repo.attachedPathsForRepo(workspaceId, repoId);
+    if (attached.length === 0) return empty;
+    const docs = await this.discoverOrNull(repo);
+    if (!docs) return { attached, docs: [], skipped: [...attached], clone: false };
+    const read = await this.readAll(
+      repo,
+      docs,
+      attached.map((path) => ({ path, own: false, via: [] })),
+    );
+    return { attached, docs: read.texts, skipped: read.skipped, clone: true };
   }
 
   // ---- internals --------------------------------------------------------------

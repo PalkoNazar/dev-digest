@@ -8,12 +8,13 @@ import type {
 import { estTokens as estMessageTokens } from '@devdigest/reviewer-core';
 import { ConfigError, NotFoundError, redactSecrets } from '../../../platform/errors.js';
 import { withTimeout } from '../../../platform/resilience.js';
+import { MAX_ISSUES } from '../../_shared/pr-refs-constants.js';
+import { extractRefs, stripHtmlComments, type IssueRef } from '../../_shared/pr-refs.js';
 import {
   DESCRIPTIVE_BODY_MIN_CHARS,
   FALLBACK_REASON_MAX_CHARS,
   INTENT_MAX_TOKENS,
   INTENT_TIMEOUT_MS,
-  MAX_ISSUES,
 } from './constants.js';
 import {
   budgetContext,
@@ -27,7 +28,6 @@ import {
 } from './helpers.js';
 import type { DeriveOptions, IntentDeps, IntentDeriver, IntentEventSink } from './ports.js';
 import { buildIntentMessages } from './prompt.js';
-import { extractRefs, stripHtmlComments } from './refs.js';
 import {
   IntentExtraction,
   type FetchedDoc,
@@ -36,7 +36,6 @@ import {
   type IntentDerivation,
   type IntentPull,
   type IntentRecordWrite,
-  type IssueRef,
 } from './types.js';
 
 type GitHub = Awaited<ReturnType<IntentDeps['github']>>;

@@ -134,6 +134,10 @@ Why: the auto-mode classifier blocked an edit to `readonly-bash.mjs` with "[Self
 Do treat doc-writer's "not rendered (mmdc exit 1)" as unverified, not broken; check diagrams by eye or on GitHub.
 Why: snap confinement — a file path gives "Input file doesn't exist", stdin input fails at startup, even for diagrams already in the repo. Evidence: L05 doc-writer run (`/snap/mermaid-cli/25/…/index.js:260`).
 
+### 2026-10-20 — `git mv` plus merging more code into the moved file drops the rename
+Do commit the pure `git mv` separately when history matters; a moved file that gains more than its own size is recorded as add + delete.
+Why: rename detection needs ≥ 50 % similarity; `git status` still shows `RM` (index), but `git diff HEAD -M --stat` and the commit show `A` + `D`, so `--follow` stops. Evidence: `reviews/smart-diff/classify.ts` → `server/src/modules/_shared/file-roles.ts` with `CLASSIFY_RULES` merged in (L05 brief R1; accepted).
+
 ## Recurring Errors & Fixes
 
 ### 2026-09-27 — `ERR_PNPM_IGNORED_BUILDS` on install in a fresh git worktree
@@ -168,6 +172,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 
 2026-10-11 — planner → implementation-planner (no spec work, requirements review, execution-mode question; feat/implementation-planner-agent): 1 entry (subagent choices via the main session).
 2026-10-11 — SDD workflow audit: correctness-reviewer, sdd-run skill, scripts/check.sh (worktree chore/sdd-workflow): 3 entries (check cost = turns not time, tests not typechecked, hooks need the user).
+2026-10-20 — L05 PR Brief R1 (contract, _shared move, repoDocs, container.blast; feat/l05-pr-brief): 1 entry (git mv + merge drops rename); +1 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 
 ## Open Questions
 

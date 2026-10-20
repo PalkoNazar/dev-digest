@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SmartDiff, SmartDiffRole } from '@devdigest/shared';
-import { classifyFile } from '../src/modules/reviews/smart-diff/classify.js';
+import { classifyFile } from '../src/modules/_shared/file-roles.js';
 import {
   buildSmartDiff,
   latestReviewsPerAgent,

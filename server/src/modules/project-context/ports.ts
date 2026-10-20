@@ -30,6 +30,24 @@ export interface ContextRepo {
   agentIds(workspaceId: string): Promise<string[]>;
   /** Own attached paths per agent id for the repo, in order. */
   agentDocsByRepo(workspaceId: string, repoId: string): Promise<Map<string, string[]>>;
+  /**
+   * Every path attached to ANY agent or skill of the workspace for the repo
+   * (PR Brief, SPEC-03 AC-86): distinct, sorted by path.
+   */
+  attachedPathsForRepo(workspaceId: string, repoId: string): Promise<string[]>;
+}
+
+/**
+ * The repo-wide attached documents as read for the PR Brief (AC-86, AC-87).
+ * `attached` = the union of paths; `docs` = the readable ones at `DOC_REF`, in
+ * path order, uncut; `skipped` = attached but not discovered or unreadable;
+ * `clone: false` = documents are attached but the repo has no local clone.
+ */
+export interface RepoDocs {
+  attached: string[];
+  docs: { path: string; text: string }[];
+  skipped: string[];
+  clone: boolean;
 }
 
 /** The agent's effective skills (L02 rule: linked + enabled for it + enabled globally). */

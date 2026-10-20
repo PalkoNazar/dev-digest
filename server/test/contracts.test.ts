@@ -23,6 +23,8 @@ import {
   FEATURE_MODELS,
   ContextAttachInput,
   ContextAttachments,
+  PrBrief,
+  PrBriefResponse,
 } from '@devdigest/shared';
 
 /**
@@ -467,5 +469,75 @@ describe('Onboarding tour contracts', () => {
         current_commit_sha: null,
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('PR Brief contracts (L05, SPEC-03)', () => {
+  const brief = {
+    summary: 'Adds a per-route rate limit.',
+    risks: {
+      risks: [
+        {
+          kind: 'security',
+          title: 'Limiter bypass',
+          explanation: 'The key ignores the forwarded IP.',
+          severity: 'high',
+          file_refs: ['src/ratelimit.ts:12-18'],
+        },
+      ],
+    },
+    review_focus: [
+      { file: 'src/ratelimit.ts', line: 12, reason: 'New key logic', outside_changed_lines: false },
+      { file: 'src/app.ts', line: null, reason: 'Caller of the limiter', outside_changed_lines: false },
+    ],
+    intent: { summary: 'Rate limit', in_scope: ['limiter'], out_of_scope: [] },
+    blast: { changed_symbols: [], downstream: [], summary: 'No callers.' },
+    history: { history: [] },
+    inputs: [
+      { input: 'linked_issues', reason: 'not_found', ref: '#42' },
+      { input: 'spec_docs', reason: 'none_attached' },
+    ],
+    removed: { risks: 1, file_refs: 2, review_focus: 0 },
+    run: {
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+      tokens_in: 3200,
+      tokens_out: 410,
+      cost_usd: null,
+      duration_ms: 8123,
+      est_input_tokens: 3100,
+      head_sha: 'abc123',
+      generated_at: '2026-10-20T10:00:00.000Z',
+    },
+  };
+
+  it('a full brief parses', () => {
+    expect(PrBrief.safeParse(brief).success).toBe(true);
+  });
+
+  it('a brief with null intent/blast and no history parses', () => {
+    const { history: _history, ...rest } = brief;
+    expect(PrBrief.safeParse({ ...rest, intent: null, blast: null }).success).toBe(true);
+  });
+
+  it('a focus item with line null parses; line 0 is rejected', () => {
+    const item = { file: 'a.ts', reason: 'r', outside_changed_lines: false };
+    expect(PrBrief.safeParse({ ...brief, review_focus: [{ ...item, line: null }] }).success).toBe(
+      true,
+    );
+    expect(PrBrief.safeParse({ ...brief, review_focus: [{ ...item, line: 0 }] }).success).toBe(
+      false,
+    );
+  });
+
+  it('an unknown input reason is rejected', () => {
+    expect(
+      PrBrief.safeParse({ ...brief, inputs: [{ input: 'intent', reason: 'whatever' }] }).success,
+    ).toBe(false);
+  });
+
+  it('PrBriefResponse accepts no brief or a brief', () => {
+    expect(PrBriefResponse.safeParse({ brief: null, stale: false }).success).toBe(true);
+    expect(PrBriefResponse.safeParse({ brief, stale: true }).success).toBe(true);
   });
 });

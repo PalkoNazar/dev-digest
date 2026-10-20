@@ -9,47 +9,15 @@ export const INTENT_PROMPT_VERSION = 'intent-v3';
 export const INTENT_SYSTEM_PROMPT_TEMPLATE = 'intent.system.md';
 
 // ---- sources (caps) ----
-export const MAX_ISSUES = 3;
-export const MAX_DOCS = 3;
+// MAX_ISSUES, MAX_DOCS, ISSUE_MAX_CHARS and the doc/tracker ref rules live in
+// `modules/_shared/pr-refs-constants.ts` (shared with the PR Brief).
 export const MAX_FILES = 100;
 export const MAX_HUNK_HEADERS_PER_FILE = 5;
 export const HUNK_HEADER_MAX_CHARS = 120;
 export const BODY_MAX_CHARS = 4000;
-export const ISSUE_MAX_CHARS = 3000;
 export const DOC_MAX_CHARS = 6000;
 /** Budget for body + issues + docs together (chars), filled in that order. */
 export const TOTAL_CONTEXT_MAX_CHARS = 20_000;
-
-/** Extensions a linked file must have to be read as a plan/spec doc. */
-export const DOC_EXTENSIONS = ['md', 'mdx', 'markdown', 'rst', 'adoc'] as const;
-
-/**
- * A linked doc is read only from a plan/spec location: a file at the repo root
- * (README.md, DESIGN.md…) or under one of these folders at any depth. The body is
- * author-controlled, so a bare path must not pull an arbitrary repo file into the
- * external classifier's prompt.
- */
-export const DOC_DIRS = ['specs', 'spec', 'docs', 'doc', 'plans', 'plan', 'adr', 'adrs', 'rfcs', 'rfc', 'design'] as const;
-
-/** Tracker hosts that are never fetched (no credentials) → unresolved `no_credentials`. */
-export const EXTERNAL_HOSTS = ['linear.app', 'atlassian.net', 'notion.so', 'notion.site'] as const;
-
-/** Upper-case prefixes that look like Jira keys but are standards (`UTF-8`, `SHA-256`…). */
-export const NOT_JIRA_PREFIXES = [
-  'UTF',
-  'SHA',
-  'ISO',
-  'RFC',
-  'CVE',
-  'CWE',
-  'HTTP',
-  'TLS',
-  'SSL',
-  'ES',
-  'IPV',
-  'GPT',
-  'OWASP',
-] as const;
 
 // ---- classifier call ----
 export const INTENT_TIMEOUT_MS = 60_000;

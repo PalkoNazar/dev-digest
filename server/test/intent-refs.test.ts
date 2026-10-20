@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractRefs } from '../src/modules/reviews/intent/refs.js';
+import { extractRefs } from '../src/modules/_shared/pr-refs.js';
 
 const refs = (body: string) =>
   extractRefs({ title: 't', body, branch: 'feat/x', repo: { owner: 'o', name: 'r' }, prNumber: 1 });

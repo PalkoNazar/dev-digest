@@ -65,6 +65,10 @@ Why: the extractor regex-matches `GET '/…'` strings, so `*.test.ts` yields fak
 NEVER plan on a lesson brief's description of a repo-intel facade method without reading it in `server/src/modules/repo-intel/service.ts`.
 Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DEPTH` and returned `index_partial`/`flag_off`; it capped globally, ignored `BFS_DEPTH`, re-parsed via ripgrep and always said `no_data` (fixed in R1 of feat/l04-blast-radius). Evidence: `git show f39d089 -- server/src/modules/repo-intel/service.ts`.
 
+### 2026-10-20 — the L05 brief task names `getIntent`; the intent cache holds refs, not text
+NEVER plan the PR Brief (or any intent consumer) on the task's `getIntent(prId)`: it is `getIntentRecord(workspaceId, prId)`, and `pr_intent` stores only issue/doc refs, not their text.
+Why: second lesson task (after L04 blast) whose API names differ from the fork; issue bodies must be re-fetched. Evidence: `server/src/modules/reviews/repository/intent.repo.ts:43`, `server/src/db/schema/reviews.ts:80-112`.
+
 ### 2026-10-11 — "approve, 100, 0 findings" on a real PR meant an empty diff, not a clean PR
 NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
 Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.

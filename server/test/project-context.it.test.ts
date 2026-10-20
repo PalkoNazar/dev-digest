@@ -7,6 +7,7 @@ import { loadConfig } from '../src/platform/config.js';
 import { seed } from '../src/db/seed.js';
 import { MockGitClient, MockGitHubClient, MockSecretsProvider } from '../src/adapters/mocks.js';
 import * as t from '../src/db/schema.js';
+import { ProjectContextRepository } from '../src/modules/project-context/repository.js';
 
 /**
  * L05 Project Context (plan S6): attachment routes over real Postgres, with
@@ -255,4 +256,35 @@ d('L05 project context (Testcontainers pg)', () => {
       'specs/a.md',
     ]);
   });
+
+  it('repo-wide attached paths: agent ∪ skill, distinct, sorted, scoped by repo and workspace (PR Brief AC-86)', async () => {
+    const repo = await newRepo();
+    const otherRepo = await newRepo();
+    const agentA = await newAgent();
+    const agentB = await newAgent();
+    const skill = await newSkill();
+    await put('agents', agentA.id, repo.id, ['specs/b.md', 'AGENTS.md']);
+    await put('agents', agentB.id, repo.id, ['specs/b.md']);
+    await put('skills', skill.id, repo.id, ['docs/guide.md', 'AGENTS.md']);
+    await put('agents', agentA.id, otherRepo.id, ['README.md']);
+
+    const repoPc = new ProjectContextRepository(pg.handle.db);
+    expect(await repoPc.attachedPathsForRepo(workspaceId, repo.id)).toEqual([
+      'AGENTS.md',
+      'docs/guide.md',
+      'specs/b.md',
+    ]);
+    expect(await repoPc.attachedPathsForRepo(workspaceId, otherRepo.id)).toEqual(['README.md']);
+
+    // A foreign workspace sees nothing, even for the same repo id.
+    const [other] = await pg.handle.db.insert(t.workspaces).values({ name: `other-${seq++}` }).returning();
+    expect(await repoPc.attachedPathsForRepo(other!.id, repo.id)).toEqual([]);
+
+    const docs = await app.container.projectContext.repoDocs(workspaceId, repo.id);
+    expect(docs.docs.map((d) => d.path)).toEqual(['AGENTS.md', 'docs/guide.md', 'specs/b.md']);
+    expect(docs.docs[0]?.text).toBe('# Agents doc text');
+    expect(docs.skipped).toEqual([]);
+    expect((await app.container.projectContext.repoDocs(other!.id, repo.id)).attached).toEqual([]);
+  });
 });
+
