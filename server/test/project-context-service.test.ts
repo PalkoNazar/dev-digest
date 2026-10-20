@@ -72,7 +72,11 @@ const EFFECTIVE: Record<string, { id: string; name: string }[]> = {
 class FakeContextRepo implements ContextRepo {
   setAgentCalls: { ws: string; agentId: string; repoId: string; paths: string[] }[] = [];
   setSkillCalls: { ws: string; skillId: string; repoId: string; paths: string[] }[] = [];
-  constructor(public agentDocsMap: Record<string, string[]>) {}
+  constructor(
+    public agentDocsMap: Record<string, string[]>,
+    /** Skill attachments the repo-wide union reads (defaults to SKILL_DOCS). */
+    public skillDocsMap: Record<string, string[]> = SKILL_DOCS,
+  ) {}
 
   async findRepo(ws: string, repoId: string) {
     return ws === WS && repoId === REPO.id ? REPO : null;
@@ -112,6 +116,12 @@ class FakeContextRepo implements ContextRepo {
     if (ws !== WS || repoId !== REPO.id) return m;
     for (const [id, paths] of Object.entries(this.agentDocsMap)) m.set(id, [...paths]);
     return m;
+  }
+  /** Mirrors the repository: distinct union of agent + skill paths, sorted. */
+  async attachedPathsForRepo(ws: string, repoId: string) {
+    if (ws !== WS || repoId !== REPO.id) return [];
+    const all = [...Object.values(this.agentDocsMap), ...Object.values(this.skillDocsMap)].flat();
+    return [...new Set(all)].sort();
   }
 }
 
@@ -314,5 +324,71 @@ describe('ProjectContextService.forRun — given skill snapshot', () => {
 
     expect(calls).toBe(0);
     expect(ctx.injected.map((d) => d.path)).toEqual(['specs/a.md']);
+  });
+});
+
+/** PR Brief (SPEC-03 AC-86, AC-87, AC-65): the repo-wide union of attached documents. */
+describe('ProjectContextService.repoDocs', () => {
+  it('reads the union of agent and skill attachments once each, in path order, at HEAD', async () => {
+    const repo = new FakeContextRepo(
+      { 'ag-1': ['specs/a.md', 'docs/b.md'], 'ag-2': ['README.md', 'specs/a.md'] },
+      { 'sk-sec': ['docs/b.md'] },
+    );
+    const git = new MockGitClient({ filesAtRef: FILES, tree: TREE });
+    const svc = new ProjectContextService({ repo, skills, git });
+
+    const out = await svc.repoDocs(WS, REPO.id);
+
+    expect(out.attached).toEqual(['README.md', 'docs/b.md', 'specs/a.md']);
+    expect(out.docs).toEqual([
+      { path: 'README.md', text: '# Readme' },
+      { path: 'docs/b.md', text: 'Doc B text' },
+      { path: 'specs/a.md', text: 'Spec A text' },
+    ]);
+    expect(out.skipped).toEqual([]);
+    expect(out.clone).toBe(true);
+    expect(new Set(git.shown.map((s) => s.ref))).toEqual(new Set(['HEAD']));
+    expect(git.listed.map((l) => l.ref)).toEqual(['HEAD']);
+  });
+
+  it('no attachments → empty and git is never touched', async () => {
+    const repo = new FakeContextRepo({}, {});
+    const git = new MockGitClient({ filesAtRef: FILES, tree: TREE });
+    const svc = new ProjectContextService({ repo, skills, git });
+
+    expect(await svc.repoDocs(WS, REPO.id)).toEqual({ attached: [], docs: [], skipped: [], clone: true });
+    expect(git.listed).toHaveLength(0);
+    expect(git.shown).toHaveLength(0);
+  });
+
+  it('an unknown repo or another workspace → empty, no git', async () => {
+    const { svc, git } = setup({ 'ag-1': ['specs/a.md'] });
+    expect((await svc.repoDocs(WS, 'repo-x')).attached).toEqual([]);
+    expect((await svc.repoDocs('ws-other', REPO.id)).attached).toEqual([]);
+    expect(git.listed).toHaveLength(0);
+  });
+
+  it('no local clone → clone: false and every attached path skipped', async () => {
+    const repo = new FakeContextRepo({ 'ag-1': ['specs/a.md'] }, { 'sk-sec': ['docs/b.md'] });
+    const svc = new ProjectContextService({ repo, skills, git: new MockGitClient({ noClone: true }) });
+
+    expect(await svc.repoDocs(WS, REPO.id)).toEqual({
+      attached: ['docs/b.md', 'specs/a.md'],
+      docs: [],
+      skipped: ['docs/b.md', 'specs/a.md'],
+      clone: false,
+    });
+  });
+
+  it('an unreadable or no longer discovered path is skipped, the rest is read', async () => {
+    const repo = new FakeContextRepo({ 'ag-1': ['docs/boom.md', 'gone.md', 'specs/a.md'] }, {});
+    const git = new FlakyGit({ filesAtRef: FILES, tree: TREE }, 'docs/boom.md');
+    const svc = new ProjectContextService({ repo, skills, git });
+
+    const out = await svc.repoDocs(WS, REPO.id);
+
+    expect(out.docs).toEqual([{ path: 'specs/a.md', text: 'Spec A text' }]);
+    expect(out.skipped).toEqual(['docs/boom.md', 'gone.md']);
+    expect(out.clone).toBe(true);
   });
 });

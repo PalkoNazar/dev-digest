@@ -30,6 +30,10 @@ Why: with mocked hooks an `invalidateQueries` fix is invisible. Evidence: `Proje
 
 ## Codebase Patterns
 
+### 2026-10-20 — a deep link into Files changed must force-open groups and big files
+Do open the target's role group (Docs/Boilerplate start collapsed) and auto-collapsed FileCard (>200 changed lines), and pass the focus through RoleGroup — it renders its own nested `DiffViewer`.
+Why: scrolling to a card that isn't rendered lands nowhere; a focus prop set only on DiffTab's viewer never reaches Smart order. Evidence: `src/components/diff-viewer/constants.ts:4`, `DiffTab/_components/RoleGroup/RoleGroup.tsx:28,54`.
+
 ### 2026-10-11 — the UI kit `Checkbox` is named by its `label` and has no `disabled`
 Do pass the visible text (e.g. the path span) as `label`; for a pending state wrap it (`pointer-events: none`) and guard the handler.
 Why: it renders `<label><button role="checkbox"/>{label}</label>` with no `aria-label`/`disabled` props. Evidence: `src/vendor/ui/kit/Checkbox.tsx`; `ContextDocsPanel.test.tsx`.

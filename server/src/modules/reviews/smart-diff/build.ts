@@ -1,5 +1,5 @@
 import type { Finding, SmartDiff, SmartDiffFile, SmartDiffRole } from '@devdigest/shared';
-import { classifyFile } from './classify.js';
+import { classifyFile } from '../../_shared/file-roles.js';
 import { ROLE_ORDER } from './constants.js';
 
 /** The review fields the latest-per-agent selection reads (no DB row type here). */

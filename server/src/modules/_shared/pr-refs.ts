@@ -1,17 +1,29 @@
-import type { RepoRef, UnresolvedRef } from '@devdigest/shared';
+import type { IntentSourceKind, RepoRef, UnresolvedRef } from '@devdigest/shared';
 import {
   DOC_DIRS,
   DOC_EXTENSIONS,
   EXTERNAL_HOSTS,
-  ITEM_MAX_CHARS,
   MAX_DOCS,
   MAX_ISSUES,
   NOT_JIRA_PREFIXES,
-} from './constants.js';
-import type { DocRef, IssueRef } from './types.js';
+  REF_MAX_CHARS,
+} from './pr-refs-constants.js';
+
+/** An issue of the PR's own repo to fetch (`ref` is display text such as `#12`). */
+export interface IssueRef {
+  number: number;
+  ref: string;
+  kind: Extract<IntentSourceKind, 'linked_issue' | 'mentioned_issue'>;
+}
+
+/** A plan/spec doc of the PR's own repo, read at the head SHA. */
+export interface DocRef {
+  /** Repo-relative path (leading `./` removed). */
+  path: string;
+}
 
 /**
- * Reference extraction for the intent classifier (pure). Finds the issues and
+ * Reference extraction for the intent classifier and the PR Brief (pure). Finds the issues and
  * plan/spec docs a PR points at, and the links that can't be read. Every ref
  * string built here comes from a charset-restricted regex capture, so it is safe
  * to name in logs and in the prompt's trusted "Missing context" section.
@@ -81,7 +93,7 @@ function hasDocExtension(path: string): boolean {
 
 /** A ref string safe to show in the prompt and logs: disallowed chars → `?`, length-capped. */
 function safeRef(text: string): string {
-  return text.replace(/[^\w@.\-/ +~#:]/g, '?').slice(0, ITEM_MAX_CHARS);
+  return text.replace(/[^\w@.\-/ +~#:]/g, '?').slice(0, REF_MAX_CHARS);
 }
 
 /**
@@ -100,7 +112,7 @@ function displayUrl(url: string): string {
   try {
     const u = new URL(url);
     const path = u.pathname.replace(/[^\w.\-/~%]/g, '');
-    return `${u.host}${path}`.slice(0, ITEM_MAX_CHARS);
+    return `${u.host}${path}`.slice(0, REF_MAX_CHARS);
   } catch {
     return 'invalid-url';
   }
@@ -199,7 +211,7 @@ export function extractRefs(input: {
         apply: () =>
           sameRepo(input.repo, owner, name)
             ? out.issue(Number(num))
-            : out.unresolvedRef('issue', `${owner}/${name}#${num}`.slice(0, ITEM_MAX_CHARS), 'external_repo'),
+            : out.unresolvedRef('issue', `${owner}/${name}#${num}`.slice(0, REF_MAX_CHARS), 'external_repo'),
       });
     } else if (blob) {
       const [, owner = '', name = '', refAndPath = ''] = blob;
@@ -240,7 +252,7 @@ export function extractRefs(input: {
       apply: () =>
         sameRepo(input.repo, owner, name)
           ? out.issue(Number(num))
-          : out.unresolvedRef('issue', `${owner}/${name}#${num}`.slice(0, ITEM_MAX_CHARS), 'external_repo'),
+          : out.unresolvedRef('issue', `${owner}/${name}#${num}`.slice(0, REF_MAX_CHARS), 'external_repo'),
     });
     return blank(m);
   });

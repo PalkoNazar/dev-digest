@@ -8,6 +8,7 @@ import type {
   UnresolvedRef,
 } from '@devdigest/shared';
 import type { ScopeMode } from '@devdigest/reviewer-core';
+import { ISSUE_MAX_CHARS } from '../../_shared/pr-refs-constants.js';
 import {
   BODY_MAX_CHARS,
   DESCRIPTIVE_BODY_MIN_CHARS,
@@ -16,7 +17,6 @@ import {
   GAPS_MAX_ITEMS,
   HUNK_HEADER_MAX_CHARS,
   INTENT_PROMPT_VERSION,
-  ISSUE_MAX_CHARS,
   ITEM_MAX_CHARS,
   MAX_FILES,
   MAX_HUNK_HEADERS_PER_FILE,

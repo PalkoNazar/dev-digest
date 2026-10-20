@@ -167,4 +167,22 @@ export class ProjectContextRepository implements ContextRepo {
     }
     return out;
   }
+
+  async attachedPathsForRepo(workspaceId: string, repoId: string): Promise<string[]> {
+    const [agentRows, skillRows] = await Promise.all([
+      this.db
+        .selectDistinct({ path: t.agentContextDocs.path })
+        .from(t.agentContextDocs)
+        .innerJoin(t.agents, eq(t.agents.id, t.agentContextDocs.agentId))
+        .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agentContextDocs.repoId, repoId))),
+      this.db
+        .selectDistinct({ path: t.skillContextDocs.path })
+        .from(t.skillContextDocs)
+        .innerJoin(t.skills, eq(t.skills.id, t.skillContextDocs.skillId))
+        .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skillContextDocs.repoId, repoId))),
+    ]);
+    const paths = new Set([...agentRows, ...skillRows].map((r) => r.path));
+    // Code-unit order (not the DB collation), so the order is the same everywhere.
+    return [...paths].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  }
 }

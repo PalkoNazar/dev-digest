@@ -197,11 +197,103 @@ export const SmartDiff = z.object({
 });
 export type SmartDiff = z.infer<typeof SmartDiff>;
 
+// ---- PR Brief (L05, SPEC-03) ----
+/** One "read these first" item. `line` is null when no changed/caller line applies. */
+export const ReviewFocusItem = z.object({
+  file: z.string(),
+  line: z.number().int().positive().nullable(),
+  reason: z.string(),
+  /** True when `line` lies outside the PR's changed line ranges. */
+  outside_changed_lines: z.boolean(),
+});
+export type ReviewFocusItem = z.infer<typeof ReviewFocusItem>;
+
+/** A fact the brief generation reads; used to explain missing or cut inputs. */
+export const BriefInput = z.enum([
+  'intent',
+  'blast',
+  'linked_issues',
+  'spec_docs',
+  'pr_description',
+  'changed_files',
+  'blast_callers',
+]);
+export type BriefInput = z.infer<typeof BriefInput>;
+
+/** Why an input is missing, partial or cut (a code — the client renders the text). */
+export const BriefInputReason = z.enum([
+  'not_derived',
+  'older_commit',
+  'flag_off',
+  'index_failed',
+  'index_partial',
+  'repo_too_large',
+  'no_data',
+  'unavailable',
+  'none_linked',
+  'no_github_token',
+  'not_found',
+  'fetch_failed',
+  'limit_reached',
+  'none_attached',
+  'no_clone',
+  'unreadable',
+  'empty',
+  'truncated',
+  'omitted_budget',
+]);
+export type BriefInputReason = z.infer<typeof BriefInputReason>;
+
+export const BriefInputNote = z.object({
+  input: BriefInput,
+  reason: BriefInputReason,
+  /** Issue number, doc path, … the note is about (absent for whole-input notes). */
+  ref: z.string().nullish(),
+});
+export type BriefInputNote = z.infer<typeof BriefInputNote>;
+
+/** How many model-proposed items grounding removed (invented paths/lines). */
+export const BriefRemoved = z.object({
+  risks: z.number().int().nonnegative(),
+  file_refs: z.number().int().nonnegative(),
+  review_focus: z.number().int().nonnegative(),
+});
+export type BriefRemoved = z.infer<typeof BriefRemoved>;
+
+/** Generation metadata. `head_sha` = the commit of the files the brief was built from. */
+export const BriefRun = z.object({
+  provider: z.string(),
+  model: z.string(),
+  tokens_in: z.number().int().nonnegative(),
+  tokens_out: z.number().int().nonnegative(),
+  cost_usd: z.number().nullable(),
+  duration_ms: z.number().int().nonnegative(),
+  est_input_tokens: z.number().int().nonnegative(),
+  head_sha: z.string(),
+  generated_at: z.string(),
+});
+export type BriefRun = z.infer<typeof BriefRun>;
+
 // ---- Composed PR Brief (pr_brief.json) ----
 export const PrBrief = z.object({
-  intent: Intent,
-  blast: BlastRadius,
+  summary: z.string(),
   risks: Risks,
-  history: PrHistory,
+  review_focus: z.array(ReviewFocusItem),
+  /** Snapshot of the stored intent used as input; null when none was derived. */
+  intent: Intent.nullable(),
+  /** Snapshot of the blast map used as input; null when unavailable. */
+  blast: BlastRadius.nullable(),
+  /** Prior PRs — not produced in L05 (Non-goal); kept optional for later lessons. */
+  history: PrHistory.nullish(),
+  inputs: z.array(BriefInputNote),
+  removed: BriefRemoved,
+  run: BriefRun,
 });
 export type PrBrief = z.infer<typeof PrBrief>;
+
+/** GET/POST /pulls/:id/brief. `stale` = the PR head moved since `brief.run.head_sha`. */
+export const PrBriefResponse = z.object({
+  brief: PrBrief.nullable(),
+  stale: z.boolean(),
+});
+export type PrBriefResponse = z.infer<typeof PrBriefResponse>;

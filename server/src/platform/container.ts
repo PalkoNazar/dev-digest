@@ -29,6 +29,8 @@ import type { RepoIntel } from '../modules/repo-intel/types.js';
 import { RepoIntelService } from '../modules/repo-intel/service.js';
 import { ProjectContextService } from '../modules/project-context/service.js';
 import { ProjectContextRepository } from '../modules/project-context/repository.js';
+import { BlastService } from '../modules/blast/service.js';
+import { BlastRepository } from '../modules/blast/repository.js';
 import { type DepGraph, DepCruiseGraph } from '../adapters/depgraph/index.js';
 import { type Tokenizer, TiktokenTokenizer } from '../adapters/tokenizer/index.js';
 
@@ -76,6 +78,7 @@ export class Container {
   private _reviewRepo?: ReviewRepository;
   private _repoIntel?: RepoIntel;
   private _projectContext?: ProjectContextService;
+  private _blast?: BlastService;
   private _depgraph?: DepGraph;
   private _tokenizer?: Tokenizer;
   private _priceBook?: PriceBook;
@@ -129,6 +132,17 @@ export class Container {
       repo: new ProjectContextRepository(this.db),
       skills: this.agentsRepo,
       git: this.git,
+    }));
+  }
+
+  /**
+   * L04 blast radius of a PR, for consumers outside the blast module (the L05
+   * PR Brief). `blast/routes.ts` keeps its own instance — same deps, no state.
+   */
+  get blast(): BlastService {
+    return (this._blast ??= new BlastService({
+      repo: new BlastRepository(this.db),
+      source: this.repoIntel,
     }));
   }
 
