@@ -145,6 +145,10 @@ Why: global pnpm 10.x fails with `ERR_PNPM_UNEXPECTED_STORE` (store v11); pnpm 1
 NEVER derive "clone ready" from `clone_path != null` alone; also require `git.currentHead(repo)` to resolve (a cheap `rev-parse`).
 Why: with the clone folder gone or an empty repo, the onboarding view said ready while `start` answered 409 `clone_not_ready`, so the page never offered Resync. Evidence: `src/adapters/git/simple-git.ts:162`, `src/modules/onboarding/service.ts` `view`.
 
+### 2026-10-21 — Drizzle 0.38 takes `isolationLevel` as the 2nd arg of `db.transaction`
+Do write `db.transaction(fn, { isolationLevel: 'repeatable read' })` for a consistent multi-table read; no raw `SET TRANSACTION` needed.
+Why: plans marked it unverified and kept a single-join fallback. Evidence: `PgTransactionConfig` in `node_modules/drizzle-orm/pg-core/session.d.ts`; `BriefRepository.snapshot` (`src/modules/brief/repository.ts`), `test/brief.it.test.ts` green ×3.
+
 ## Recurring Errors & Fixes
 
 ### 2026-10-11 — changing a reviewer-core prompt-slot type breaks server tests at run time, not at typecheck
