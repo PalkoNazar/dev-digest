@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import type { PrFile } from "@/lib/types";
 import { type DiffCommentApi } from "../comments";
 import { type DiffFindingApi } from "../findings";
+import { type DiffFocus } from "../focus";
 import { s } from "../styles";
 import { FileCard } from "../FileCard";
 
@@ -17,11 +18,14 @@ export function DiffViewer({
   files,
   commenting,
   findingApi,
+  focus,
 }: {
   files: PrFile[];
   commenting?: DiffCommentApi;
   /** Optional review findings shown inline (dot, line marker, cards). */
   findingApi?: DiffFindingApi;
+  /** Optional jump target; the matching FileCard opens, highlights and scrolls. */
+  focus?: DiffFocus | null;
 }) {
   const t = useTranslations("shell");
   if (!files || files.length === 0) {
@@ -30,7 +34,7 @@ export function DiffViewer({
   return (
     <div style={s.list}>
       {files.map((f, i) => (
-        <FileCard key={i} file={f} commenting={commenting} findingApi={findingApi} />
+        <FileCard key={i} file={f} commenting={commenting} findingApi={findingApi} focus={focus} />
       ))}
     </div>
   );

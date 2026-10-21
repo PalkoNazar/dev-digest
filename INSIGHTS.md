@@ -175,6 +175,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-20 — L05 PR Brief R1 (contract, _shared move, repoDocs, container.blast; feat/l05-pr-brief): 1 entry (git mv + merge drops rename); +1 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 2026-10-21 — L05 PR Brief R2 (brief repository, grounding/caps helpers, budgeted prompt): 0 entries here; +1 in server/INSIGHTS.md (Drizzle isolationLevel).
 2026-10-22 — L05 PR Brief R3 (BriefService, GET/POST /pulls/:id/brief): 0 entries here; +2 in server/INSIGHTS.md (linkedIssueNumbers swallows errors, inject signal).
+2026-10-22 — L05 PR Brief R4 (client: brief hooks, diff focus, PR Brief block): 0 entries here; +3 in client/INSIGHTS.md (detail head vs list head, per-key mutation state, TS2742). Note: the 2026-10-20 client entry's RoleGroup lines moved — force-open is now RoleGroup.tsx:37-39, focus passed at :72.
 
 ## Open Questions
 

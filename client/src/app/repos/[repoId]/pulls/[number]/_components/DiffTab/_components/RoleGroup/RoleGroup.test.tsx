@@ -1,9 +1,11 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { PrFile, SmartDiffRole } from "@devdigest/shared";
 import prReview from "../../../../../../../../../../messages/en/prReview.json";
 import shell from "../../../../../../../../../../messages/en/shell.json";
+import type { DiffFocus } from "@/components/diff-viewer";
+import { stubScrollIntoView } from "@/test/scroll-into-view";
 import { RoleGroup } from "./RoleGroup";
 
 afterEach(cleanup);
@@ -36,5 +38,36 @@ describe("RoleGroup", () => {
     expect(screen.queryByText("README.md")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Docs/ }));
     expect(screen.getByText("README.md")).toBeInTheDocument();
+  });
+});
+
+/* L05 S11 — a focus target forces its role group open; RoleGroup passes the full
+   focus down to its own DiffViewer (it never scrolls itself — FileCard does). */
+describe("RoleGroup focus target", () => {
+  let scroll: ReturnType<typeof stubScrollIntoView>;
+  beforeEach(() => {
+    scroll = stubScrollIntoView();
+  });
+  afterEach(() => {
+    scroll.restore();
+  });
+
+  const renderFocused = (role: SmartDiffRole, files: PrFile[], focus: DiffFocus | null) =>
+    render(
+      <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
+        <RoleGroup role={role} files={files} filesWithFindings={0} focus={focus} />
+      </NextIntlClientProvider>,
+    );
+
+  it("a docs group (collapsed by default) holding the focused file opens", () => {
+    renderFocused("docs", [file("README.md"), file("docs/guide.md")], { path: "docs/guide.md", line: 2 });
+    expect(screen.getByRole("button", { name: /Docs/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("docs/guide.md")).toBeInTheDocument();
+  });
+
+  it("a docs group without the focused file stays collapsed", () => {
+    renderFocused("docs", [file("README.md")], { path: "src/a.ts", line: 2 });
+    expect(screen.getByRole("button", { name: /Docs/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("README.md")).not.toBeInTheDocument();
   });
 });

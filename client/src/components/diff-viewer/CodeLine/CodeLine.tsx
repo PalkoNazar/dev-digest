@@ -20,6 +20,7 @@ export function CodeLine({
   commenting,
   findings = [],
   findingApi,
+  highlighted = false,
 }: {
   ln: Line;
   path: string;
@@ -28,6 +29,8 @@ export function CodeLine({
   /** Findings anchored to this line (shown only when `findingApi.show`). */
   findings?: FindingRecord[];
   findingApi?: DiffFindingApi;
+  /** The focus target row: highlighted and marked `data-focus-line` (FileCard scrolls to it). */
+  highlighted?: boolean;
 }) {
   const [hover, setHover] = React.useState(false);
   const [composing, setComposing] = React.useState(false);
@@ -49,7 +52,8 @@ export function CodeLine({
 
   return (
     <div
-      style={cs.rowWrap}
+      style={highlighted ? { ...cs.rowWrap, ...s.focusLine } : cs.rowWrap}
+      data-focus-line={highlighted ? "" : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >

@@ -30,6 +30,14 @@ Why: with mocked hooks an `invalidateQueries` fix is invisible. Evidence: `Proje
 
 ## Codebase Patterns
 
+### 2026-10-22 — the PR detail head, not the polled list head, is the "current head"
+Do compare "is this stale?" against `usePullDetail().head_sha`; use a differing `usePulls` head (60 s poll) only to `refetch()` the detail.
+Why: `GET /pulls/:id` refreshes the head from GitHub, so a cached list head can lag and gave a false "PR changed" badge right after regenerating. Evidence: `server/src/modules/pulls/routes.ts:78-80`, `src/app/repos/[repoId]/pulls/[number]/page.tsx` head effect, `brief-stale.test.tsx`.
+
+### 2026-10-22 — mutation pending/error that must survive a tab unmount: per-entity mutationKey
+Do give the mutation a stable per-entity `mutationKey`, put `onSuccess` in the `useMutation` options, and read `useIsMutating({ mutationKey, exact: true })` + the last settled `useMutationState` entry.
+Why: the PR page unmounts the Overview tab on tab switch, so `useMutation().isPending`/`.error` reset; the MutationCache keeps them and options-level `onSuccess` still runs. Evidence: `src/lib/hooks/brief.ts` `useBriefGeneration`; `brief.test.tsx` remount tests.
+
 ### 2026-10-20 — a deep link into Files changed must force-open groups and big files
 Do open the target's role group (Docs/Boilerplate start collapsed) and auto-collapsed FileCard (>200 changed lines), and pass the focus through RoleGroup — it renders its own nested `DiffViewer`.
 Why: scrolling to a card that isn't rendered lands nowhere; a focus prop set only on DiffTab's viewer never reaches Smart order. Evidence: `src/components/diff-viewer/constants.ts:4`, `DiffTab/_components/RoleGroup/RoleGroup.tsx:28,54`.
@@ -92,6 +100,10 @@ Why: neither is in `client/package.json`; the generic `react-testing-library` sk
 own hooks") conflicts — local pattern wins. Evidence: `SkillEditor.test.tsx`, `FindingsCell.test.tsx`.
 
 ## Recurring Errors & Fixes
+
+### 2026-10-22 — TS2742 "inferred type of 's' cannot be named … csstype" in a styles.ts
+Do write a shared base style as `const base = {…} satisfies CSSProperties`, not `const base: CSSProperties = {…}` spread into `export const s`.
+Why: the annotated type leaks into the exported `s` and tsc can't name it portably. Evidence: `PrBriefBlock/styles.ts` failed `pnpm typecheck` with TS2742, passed after the change.
 
 ### 2026-09-27 — "Module not found: Can't resolve './contracts/findings.js'" in `next dev`
 Fixed by `webpack.resolve.extensionAlias { ".js": [".ts", ".tsx", ".js"] }` in `client/next.config.mjs`.

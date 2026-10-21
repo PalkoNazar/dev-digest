@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within, act, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord, PrFile, PrReviewComment, ReviewRecord, SmartDiff } from "@devdigest/shared";
 import prReview from "../../../../../../../../messages/en/prReview.json";
@@ -20,6 +20,8 @@ vi.mock("@/lib/hooks/reviews", () => ({
   useFindingAction: () => ({ mutate: hooks.mutate, isPending: false, variables: undefined }),
 }));
 
+import type { DiffFocus } from "@/components/diff-viewer";
+import { bigPatch, stubScrollIntoView } from "@/test/scroll-into-view";
 import { DiffTab } from "./DiffTab";
 
 afterEach(cleanup);
@@ -188,5 +190,124 @@ describe("DiffTab", () => {
     expect(screen.getByText("Finding gone")).toBeInTheDocument();
     expect(screen.getByText("dismissed")).toBeInTheDocument();
     expect(within(groupHeaders()[1]!).queryByText(/●/)).not.toBeInTheDocument();
+  });
+});
+
+/* L05 S11 — a focus target (file + line from the PR Brief) reaches the right FileCard in
+   both orders: DiffTab → RoleGroup → its nested DiffViewer → FileCard (Smart) and
+   DiffTab → DiffViewer → FileCard (Original). FileCard is the single scroll owner. */
+describe("DiffTab focus target", () => {
+  /** A 300-line doc: auto-collapsed AND inside the collapsed Docs group. */
+  const BIG_DOC: PrFile = { path: "docs/big.md", additions: 300, deletions: 0, patch: bigPatch(300) };
+  const FOCUS_FILES: PrFile[] = [...FILES, BIG_DOC];
+  const FOCUS_SMART: SmartDiff = {
+    ...SMART,
+    groups: SMART.groups.map((g) =>
+      g.role === "docs" ? { ...g, files: [...g.files, sf("docs/big.md")] } : g,
+    ),
+  };
+  const FOCUS: DiffFocus = { path: "docs/big.md", line: 150 };
+
+  let scroll: ReturnType<typeof stubScrollIntoView>;
+
+  beforeEach(() => {
+    scroll = stubScrollIntoView();
+    hooks.reviews = [];
+    hooks.comments = [];
+    hooks.smart = { data: FOCUS_SMART };
+    hooks.mutate.mockReset();
+  });
+  afterEach(() => {
+    scroll.restore();
+  });
+
+  const tree = (focus: DiffFocus | null) => (
+    <NextIntlClientProvider locale="en" messages={{ prReview, shell }}>
+      <DiffTab prId="pr1" filesCount={FOCUS_FILES.length} files={FOCUS_FILES} focus={focus} />
+    </NextIntlClientProvider>
+  );
+
+  const settle = async () => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  };
+
+  const highlighted = () => Array.from(document.querySelectorAll("[data-focus-line]"));
+  const docsHeader = () => screen.getByRole("button", { name: /Docs/, expanded: true });
+
+  it("Smart order: the collapsed Docs group and the auto-collapsed file open, the line is highlighted and scrolled to once", async () => {
+    render(tree(FOCUS));
+
+    expect(docsHeader()).toHaveAttribute("aria-expanded", "true");
+    // Boilerplate has no target — it keeps its default.
+    expect(screen.getByRole("button", { name: /Boilerplate/ })).toHaveAttribute("aria-expanded", "false");
+
+    const target = screen.getByText("line 150");
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0]).toContainElement(target);
+    expect(target.closest('[data-role="docs"]')).not.toBeNull();
+
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    await settle();
+    expect(scroll.calls).toHaveLength(1);
+    expect(scroll.calls[0]!.el).toBe(highlighted()[0]);
+    expect(scroll.calls[0]!.opts).toEqual(expect.objectContaining({ block: "center" }));
+  });
+
+  it("Original order (Smart grouping not loaded): the auto-collapsed file opens, the line is highlighted and scrolled to once", async () => {
+    hooks.smart = { data: undefined };
+    render(tree(FOCUS));
+
+    expect(groupHeaders()).toHaveLength(0);
+    const target = screen.getByText("line 150");
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0]).toContainElement(target);
+
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    await settle();
+    expect(scroll.calls).toHaveLength(1);
+    expect(scroll.calls[0]!.el).toBe(highlighted()[0]);
+  });
+
+  it("Smart grouping arrives after the first render (Original fallback → Smart): the target is scrolled in the Smart layout", async () => {
+    hooks.smart = { data: undefined };
+    const view = render(tree(FOCUS));
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    await settle();
+
+    hooks.smart = { data: FOCUS_SMART };
+    view.rerender(tree(FOCUS));
+    await settle();
+
+    expect(docsHeader()).toHaveAttribute("aria-expanded", "true");
+    const current = highlighted();
+    expect(current).toHaveLength(1);
+    expect(current[0]).toContainElement(screen.getByText("line 150"));
+    expect(current[0]!.closest('[data-role="docs"]')).not.toBeNull();
+
+    const last = scroll.calls[scroll.calls.length - 1]!;
+    expect(last.el.isConnected).toBe(true);
+    expect(last.el).toBe(current[0]);
+  });
+
+  it("switching to Original order keeps the target open and highlighted", async () => {
+    render(tree(FOCUS));
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: "Original order" }));
+    await settle();
+
+    expect(groupHeaders()).toHaveLength(0);
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0]).toContainElement(screen.getByText("line 150"));
+  });
+
+  it("no focus: Docs stays collapsed, nothing highlighted, nothing scrolled", async () => {
+    render(tree(null));
+    expect(screen.getByRole("button", { name: /Docs/ })).toHaveAttribute("aria-expanded", "false");
+    expect(highlighted()).toHaveLength(0);
+    await settle();
+    expect(scroll.calls).toHaveLength(0);
   });
 });
