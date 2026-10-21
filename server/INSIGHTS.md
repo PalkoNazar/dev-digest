@@ -69,6 +69,10 @@ Why: the L04 brief said `getBlastRadius` capped callers per symbol, used `BFS_DE
 NEVER plan the PR Brief (or any intent consumer) on the task's `getIntent(prId)`: it is `getIntentRecord(workspaceId, prId)`, and `pr_intent` stores only issue/doc refs, not their text.
 Why: second lesson task (after L04 blast) whose API names differ from the fork; issue bodies must be re-fetched. Evidence: `server/src/modules/reviews/repository/intent.repo.ts:43`, `server/src/db/schema/reviews.ts:80-112`.
 
+### 2026-10-22 — `linkedIssueNumbers` returns `[]` on any error; it can't mean "no links"
+NEVER report "no linked issues" from `github.linkedIssueNumbers()` alone: the Octokit adapter swallows every GraphQL error into `[]`.
+Why: the PR Brief records `none_linked` when the call actually failed (AC-64 wants `fetch_failed`); Intent has the same ambiguity. Accepted as known for L05. Evidence: `src/adapters/github/octokit.ts:421-423`, `src/modules/brief/service.ts` `issueFacts`.
+
 ### 2026-10-11 — "approve, 100, 0 findings" on a real PR meant an empty diff, not a clean PR
 NEVER trust a review with 0 findings without the run trace line `Diff ready — N changed file(s)`; NEVER fix a stale clone by hand (`git fetch` in `server/clones/…`) — `loadDiff` must fetch `pull/<n>/head` itself.
 Why: the clone follows only the default branch and `fetchPullHead` was never called, so newer PR heads failed `git diff base...head`, `pr_files` was empty and 5 agents approved PR #31 at ~4k tokens in; fixed in `loadDiff` + an empty-diff guard in `run-executor.ts`. Evidence: `GET /runs/<id>/trace`, `server/test/diff-loader.test.ts`.
@@ -148,6 +152,10 @@ Why: with the clone folder gone or an empty repo, the onboarding view said ready
 ### 2026-10-21 — Drizzle 0.38 takes `isolationLevel` as the 2nd arg of `db.transaction`
 Do write `db.transaction(fn, { isolationLevel: 'repeatable read' })` for a consistent multi-table read; no raw `SET TRANSACTION` needed.
 Why: plans marked it unverified and kept a single-join fallback. Evidence: `PgTransactionConfig` in `node_modules/drizzle-orm/pg-core/session.d.ts`; `BriefRepository.snapshot` (`src/modules/brief/repository.ts`), `test/brief.it.test.ts` green ×3.
+
+### 2026-10-22 — `app.inject({ signal })` simulates a client disconnect
+Do test "client disconnects mid-request" with `app.inject({ …, signal: ac.signal })` + `ac.abort()`; no `listen` + `fetch` needed.
+Why: light-my-request 6.6.0 wires `options.signal` into the request/response streams. Evidence: `node_modules/.pnpm/light-my-request@6.6.0/.../lib/request.js:189-195`; `test/brief.it.test.ts` disconnect case (stable ×3).
 
 ## Recurring Errors & Fixes
 

@@ -76,6 +76,12 @@ function fileLine(f: BriefFileFact): string {
   return `${f.path} · ${f.role} · +${f.additions} −${f.deletions} · ${lines}`;
 }
 
+/** `path (lines a, b)` — sorted, deduped caller lines; the bare path when it has none. */
+function callerLine(path: string, lines: ReadonlyMap<string, number[]> | undefined): string {
+  const nums = [...new Set(lines?.get(path) ?? [])].sort((a, b) => a - b);
+  return nums.length ? `${path} (lines ${nums.join(', ')})` : path;
+}
+
 function section(title: string, label: string, body: string): string {
   return `## ${title}\n${wrapUntrusted(label, body)}`;
 }
@@ -215,7 +221,7 @@ export function buildBriefMessages(facts: BriefFacts): BriefMessages {
   const p: Prepared = {
     body: bodyCapped ? facts.body.slice(0, codePointCut(facts.body, BODY_MAX_CHARS)) : facts.body,
     bodyCapped,
-    callers: facts.callerFiles.slice(0, MAX_CALLER_FILES),
+    callers: facts.callerFiles.slice(0, MAX_CALLER_FILES).map((path) => callerLine(path, facts.callerLines)),
     callersCapped: facts.callerFiles.length > MAX_CALLER_FILES,
     files: budgetOrder(facts.files),
     issues: facts.issues.map((i) => ({ ref: `#${i.number}`, text: `#${i.number} ${i.title}\n${i.body}` })),

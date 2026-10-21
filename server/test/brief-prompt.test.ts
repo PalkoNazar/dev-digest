@@ -430,3 +430,39 @@ describe('buildBriefMessages — reviewer findings G1, B1, B3 (AC-44, AC-92)', (
     expect(est).toBe(Math.ceil((sys.length + user.length) / 4));
   });
 });
+
+describe('buildBriefMessages — caller lines (R2 carry-over, AC-40, AC-97, AC-100)', () => {
+  /**
+   * Shape assumed: `facts.callerLines?: Map<path, number[]>` (the blast map's caller
+   * lines, sorted and deduped by the service). A caller file with lines is rendered as
+   * `path (lines a, b)`; one without an entry is rendered as its path alone.
+   */
+  function callerBlock(user: string): string {
+    const at = user.indexOf('## Caller files (blast radius)');
+    if (at < 0) throw new Error('no caller section');
+    const open = user.indexOf('>\n', user.indexOf('<untrusted', at)) + 2;
+    return user.slice(open, user.indexOf('\n</untrusted>', open));
+  }
+
+  it('renders each caller file with its caller lines, inside the untrusted caller block', () => {
+    const { user } = build(
+      makeFacts({
+        callerFiles: ['src/api/handler.ts', 'src/api/other.ts'],
+        callerLines: new Map([['src/api/handler.ts', [12, 40]]]),
+      } as Partial<Facts>),
+    );
+    const block = callerBlock(user);
+    expect(block.split('\n')).toEqual(['src/api/handler.ts (lines 12, 40)', 'src/api/other.ts']);
+    expect(insideUntrusted(user, 'src/api/handler.ts (lines 12, 40)')).toBe(true);
+  });
+
+  it('still caps the list at 30 caller files when every file has lines (AC-100)', () => {
+    const callerFiles = Array.from({ length: 40 }, (_, i) => `src/callers/c-${String(i).padStart(2, '0')}.ts`);
+    const callerLines = new Map(callerFiles.map((p, i) => [p, [i + 1, i + 100]]));
+    const { user } = build(makeFacts({ callerFiles, callerLines } as Partial<Facts>));
+    const block = callerBlock(user);
+    expect(block.match(/src\/callers\/c-\d\d\.ts \(lines \d+, \d+\)/g) ?? []).toHaveLength(30);
+    expect(block).toContain('src/callers/c-00.ts (lines 1, 100)');
+    expect(block).not.toContain('src/callers/c-30.ts');
+  });
+});
