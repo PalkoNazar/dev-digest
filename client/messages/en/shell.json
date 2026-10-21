@@ -42,6 +42,7 @@
     "postedToGitHub": "Posts to GitHub immediately",
     "outdatedTitle": "{count} comment(s) on older revisions",
     "fileHasFindings": "This file has review findings",
-    "unmatchedFindingsTitle": "{count, plural, one {# finding} other {# findings}} on lines not in this diff"
+    "unmatchedFindingsTitle": "{count, plural, one {# finding} other {# findings}} on lines not in this diff",
+    "lineNotChanged": "Line {line} isn't among the changed lines"
   }
 }

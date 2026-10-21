@@ -3,13 +3,15 @@
     "intent": "Intent",
     "blast": "Blast radius",
     "risks": "Risks",
-    "history": "PR history"
+    "history": "PR history",
+    "brief": "PR Brief",
+    "riskAreas": "Risk areas"
   },
   "noRisks": "No notable risks flagged.",
   "noHistory": "No prior PRs overlap these files.",
   "overlap": "{count} overlap",
   "unavailable": "Brief not available yet.",
-  "unavailableHint": "Run a review or open the PR to compute it.",
+  "unavailableHint": "Generate a brief to get the PR's summary, risk areas and where to start reading. It is never generated automatically.",
   "why": {
     "title": "git-why",
     "blame": "blame",
@@ -59,5 +61,76 @@
     "tokEst": "~{count} tok est",
     "cost": "Cost",
     "loadError": "Could not load the PR intent"
+  },
+  "generate": "Generate brief",
+  "generating": "Generating brief…",
+  "regenerate": "Regenerate brief",
+  "stale": "PR changed since this brief was generated",
+  "meta": {
+    "model": "Model {model}",
+    "tokens": "{in}→{out} tok",
+    "cost": "Cost {cost}",
+    "time": "{seconds}s",
+    "sha": "at {sha}"
+  },
+  "loading": "Loading the brief…",
+  "loadError": "Couldn't load the brief.",
+  "error": {
+    "title": "Couldn't generate the brief"
+  },
+  "retry": "Retry",
+  "severity": {
+    "high": "High severity",
+    "medium": "Medium severity",
+    "low": "Low severity"
+  },
+  "risk": {
+    "expand": "Show explanation: {title}",
+    "collapse": "Hide explanation: {title}"
+  },
+  "focus": {
+    "heading": "Review focus — read these first",
+    "count": "{count, plural, one {# item} other {# items}}",
+    "empty": "No starting points were suggested.",
+    "lineOutside": "line outside the changed lines",
+    "open": "Open {path} line {line} in Files changed",
+    "openNoLine": "Open {path} in Files changed"
+  },
+  "notInDiff": "File not in this PR's diff",
+  "removed": "Removed by grounding (file not in this PR or its blast radius): {risks, plural, one {# risk} other {# risks}}, {focus, plural, one {# focus item} other {# focus items}}",
+  "notice": {
+    "title": "Generated without some inputs",
+    "item": "{input}: {reason}",
+    "itemRef": "{input} {ref}: {reason}",
+    "input": {
+      "intent": "Intent",
+      "blast": "Blast radius",
+      "linked_issues": "Linked issues",
+      "spec_docs": "Spec documents",
+      "pr_description": "PR description",
+      "changed_files": "Changed files",
+      "blast_callers": "Blast radius callers"
+    },
+    "reason": {
+      "not_derived": "not derived yet",
+      "older_commit": "derived for an older commit",
+      "flag_off": "repo-intel is turned off",
+      "index_failed": "index build failed",
+      "index_partial": "index is partial",
+      "repo_too_large": "repo too large to index",
+      "no_data": "index not built",
+      "unavailable": "unavailable",
+      "none_linked": "none linked",
+      "no_github_token": "no GitHub token",
+      "not_found": "not found",
+      "fetch_failed": "fetch failed",
+      "limit_reached": "limit reached",
+      "none_attached": "none attached in Project Context",
+      "no_clone": "no local clone",
+      "unreadable": "unreadable",
+      "empty": "empty",
+      "truncated": "truncated",
+      "omitted_budget": "omitted to fit the budget"
+    }
   }
 }

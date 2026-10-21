@@ -1,6 +1,7 @@
 /* diff-viewer — unified-diff viewer with optional inline GitHub comments.
    Public surface: the DiffViewer component + the DiffCommentApi and
-   DiffFindingApi contracts. */
+   DiffFindingApi contracts and the DiffFocus target. */
 export { DiffViewer } from "./DiffViewer";
 export type { DiffCommentApi } from "./comments";
 export type { DiffFindingApi } from "./findings";
+export type { DiffFocus } from "./focus";

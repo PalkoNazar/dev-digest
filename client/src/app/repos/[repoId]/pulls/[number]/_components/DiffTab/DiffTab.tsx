@@ -3,7 +3,12 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel, Button } from "@devdigest/ui";
-import { DiffViewer, type DiffCommentApi, type DiffFindingApi } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  type DiffCommentApi,
+  type DiffFindingApi,
+  type DiffFocus,
+} from "@/components/diff-viewer";
 import {
   usePrComments,
   useCreatePrComment,
@@ -28,11 +33,21 @@ interface DiffTabProps {
   /** For the finding card's file:line link to GitHub. */
   repoFullName?: string | null;
   headSha?: string | null;
+  /** Jump target from the URL (`?file=…&line=…`); passed down to the FileCard that scrolls. */
+  focus?: DiffFocus | null;
 }
 
 type Order = "smart" | "original";
 
-export function DiffTab({ prId, filesCount, files, canComment, repoFullName, headSha }: DiffTabProps) {
+export function DiffTab({
+  prId,
+  filesCount,
+  files,
+  canComment,
+  repoFullName,
+  headSha,
+  focus,
+}: DiffTabProps) {
   const t = useTranslations("prReview");
   const { data: comments } = usePrComments(prId);
   const create = useCreatePrComment(prId);
@@ -141,10 +156,11 @@ export function DiffTab({ prId, filesCount, files, canComment, repoFullName, hea
             )}
             commenting={commenting}
             findingApi={findingApi}
+            focus={focus}
           />
         ))
       ) : (
-        <DiffViewer files={files} commenting={commenting} findingApi={findingApi} />
+        <DiffViewer files={files} commenting={commenting} findingApi={findingApi} focus={focus} />
       )}
     </section>
   );

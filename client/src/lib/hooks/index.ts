@@ -12,3 +12,4 @@ export * from "./intent";
 export * from "./blast";
 export * from "./context";
 export * from "./onboarding";
+export * from "./brief";

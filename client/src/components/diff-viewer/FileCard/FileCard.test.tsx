@@ -1,11 +1,13 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { render, screen, cleanup, act, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { FindingRecord, PrReviewComment } from "@devdigest/shared";
 import type { PrFile } from "@/lib/types";
 import shellMessages from "../../../../messages/en/shell.json";
 import type { DiffCommentApi } from "../comments";
 import type { DiffFindingApi } from "../findings";
+import type { DiffFocus } from "../focus";
+import { bigPatch, stubScrollIntoView, type ScrollCall } from "@/test/scroll-into-view";
 import { FileCard } from "./FileCard";
 
 afterEach(cleanup);
@@ -121,5 +123,100 @@ describe("FileCard findings", () => {
     expect(screen.queryByText(/on lines not in this diff/)).not.toBeInTheDocument();
     // the comment counter in the header is separate from the dot
     expect(screen.getByText("1")).toBeInTheDocument();
+  });
+});
+
+/* L05 S11 — a focus target (file + line) from the PR Brief: FileCard is the only
+   scroll owner. It forces itself open, highlights the line and scrolls exactly once. */
+describe("FileCard focus target", () => {
+  /** 300 changed lines → over AUTO_EXPAND_MAX_LINES, so the card starts collapsed. */
+  const BIG: PrFile = { path: "src/big.ts", additions: 300, deletions: 0, patch: bigPatch(300) };
+  let scroll: ReturnType<typeof stubScrollIntoView>;
+
+  beforeEach(() => {
+    scroll = stubScrollIntoView();
+  });
+  afterEach(() => {
+    scroll.restore();
+  });
+
+  const renderFocused = (file: PrFile, focus: DiffFocus | null) =>
+    render(
+      <NextIntlClientProvider locale="en" messages={{ shell: shellMessages }}>
+        <FileCard file={file} focus={focus} />
+      </NextIntlClientProvider>,
+    );
+
+  /** Let effects and rAF callbacks settle, then report every scroll so far. */
+  const settledScrolls = async (): Promise<ScrollCall[]> => {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    return scroll.calls;
+  };
+
+  const highlighted = () => Array.from(document.querySelectorAll("[data-focus-line]"));
+
+  it("an auto-collapsed 300-line file with a focus line opens, highlights the line and scrolls to it once", async () => {
+    renderFocused(BIG, { path: "src/big.ts", line: 150 });
+
+    const target = screen.getByText("line 150");
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0]).toContainElement(target);
+
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    const calls = await settledScrolls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.el).toBe(highlighted()[0]);
+    expect(calls[0]!.opts).toEqual(expect.objectContaining({ block: "center" }));
+  });
+
+  it("an already-open file with a focus line: one scroll, on the line", async () => {
+    renderFocused(FILE, { path: "src/config.ts", line: 11 });
+
+    const target = screen.getByText('stripeKey: "sk_live_xxx",');
+    expect(highlighted()).toHaveLength(1);
+    expect(highlighted()[0]).toContainElement(target);
+
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    const calls = await settledScrolls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.el).toBe(highlighted()[0]);
+  });
+
+  it("a line outside the patch: the card is scrolled into view and the 'not among the changed lines' notice shows", async () => {
+    renderFocused(FILE, { path: "src/config.ts", line: 999 });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Line 999 isn't among the changed lines");
+    expect(highlighted()).toHaveLength(0);
+
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    const calls = await settledScrolls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.el).toContainElement(screen.getByText("src/config.ts"));
+    expect(calls[0]!.opts).toEqual(expect.objectContaining({ block: "start" }));
+  });
+
+  it("a file with no patch (binary / too large): the card is scrolled into view with the line notice", async () => {
+    renderFocused({ path: "assets/logo.png", additions: 0, deletions: 0, patch: null }, {
+      path: "assets/logo.png",
+      line: 5,
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Line 5 isn't among the changed lines");
+    await waitFor(() => expect(scroll.calls.length).toBeGreaterThan(0));
+    const calls = await settledScrolls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.el).toContainElement(screen.getByText("assets/logo.png"));
+  });
+
+  it("a focus on another file leaves this card alone: still collapsed, no highlight, no scroll", async () => {
+    renderFocused(BIG, { path: "src/other.ts", line: 150 });
+
+    expect(screen.getByText("src/big.ts")).toBeInTheDocument();
+    expect(screen.queryByText("line 150")).not.toBeInTheDocument();
+    expect(highlighted()).toHaveLength(0);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(await settledScrolls()).toHaveLength(0);
   });
 });

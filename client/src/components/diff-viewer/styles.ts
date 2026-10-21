@@ -64,6 +64,18 @@ export const s = {
     userSelect: "none",
     flexShrink: 0,
   } satisfies CSSProperties,
+  /** The focus target row (PR Brief jump): accent tint + left bar. */
+  focusLine: {
+    background: "var(--accent-bg)",
+    boxShadow: "inset 3px 0 0 var(--accent)",
+  } satisfies CSSProperties,
+  /** "Line N isn't among the changed lines" notice under the file header. */
+  focusNotice: {
+    padding: "8px 14px",
+    fontSize: 12,
+    color: "var(--text-muted)",
+    borderTop: "1px solid var(--border)",
+  } satisfies CSSProperties,
   lineText: {
     flex: 1,
     whiteSpace: "pre-wrap",

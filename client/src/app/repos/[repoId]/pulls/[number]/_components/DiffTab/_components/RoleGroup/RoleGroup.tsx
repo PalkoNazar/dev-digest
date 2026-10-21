@@ -1,12 +1,18 @@
 /* RoleGroup — one Smart Diff group (core, tests, wiring, docs, boilerplate):
-   a sticky clickable header and, when open, the group's files in a DiffViewer. */
+   a sticky clickable header and, when open, the group's files in a DiffViewer.
+   A focus on one of its files opens it; the FileCard below does the scrolling. */
 "use client";
 
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon } from "@devdigest/ui";
 import type { PrFile, SmartDiffRole } from "@devdigest/shared";
-import { DiffViewer, type DiffCommentApi, type DiffFindingApi } from "@/components/diff-viewer";
+import {
+  DiffViewer,
+  type DiffCommentApi,
+  type DiffFindingApi,
+  type DiffFocus,
+} from "@/components/diff-viewer";
 import { DEFAULT_COLLAPSED, ROLE_META } from "./constants";
 import { s } from "./styles";
 
@@ -16,6 +22,7 @@ export function RoleGroup({
   filesWithFindings,
   commenting,
   findingApi,
+  focus,
 }: {
   role: SmartDiffRole;
   files: PrFile[];
@@ -23,9 +30,19 @@ export function RoleGroup({
   filesWithFindings: number;
   commenting?: DiffCommentApi;
   findingApi?: DiffFindingApi;
+  /** Jump target: opens the group when it holds `focus.path` (even Docs/Boilerplate). */
+  focus?: DiffFocus | null;
 }) {
   const t = useTranslations("prReview");
-  const [open, setOpen] = React.useState(!DEFAULT_COLLAPSED.has(role));
+  const holdsFocus = !!focus && files.some((f) => f.path === focus.path);
+  const focusPath = holdsFocus ? focus.path : null;
+  const [open, setOpen] = React.useState(holdsFocus || !DEFAULT_COLLAPSED.has(role));
+  // A new focus into this group forces it open; adjusted during render, not in an effect.
+  const [openedFor, setOpenedFor] = React.useState(focusPath);
+  if (focusPath !== openedFor) {
+    setOpenedFor(focusPath);
+    if (focusPath !== null) setOpen(true);
+  }
   const meta = ROLE_META[role];
 
   return (
@@ -51,7 +68,9 @@ export function RoleGroup({
         )}
         <span style={s.count}>{t("smartDiff.filesCount", { count: files.length })}</span>
       </button>
-      {open && <DiffViewer files={files} commenting={commenting} findingApi={findingApi} />}
+      {open && (
+        <DiffViewer files={files} commenting={commenting} findingApi={findingApi} focus={focus} />
+      )}
     </section>
   );
 }

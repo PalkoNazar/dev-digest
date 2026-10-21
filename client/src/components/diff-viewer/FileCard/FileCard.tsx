@@ -1,6 +1,7 @@
 /* FileCard — one collapsible file in the diff: header (path, findings dot,
    +/- stat, comment count) and, when open, its parsed lines plus any findings
-   off the patch and any outdated comments. */
+   off the patch and any outdated comments. With a `focus` on its path it is the
+   single scroll owner: it forces itself open, highlights the line and scrolls once. */
 "use client";
 
 import React from "react";
@@ -19,6 +20,7 @@ import {
   type DiffCommentApi,
 } from "../comments";
 import { fs, partitionFindings, topSeverity, type DiffFindingApi } from "../findings";
+import { focusKeyOf, focusLineIndex, type DiffFocus } from "../focus";
 import { s, chevronFor } from "../styles";
 import { CodeLine } from "../CodeLine";
 import { OutdatedComments } from "../OutdatedComments";
@@ -50,16 +52,45 @@ export function FileCard({
   file,
   commenting,
   findingApi,
+  focus,
 }: {
   file: PrFile;
   commenting?: DiffCommentApi;
   findingApi?: DiffFindingApi;
+  /** Jump target; acts only when `focus.path` is this file. */
+  focus?: DiffFocus | null;
 }) {
   const t = useTranslations("shell");
+  const focusKey = focus?.path === file.path ? focusKeyOf(focus) : null;
   const [open, setOpen] = React.useState(
-    (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
+    focusKey !== null || (file.additions ?? 0) + (file.deletions ?? 0) <= AUTO_EXPAND_MAX_LINES
   );
+  // A new focus on this file forces it open (over AUTO_EXPAND_MAX_LINES); the user can
+  // still collapse it afterwards. Adjusted during render, not in an effect.
+  const [openedFor, setOpenedFor] = React.useState(focusKey);
+  if (focusKey !== openedFor) {
+    setOpenedFor(focusKey);
+    if (focusKey !== null) setOpen(true);
+  }
   const lines = React.useMemo(() => parsePatch(file.patch), [file.patch]);
+  const focusLine = focusKey !== null ? (focus?.line ?? null) : null;
+  const focusIdx = focusLineIndex(lines, focusLine);
+  const lineMissing = focusLine !== null && focusIdx < 0;
+
+  // Single scroll owner: once per focus key, after the open body has rendered.
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const scrolledFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (focusKey === null || !open || scrolledFor.current === focusKey) return;
+    const frame = requestAnimationFrame(() => {
+      scrolledFor.current = focusKey;
+      const card = cardRef.current;
+      const row = focusIdx >= 0 ? card?.querySelector("[data-focus-line]") : null;
+      if (row) row.scrollIntoView({ block: "center" });
+      else card?.scrollIntoView({ block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusKey, open, focusIdx]);
 
   // Group this file's comments into threads, then split into ones we can anchor
   // to a rendered line vs. "outdated" (GitHub dropped the line / it's not here).
@@ -91,7 +122,7 @@ export function FileCard({
     : 0;
 
   return (
-    <div style={s.fileCard}>
+    <div ref={cardRef} style={s.fileCard}>
       <div onClick={() => setOpen((o) => !o)} style={s.fileHeader}>
         <Icon.ChevronRight size={13} style={chevronFor(open)} />
         <Icon.FileText size={14} style={s.fileIcon} />
@@ -121,6 +152,11 @@ export function FileCard({
           </span>
         )}
       </div>
+      {lineMissing && (
+        <div role="status" style={s.focusNotice}>
+          {t("diffViewer.lineNotChanged", { line: focusLine })}
+        </div>
+      )}
       {open && (
         <div style={s.fileBody}>
           {lines.length === 0 ? (
@@ -135,6 +171,7 @@ export function FileCard({
                 commenting={commenting}
                 findings={findingsForLine(ln, matchedFindings)}
                 findingApi={findingApi}
+                highlighted={i === focusIdx}
               />
             ))
           )}

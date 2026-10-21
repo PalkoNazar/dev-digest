@@ -15,6 +15,7 @@ import { OverviewTab } from "./_components/OverviewTab";
 import { FindingsTab } from "./_components/FindingsTab";
 import { DiffTab } from "./_components/DiffTab";
 import RunTraceDrawer from "./_components/RunTraceDrawer";
+import { diffFocusHref, focusFromSearch } from "./helpers";
 import { usePullDetail, usePulls } from "../../../../../lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePrReviews, useCancelRun, usePrActiveRuns, usePrRuns, useDeleteRun } from "../../../../../lib/hooks/reviews";
@@ -68,6 +69,18 @@ export default function PRDetailPage() {
     router.replace(`/repos/${repoId}/pulls/${number}${sp.toString() ? `?${sp.toString()}` : ""}`);
   };
   const setTab = (t: string) => setParam("tab", t);
+  // PR Brief jump: a history PUSH (Back returns to Overview), target kept in the URL.
+  const openInDiff = (path: string, line: number | null) =>
+    router.push(diffFocusHref(`/repos/${repoId}/pulls/${number}`, search, path, line));
+  // The detail head (refreshed from GitHub on GET /pulls/:id) is the PR Brief's stale
+  // reference. The 60 s list poll spots a push first: when its head differs, re-read the
+  // detail so the badge follows once the detail confirms it. Never generates a brief.
+  const listHeadSha = pulls?.find((p) => p.number === Number(number))?.head_sha ?? null;
+  const detailHeadSha = pr?.head_sha ?? null;
+  React.useEffect(() => {
+    if (listHeadSha && detailHeadSha && listHeadSha !== detailHeadSha) void refetch();
+    // `refetch` is stable in TanStack Query; re-run only when either head changes.
+  }, [listHeadSha, detailHeadSha]);
 
   // Reviews come newest-first; each is its own run (grouped into accordions).
   const runs = reviews ?? [];
@@ -143,6 +156,9 @@ export default function PRDetailPage() {
             repoId={repoId}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            changedFiles={pr.files.map((f) => f.path)}
+            currentHeadSha={pr.head_sha}
+            onOpenInDiff={openInDiff}
           />
         )}
 
@@ -180,6 +196,7 @@ export default function PRDetailPage() {
             canComment={pr.status === "open"}
             repoFullName={repoFullName}
             headSha={pr.head_sha}
+            focus={focusFromSearch(search)}
           />
         )}
       </div>
