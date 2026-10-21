@@ -135,6 +135,11 @@ export interface BriefFacts {
   intent: BriefIntentFact | null;
   blast: BlastRadius | null;
   callerFiles: string[];
+  /**
+   * Caller lines per caller file, from the non-degraded blast map (the same map is
+   * the `blastFiles` grounding set). A file with lines is shown as `path (lines a, b)`.
+   */
+  callerLines?: Map<string, number[]>;
   files: BriefFileFact[];
   issues: BriefIssueFact[];
   docs: BriefDocFact[];

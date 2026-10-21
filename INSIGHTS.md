@@ -174,6 +174,7 @@ the PR list showed "—" everywhere while the code was correct. Evidence: `ps -o
 2026-10-11 — SDD workflow audit: correctness-reviewer, sdd-run skill, scripts/check.sh (worktree chore/sdd-workflow): 3 entries (check cost = turns not time, tests not typechecked, hooks need the user).
 2026-10-20 — L05 PR Brief R1 (contract, _shared move, repoDocs, container.blast; feat/l05-pr-brief): 1 entry (git mv + merge drops rename); +1 in server/INSIGHTS.md, +1 in client/INSIGHTS.md.
 2026-10-21 — L05 PR Brief R2 (brief repository, grounding/caps helpers, budgeted prompt): 0 entries here; +1 in server/INSIGHTS.md (Drizzle isolationLevel).
+2026-10-22 — L05 PR Brief R3 (BriefService, GET/POST /pulls/:id/brief): 0 entries here; +2 in server/INSIGHTS.md (linkedIssueNumbers swallows errors, inject signal).
 
 ## Open Questions
 
