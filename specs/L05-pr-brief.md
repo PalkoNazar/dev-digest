@@ -1,4 +1,4 @@
-# Spec: PR Why + Risk Brief | Spec ID: SPEC-03 | Status: approved
+# Spec: PR Why + Risk Brief | Spec ID: SPEC-03 | Status: implemented
 Supersedes: —
 Lesson: L05 · Packages: server, client · Designs: `designs/pr-brief/`
 
