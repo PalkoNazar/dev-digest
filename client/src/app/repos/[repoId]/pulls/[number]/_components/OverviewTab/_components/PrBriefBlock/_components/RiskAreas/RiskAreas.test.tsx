@@ -28,6 +28,12 @@ function renderList(risks: Risk[], onOpen = vi.fn()) {
 }
 
 describe("RiskAreas", () => {
+  it("a long ref is cut in the middle, keeping the file name and the line range", () => {
+    const ref = "client/src/app/repos/[repoId]/pulls/[number]/_components/OverviewTab/OverviewTab.tsx:3-9";
+    renderList([{ kind: "auth", title: "Long", explanation: "x", severity: "medium", file_refs: [ref] }]);
+    expect(screen.getByTitle(ref)).toHaveTextContent("client/src/app/repos/[repoId]/…/OverviewTab.tsx:3-9");
+  });
+
   it("shows each risk with severity text, refs that jump, and an expandable plain-text explanation", () => {
     const onOpen = renderList(RISKS);
     const items = screen.getAllByRole("listitem");

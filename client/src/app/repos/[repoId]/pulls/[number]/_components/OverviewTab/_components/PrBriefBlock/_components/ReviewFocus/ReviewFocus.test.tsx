@@ -55,6 +55,14 @@ describe("ReviewFocus", () => {
     expect(screen.getByRole("status")).toHaveTextContent("File not in this PR's diff");
   });
 
+  it("a long path is cut in the middle so the file name stays; the full path stays in title and name", () => {
+    const file = "client/src/app/repos/[repoId]/pulls/[number]/_components/OverviewTab/OverviewTab.tsx";
+    renderList([{ file, line: 7, reason: "wiring", outside_changed_lines: false }]);
+    const button = screen.getByRole("button", { name: `Open ${file} line 7 in Files changed` });
+    expect(button).toHaveAttribute("title", `${file}:7`);
+    expect(button).toHaveTextContent("client/src/app/repos/[repoId]/…/OverviewTab.tsx:7— wiring");
+  });
+
   it("no items → empty text", () => {
     renderList([]);
     expect(screen.getByText("No starting points were suggested.")).toBeInTheDocument();
