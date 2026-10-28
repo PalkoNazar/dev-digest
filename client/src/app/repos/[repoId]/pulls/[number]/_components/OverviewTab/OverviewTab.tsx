@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { SectionLabel } from "@devdigest/ui";
 import { IntentCard } from "./_components/IntentCard";
 import { BlastRadiusCard } from "./_components/BlastRadiusCard";
 import { PrBriefBlock } from "./_components/PrBriefBlock";
-import { s } from "./styles";
+import { PrDescription } from "./_components/PrDescription";
 
 interface OverviewTabProps {
   prId: string | null;
@@ -45,12 +44,7 @@ export function OverviewTab({
           }
         />
       )}
-      {prBody && (
-        <section>
-          <SectionLabel icon="MessageSquare">Description</SectionLabel>
-          <div style={s.descriptionBox}>{prBody}</div>
-        </section>
-      )}
+      {prBody && <PrDescription body={prBody} />}
     </>
   );
 }

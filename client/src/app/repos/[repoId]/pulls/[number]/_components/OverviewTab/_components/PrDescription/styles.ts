@@ -8,7 +8,7 @@ export const s = {
     padding: 18,
     fontSize: 14,
     color: "var(--text-secondary)",
-    whiteSpace: "pre-wrap",
-    lineHeight: 1.55,
+    minWidth: 0,
+    overflowWrap: "anywhere",
   } satisfies CSSProperties,
 } as const;
