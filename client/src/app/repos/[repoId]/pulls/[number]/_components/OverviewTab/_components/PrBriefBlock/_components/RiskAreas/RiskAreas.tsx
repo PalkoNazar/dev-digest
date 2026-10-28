@@ -7,6 +7,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, SectionLabel } from "@devdigest/ui";
 import type { Risk } from "@devdigest/shared";
+import { middleEllipsisPath } from "@/lib/path-ellipsis";
+import { PATH_MAX_CHARS } from "../../constants";
 import { isChangedFile, parseFileRef } from "../../helpers";
 import { RISK_SEVERITY_META } from "./constants";
 import { s } from "./styles";
@@ -89,7 +91,8 @@ function RiskItem({ risk, changedFiles, onOpenInDiff }: { risk: Risk } & Omit<Ri
                 }
                 onClick={() => openRef(ref)}
               >
-                {ref}
+                {middleEllipsisPath(path, PATH_MAX_CHARS)}
+                {ref.slice(path.length)}
               </button>
             );
           })}

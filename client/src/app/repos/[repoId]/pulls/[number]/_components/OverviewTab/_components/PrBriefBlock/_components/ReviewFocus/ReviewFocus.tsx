@@ -7,6 +7,8 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { SectionLabel } from "@devdigest/ui";
 import type { ReviewFocusItem } from "@devdigest/shared";
+import { middleEllipsisPath } from "@/lib/path-ellipsis";
+import { PATH_MAX_CHARS } from "../../constants";
 import { isChangedFile } from "../../helpers";
 import { s } from "./styles";
 
@@ -44,6 +46,8 @@ export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusPr
         <ol style={s.list}>
           {items.map((item, i) => {
             const ref = item.line != null ? `${item.file}:${item.line}` : item.file;
+            const shortPath = middleEllipsisPath(item.file, PATH_MAX_CHARS);
+            const shown = item.line != null ? `${shortPath}:${item.line}` : shortPath;
             const reasonId = `${reasonIdPrefix}-reason-${i}`;
             return (
               <li key={`${i}:${ref}`} style={s.item}>
@@ -63,7 +67,7 @@ export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusPr
                     ▸
                   </span>
                   <span className="mono" style={s.path}>
-                    {ref}
+                    {shown}
                   </span>
                   <span id={reasonId} style={s.reason}>
                     — {item.reason}
