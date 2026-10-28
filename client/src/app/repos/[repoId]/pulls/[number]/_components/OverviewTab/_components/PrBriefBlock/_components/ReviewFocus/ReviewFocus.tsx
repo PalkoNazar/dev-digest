@@ -19,6 +19,7 @@ interface ReviewFocusProps {
 export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusProps) {
   const t = useTranslations("brief");
   const [missing, setMissing] = React.useState<number | null>(null);
+  const reasonIdPrefix = React.useId();
 
   const open = (index: number, item: ReviewFocusItem) => {
     if (isChangedFile(item.file, changedFiles)) {
@@ -43,6 +44,7 @@ export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusPr
         <ol style={s.list}>
           {items.map((item, i) => {
             const ref = item.line != null ? `${item.file}:${item.line}` : item.file;
+            const reasonId = `${reasonIdPrefix}-reason-${i}`;
             return (
               <li key={`${i}:${ref}`} style={s.item}>
                 <button
@@ -54,6 +56,7 @@ export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusPr
                       ? t("focus.open", { path: item.file, line: item.line })
                       : t("focus.openNoLine", { path: item.file })
                   }
+                  aria-describedby={reasonId}
                   onClick={() => open(i, item)}
                 >
                   <span aria-hidden style={s.bullet}>
@@ -62,7 +65,9 @@ export function ReviewFocus({ items, changedFiles, onOpenInDiff }: ReviewFocusPr
                   <span className="mono" style={s.path}>
                     {ref}
                   </span>
-                  <span style={s.reason}>— {item.reason}</span>
+                  <span id={reasonId} style={s.reason}>
+                    — {item.reason}
+                  </span>
                 </button>
                 {item.outside_changed_lines && <span style={s.hint}>{t("focus.lineOutside")}</span>}
                 {missing === i && (

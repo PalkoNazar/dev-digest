@@ -37,6 +37,9 @@ describe("ReviewFocus", () => {
     expect(buttons[0]).toHaveTextContent("src/config.ts:12— live key committed");
     expect(buttons[2]).toHaveTextContent("src/caller.ts— caller of rateLimit");
     expect(buttons[1]).toHaveAttribute("title", "src/api/users.ts:46");
+    // The aria-label replaces the visible text, so the reason is announced as the description.
+    expect(buttons[0]).toHaveAccessibleDescription("— live key committed");
+    expect(buttons[2]).toHaveAccessibleDescription("— caller of rateLimit");
     // Literal model text + the outside-lines hint only on the marked item.
     expect(screen.getByText("— N+1 <i>query</i>")).toBeInTheDocument();
     expect(screen.getAllByText("line outside the changed lines")).toHaveLength(1);
